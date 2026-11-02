@@ -488,11 +488,11 @@ const store = {
 };
 // After you set up your free Cloudflare data server, paste its address here
 // (for example 'https://cule-live.yourname.workers.dev') so everyone who opens the app gets real data.
-const DATA_SERVER = '';
-const settings = Object.assign({ mode: DATA_SERVER ? 'api' : 'real', apiKey: '', server: DATA_SERVER, season: 2024, refresh: 15, alerts: true }, store.get('settings', {}));
+const DATA_SERVER = 'https://cule-live.yellowlion2023.workers.dev';
+const settings = Object.assign({ mode: 'real', apiKey: '', server: DATA_SERVER, season: 2024, refresh: 15, alerts: true }, store.get('settings', {}));
 if (DATA_SERVER && !settings.server) settings.server = DATA_SERVER;
 const saveSettings = () => store.set('settings', settings);
-if ((settings.v || 1) < 2) { settings.mode = DATA_SERVER ? 'api' : 'real'; settings.v = 2; saveSettings(); } // switch older installs to real data
+if ((settings.v || 1) < 2) { settings.mode = 'real'; settings.v = 2; saveSettings(); } // switch older installs to real data
 
 const BARCA_ID = 529;  // FC Barcelona's team number in API-Football
 const LALIGA_ID = 140; // La Liga's league number in API-Football
@@ -740,7 +740,7 @@ async function api(path, params = {}, ttl = 600, force = false) {
   const cacheKey = 'cache:' + url;
   const saved = store.get(cacheKey, null);
   const ttlSec = saved ? (typeof ttl === 'function' ? ttl(saved.data) : ttl) : 0;
-  if (!force && saved && Date.now() - saved.t < ttlSec * 1000) { if (path === 'fixtures') state.lastSync = saved.t; return saved.data; }
+  if (!force && saved && Date.now() - saved.t < ttlSec * 1000) { if (path === 'fixtures' || path === 'fd/teams/81/matches') state.lastSync = saved.t; return saved.data; }
   if (!server && !settings.apiKey) throw new AppError('Add your data server address or API-Football key in Setup first, or switch back to demo data.', 'nokey');
   let res;
   try { res = await fetch(url, server ? {} : { headers: { 'x-apisports-key': settings.apiKey } }); }
@@ -750,7 +750,7 @@ async function api(path, params = {}, ttl = 600, force = false) {
   const errs = json.errors && (Array.isArray(json.errors) ? json.errors : Object.values(json.errors));
   if (errs && errs.length) throw new AppError('API-Football says: ' + String(errs[0]), 'api');
   store.set(cacheKey, { t: Date.now(), data: json });
-  if (path === 'fixtures') state.lastSync = Date.now();
+  if (path === 'fixtures' || path === 'fd/teams/81/matches') state.lastSync = Date.now();
   return json;
 }
 
@@ -1011,14 +1011,67 @@ function srSquad() {
   return [...seen.values()].sort((a, b) => b.apps - a.apps || a.name.localeCompare(b.name));
 }
 
+/* ---------- 3c. football-data.org (free, this season) ----------
+   Through your data server, the app gets this season's fixtures, scores, the table
+   and the squad, and they update by themselves. Scores during matches can be a few
+   minutes behind on the free plan. Match stats come from the built-in data where saved. */
+const FD_COMP = { PD: COMPS[140], CL: COMPS[2] };
+const FD = { downUntil: 0, error: '' };
+const fdReady = () => !!(settings.server || '').trim() && Date.now() > FD.downUntil;
+async function fdGet(path, params, ttl, force = false) {
+  const gen = state.gen;
+  try { const json = await api('fd/' + path, params, ttl, force); FD.error = ''; return json; }
+  catch (e) { if (gen === state.gen) { FD.downUntil = Date.now() + 5 * 60e3; FD.error = e.message || ''; } throw e; } // try again in 5 minutes
+}
+function fdStatus(st) {
+  if (['SCHEDULED', 'TIMED'].includes(st)) return 'NS';
+  if (st === 'IN_PLAY' || st === 'LIVE') return 'LIVE';
+  if (st === 'PAUSED') return 'HT';
+  if (st === 'FINISHED' || st === 'AWARDED') return 'FT';
+  return 'OFF';
+}
+const fdTeam = t => t.id === 81 ? { ...BARCA } : { id: 'fd-' + t.id, name: t.shortName || t.name || '?', abbr: t.tla || undefined };
+function fdFixture(x) {
+  const status = fdStatus(x.status), ft = x.score?.fullTime || {};
+  const minute = parseInt(x.minute, 10);
+  return {
+    id: x.id, fd: true, source: 'real', ts: Date.parse(x.utcDate), status, short: status === 'OFF' ? String(x.status) : status,
+    elapsed: Number.isFinite(minute) ? minute : null, extraNow: x.injuryTime || null,
+    venue: x.venue || '', city: '', referee: (x.referees || []).find(r => /^referee$/i.test(r.type || 'REFEREE'))?.name || '',
+    comp: FD_COMP[x.competition?.code] || compOf(x.competition?.id, x.competition?.name), round: x.matchday ? `Matchday ${x.matchday}` : '',
+    home: fdTeam(x.homeTeam || {}), away: fdTeam(x.awayTeam || {}),
+    goals: status === 'NS' ? { home: null, away: null } : { home: ft.home ?? 0, away: ft.away ?? 0 },
+    pen: x.score?.penalties?.home != null ? x.score.penalties : null, prob: null
+  };
+}
+async function fdFixtures(force) {
+  const busy = data => (data.matches || []).some(x => ['IN_PLAY', 'PAUSED', 'LIVE'].includes(x.status) || (fdStatus(x.status) === 'NS' && Math.abs(Date.parse(x.utcDate) - Date.now()) < 15 * 60e3));
+  const json = await fdGet('teams/81/matches', { season: 2026 }, data => busy(data) ? 30 : 600, force);
+  const sr = srFixtures();
+  const list = (json.matches || []).map(fdFixture);
+  // borrow win chances and match stats from the built-in data for the same match
+  list.forEach(f => { const twin = sr.find(t => Math.abs(t.ts - f.ts) < 12 * 3600e3); if (twin) { f.srTwin = twin; if (!f.prob) f.prob = twin.prob; } });
+  return list.sort((a, b) => a.ts - b.ts);
+}
+
 /* ---------- 4. Data layer ----------
    Screens ask Data for things; Data decides whether to use demo or API data. */
-const state = { fixtures: null, matchTab: 'upcoming', comp: 'all', mcTab: 'timeline', pred: {}, lastTab: 'home', scrubbing: false, cache: {}, sheetPid: null, sheetReturn: null };
+const state = { fixtures: null, matchTab: 'upcoming', comp: 'all', mcTab: 'timeline', pred: {}, lastTab: 'home', scrubbing: false, cache: {}, sheetPid: null, sheetReturn: null, gen: 0 };
 
 const Data = {
   async fixtures(force = false) {
     if (settings.mode === 'demo') return (state.fixtures = demoFixtures());
-    if (settings.mode === 'real') { const list = srFixtures(); list.forEach(noteLive); state.lastSync = SR.at; return (state.fixtures = list); }
+    if (settings.mode === 'real') {
+      const gen = state.gen; // ignore answers that arrive after the data source changed
+      let list = null, source = 'fd';
+      if (fdReady()) { try { list = await fdFixtures(force); } catch (e) { list = null; } }
+      if (!list || !list.length) { list = srFixtures(); source = 'sr'; }
+      if (gen !== state.gen) return list;
+      state.source = source;
+      if (source === 'sr') state.lastSync = SR.at;
+      list.forEach(noteLive);
+      return (state.fixtures = list);
+    }
     const liveOrSoon = data => (data.response || []).some(f => {
       const s = normStatus(f.fixture.status.short), dt = f.fixture.timestamp * 1000 - Date.now();
       return s === 'LIVE' || s === 'HT' || (s === 'NS' && dt < 15 * 60e3 && dt > -3 * 3600e3);
@@ -1032,9 +1085,11 @@ const Data = {
   async match(id, force = false) {
     if (settings.mode === 'demo') return demoMatch(id);
     if (settings.mode === 'real') {
-      const f = srFixtures().find(x => String(x.id) === String(id));
+      let f = String(id).startsWith('sr') ? srFixtures().find(x => String(x.id) === String(id)) : null;
+      if (!f) f = (state.fixtures || await Data.fixtures()).find(x => String(x.id) === String(id));
       if (!f) throw new AppError('This match could not be found.');
-      const m = srMatch(f, await SR.game(f));
+      const twin = f.fd ? f.srTwin : f;
+      const m = srMatch(f, twin ? await SR.game(twin) : null);
       noteLive(m);
       return m;
     }
@@ -1049,7 +1104,17 @@ const Data = {
   },
   async standings() {
     if (settings.mode === 'demo') return demoTable();
-    if (settings.mode === 'real') return srTable();
+    if (settings.mode === 'real') {
+      if (fdReady()) {
+        try {
+          const json = await fdGet('competitions/PD/standings', {}, 300);
+          const total = (json.standings || []).find(t => t.type === 'TOTAL') || (json.standings || [])[0];
+          const rows = (total?.table || []).map(r => ({ rank: r.position, team: fdTeam(r.team || {}), p: r.playedGames, w: r.won, d: r.draw, l: r.lost, gf: r.goalsFor, ga: r.goalsAgainst, gd: r.goalDifference, pts: r.points, zone: zoneByRank(r.position), form: String(r.form || '').replace(/[^WDL]/g, '') }));
+          if (rows.length) return { title: `La Liga ${seasonLabel(2026)}`, rows, live: false, note: '' };
+        } catch (e) { /* fall back to the built-in table */ }
+      }
+      return srTable();
+    }
     const json = await api('standings', { league: LALIGA_ID, season: settings.season }, 6 * 3600);
     const list = json.response?.[0]?.league?.standings?.[0] || [];
     const zone = d => /champions/i.test(d || '') ? 'ucl' : /europa league/i.test(d || '') ? 'uel' : /conference/i.test(d || '') ? 'uecl' : /relegation/i.test(d || '') ? 'rel' : '';
@@ -1057,7 +1122,18 @@ const Data = {
     return { title: `La Liga ${seasonLabel(settings.season)}`, rows, live: false, note: '' };
   },
   async squad() {
-    if (settings.mode === 'real') return srSquad();
+    if (settings.mode === 'real') {
+      if (fdReady()) {
+        try {
+          const json = await fdGet('teams/81', {}, 86400);
+          const pos = t => /goal/i.test(t) ? 'G' : /back|defen/i.test(t) ? 'D' : /mid/i.test(t) ? 'M' : 'F';
+          const list = (json.squad || []).map(pl => ({ id: String(pl.id), name: pl.name, number: pl.shirtNumber ?? null, pos: pos(pl.position || ''), apps: null, goals: null, assists: null, rating: null, minutes: null, age: pl.dateOfBirth ? Math.floor((Date.now() - Date.parse(pl.dateOfBirth)) / 31557600000) : null }));
+          if (list.length) { state.squadSource = 'fd'; return list; }
+        } catch (e) { /* fall back to players from the saved matches */ }
+      }
+      state.squadSource = 'sr';
+      return srSquad();
+    }
     if (settings.mode === 'demo') {
       return DEMO_SQUAD.map(([number, name, pos, apps, goals, assists, rating]) => ({ id: name, name, number, pos, apps, goals, assists, rating, minutes: null, age: null }));
     }
@@ -1079,7 +1155,7 @@ const Data = {
   async h2h(m) {
     const opp = m[other(barcaSide(m))];
     if (settings.mode === 'demo') return demoH2H(opp);
-    if (settings.mode === 'real') return srFixtures().filter(f => f.status === 'FT' && (f.home.id === opp.id || f.away.id === opp.id)).sort((a, b) => b.ts - a.ts);
+    if (settings.mode === 'real') return (state.fixtures || srFixtures()).filter(f => f.status === 'FT' && (f.home.id === opp.id || f.away.id === opp.id)).sort((a, b) => b.ts - a.ts);
     const json = await api('fixtures/headtohead', { h2h: `${BARCA_ID}-${opp.id}`, last: 10 }, 86400);
     return (json.response || []).map(normFixture).filter(f => f.status === 'FT').sort((a, b) => b.ts - a.ts);
   },
@@ -1435,7 +1511,8 @@ function probHTML(f) {
     <div class="prob-legend"><span>Barça ${Math.round(b)}%</span><span>Draw ${Math.round(d)}%</span><span>${esc(f[os].name)} ${Math.round(o)}%</span></div></div>`;
 }
 function realNoteHTML() {
-  return `<p class="note real-note">${SR.live ? '<span class="live-dot"></span> Real data, refreshing every 30 seconds.' : `Real data saved ${fmtDay(SR.at)} at ${fmtTime(SR.at)}. For live scores during matches, connect API-Football in Setup.`}</p>`;
+  if (state.source === 'fd') return '<p class="note real-note">This season\'s real data, updating by itself. During matches the score can be a few minutes behind.</p>';
+  return `<p class="note real-note">${SR.live ? '<span class="live-dot"></span> Real data, refreshing every 30 seconds.' : `Real data saved ${fmtDay(SR.at)} at ${fmtTime(SR.at)}.`}</p>`;
 }
 function nextCardHTML(f) {
   const opp = f[other(barcaSide(f))];
@@ -1902,11 +1979,11 @@ async function viewSquad() {
     if (!players.length) return '';
     return `<section><h2 class="month">${title}</h2><div class="sq">${players.map(p => `<details class="sq-row"><summary>
         <span class="sq-num">${p.number ?? '–'}</span><span class="sq-name"><b>${esc(p.name)}</b><small>${one}${p.age ? ' · ' + p.age : ''}</small></span>
-        <span class="sq-ga">${p.goals == null ? `${p.apps} game${p.apps === 1 ? '' : 's'}` : `${p.goals} G · ${p.assists} A`}</span>${p.rating != null ? rtBadge(p.rating) : '<span></span>'}</summary>
-        <div class="sq-detail"><div class="kv"><b>${p.apps}</b><small>Games</small></div><div class="kv"><b>${p.goals ?? '–'}</b><small>Goals</small></div><div class="kv"><b>${p.assists ?? '–'}</b><small>Assists</small></div><div class="kv"><b>${p.minutes != null ? p.minutes : p.rating != null ? p.rating.toFixed(1) : '–'}</b><small>${p.minutes != null ? 'Minutes' : 'Avg rating'}</small></div></div>
+        <span class="sq-ga">${p.goals == null ? (p.apps == null ? '' : `${p.apps} game${p.apps === 1 ? '' : 's'}`) : `${p.goals} G · ${p.assists} A`}</span>${p.rating != null ? rtBadge(p.rating) : '<span></span>'}</summary>
+        <div class="sq-detail"><div class="kv"><b>${p.apps ?? '–'}</b><small>Games</small></div><div class="kv"><b>${p.goals ?? '–'}</b><small>Goals</small></div><div class="kv"><b>${p.assists ?? '–'}</b><small>Assists</small></div><div class="kv"><b>${p.minutes != null ? p.minutes : p.rating != null ? p.rating.toFixed(1) : '–'}</b><small>${p.minutes != null ? 'Minutes' : 'Avg rating'}</small></div></div>
       </details>`).join('')}</div></section>`;
   }).join('');
-  return `<div><h1 class="page-title">Squad</h1><p class="page-sub">${settings.mode === 'demo' ? 'Season stats are made up for the demo.' : settings.mode === 'real' ? `Players used in the last ${state.squadGames || 0} matches. Goals, assists and ratings come with API-Football.` : 'Season ' + seasonLabel(settings.season) + ' · all competitions'}</p></div>${html || empty('No players found for this season.')}`;
+  return `<div><h1 class="page-title">Squad</h1><p class="page-sub">${settings.mode === 'demo' ? 'Season stats are made up for the demo.' : settings.mode === 'real' ? (state.squadSource === 'fd' ? 'Current first-team squad. Goals, assists and ratings need API-Football Pro.' : `Players used in the last ${state.squadGames || 0} matches. Goals, assists and ratings come with API-Football.`) : 'Season ' + seasonLabel(settings.season) + ' · all competitions'}</p></div>${html || empty('No players found for this season.')}`;
 }
 
 /* --- Setup --- */
@@ -1919,7 +1996,7 @@ function viewSetup() {
         <button data-act="mode" data-mode="api" aria-pressed="${isApi}">API-Football</button>
         <button data-act="mode" data-mode="demo" aria-pressed="${settings.mode === 'demo'}">Demo</button>
       </div>
-      <p class="help">${settings.mode === 'real' ? 'Real fixtures, results, table and team stats built into the app. Inside Claude it refreshes every 30 seconds; elsewhere it shows the saved data.' : isApi ? 'Live fixtures, lineups, player stats and ratings from API-Football. Needs a key or data server below.' : 'A made-up live Clásico and sample season for testing.'}</p>
+      <p class="help">${settings.mode === 'real' ? 'Real fixtures, results, table and team stats built into the app. Inside Claude it refreshes every 30 seconds; elsewhere it shows the saved data.' : isApi ? 'Full detail from API-Football: scorers, lineups, xG, player stats and ratings. The free plan covers 2022–23 to 2024–25, so pick a season below and replay real matches.' : 'A made-up live Clásico and sample season for testing.'}</p>
     </section>
     <section class="form-card"><h2 class="fc-title">Data server</h2>
       <label class="help" for="server">The best option: your own free Cloudflare data server. It keeps your key secret, gives real data to everyone who opens the app, and shares one set of requests between all of them.</label>
@@ -2016,7 +2093,7 @@ function startDemo() {
   Clock.load(DEMO_LIVE, 'demo', tickIndexFor(DEMO_LIVE, 11)); Clock.speed = 1; Clock.play();
 }
 function resetApp() {
-  Clock.unload(); state.fixtures = null; state.cache = {}; demoList = null;
+  Clock.unload(); state.gen++; state.fixtures = null; state.cache = {}; state.source = null; FD.downUntil = 0; demoList = null;
   if (settings.mode === 'demo') startDemo();
   if (settings.mode === 'real') SR.connect();
   updateModeChip(); schedulePoll();
@@ -2032,14 +2109,14 @@ function updateModeChip() {
 let pollTimer;
 function schedulePoll() {
   clearInterval(pollTimer);
-  if (settings.mode !== 'api') return;
+  if (settings.mode !== 'api' && !(settings.mode === 'real' && settings.server)) return;
   pollTimer = setInterval(async () => {
     if (document.hidden || !state.fixtures || route().name === 'setup') return;
     const live = state.fixtures.find(isLiveF);
     const soon = state.fixtures.find(f => f.status === 'NS' && f.ts - Date.now() < 15 * 60e3 && f.ts - Date.now() > -3 * 3600e3);
     if (!live && !soon) return;
     try { await Data.fixtures(true); if (live) await Data.match(live.id, true); render(); } catch (e) { /* try again next time */ }
-  }, settings.refresh * 1000);
+  }, (settings.mode === 'real' ? Math.max(30, settings.refresh) : settings.refresh) * 1000);
 }
 
 document.addEventListener('click', e => {
@@ -2076,6 +2153,7 @@ document.addEventListener('click', e => {
       toast('Prediction saved'); break;
     }
     case 'mode':
+      settings.picked = true;
       if (settings.mode !== b.dataset.mode) { settings.mode = b.dataset.mode; saveSettings(); resetApp(); }
       break;
     case 'key-show': { const inp = $('#api-key'); inp.type = inp.type === 'password' ? 'text' : 'password'; b.textContent = inp.type === 'password' ? 'Show' : 'Hide'; break; }
@@ -2118,6 +2196,20 @@ setInterval(() => {
   document.querySelectorAll('[data-ago]').forEach(el => { el.textContent = agoText(); });
 }, 1000);
 
+// When the API-Football plan is upgraded from Free, switch to this season's live data by itself
+async function checkPlan() {
+  const server = (settings.server || '').trim().replace(/\/+$/, '');
+  if (!server || settings.picked || settings.mode === 'api') return;
+  if (Date.now() - store.get('planCheck', 0) < 3600e3) return; // check at most once an hour
+  try {
+    const res = await fetch(server + '/status');
+    const json = await res.json();
+    const r = Array.isArray(json.response) ? json.response[0] : json.response;
+    store.set('planCheck', Date.now());
+    const plan = r?.subscription?.plan;
+    if (plan && plan !== 'Free') { settings.mode = 'api'; settings.season = 2026; saveSettings(); resetApp(); toast('Live data for this season is now on'); }
+  } catch (e) { /* not reachable here: keep the built-in data */ }
+}
 (function init() {
   $('#tabbar').innerHTML = NAV.map(([k, label]) => `<a class="tab" href="#${k}" data-tab="${k}">${I[k]}<span>${label}</span></a>`).join('');
   updateModeChip();
@@ -2125,6 +2217,7 @@ setInterval(() => {
   if (settings.mode === 'real') SR.connect();
   schedulePoll();
   render();
+  checkPlan();
 })();
 </script>
 
