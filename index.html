@@ -1,0 +1,2132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}</style>
+<title>Culé Live</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Unofficial Barça fan app: live scores, lineups, stats and player ratings.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&family=Big+Shoulders+Display:wght@700;800&display=swap">
+<style>
+/* Layout: one phone-width column, sticky top bar, fixed bottom tabs.
+   The live scoreboard in shirt stripes is the one loud element; everything else stays quiet. */
+:root{
+  --bg:#EDF0F6; --surface:#FFFFFF; --surface-2:#F4F6FA; --ink:#0B1530; --muted:#5A6482; --line:#DCE1EB;
+  --blau:#0D3B8C; --grana:#A3123F; --gold:#E9B300;
+  --stripe-a:#0F3C8F; --stripe-b:#9E1340; --on-stripe:#FFFFFF; --on-accent:#FFFFFF;
+  --tint-blau:rgba(13,59,140,.08); --tint-grana:rgba(163,18,63,.07);
+  --win:#1E8A56; --draw:#7F88A0; --loss:#C5344A; --on-sem:#FFFFFF;
+  --r-elite:#1556B8; --r-good:#1E8A56; --r-ok:#CF8410; --r-poor:#C5344A;
+  --opp:#8790A8; --z-uel:#D9730D; --z-uecl:#1E8A56;
+  --pitch-a:#2D7A4D; --pitch-b:#297248; --pitch-line:rgba(255,255,255,.45);
+  --card-y:#F2C200; --card-r:#D7263D; --ball-bg:#FFFFFF; --ball-line:#16203A;
+  --shadow:0 1px 2px rgba(11,21,48,.06), 0 6px 18px rgba(11,21,48,.07);
+  --f-display:"Big Shoulders Display","Barlow Condensed","Arial Narrow",sans-serif;
+  --f-body:"Barlow",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --f-label:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#070C1A; --surface:#0F172C; --surface-2:#162039; --ink:#ECF0F9; --muted:#97A1BE; --line:#232E4D;
+    --blau:#5B8CF5; --grana:#E2507D; --gold:#F2C833;
+    --stripe-a:#123E93; --stripe-b:#8A1239; --on-stripe:#FFFFFF; --on-accent:#08101F;
+    --tint-blau:rgba(91,140,245,.14); --tint-grana:rgba(226,80,125,.12);
+    --win:#3DBB7C; --draw:#8E98B4; --loss:#EF5A6E; --on-sem:#06101C;
+    --r-elite:#6FA0FF; --r-good:#3DBB7C; --r-ok:#F2A93B; --r-poor:#EF5A6E;
+    --opp:#7D88A6; --z-uel:#F2913B; --z-uecl:#3DBB7C;
+    --pitch-a:#1B4A33; --pitch-b:#18432E;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#070C1A; --surface:#0F172C; --surface-2:#162039; --ink:#ECF0F9; --muted:#97A1BE; --line:#232E4D;
+  --blau:#5B8CF5; --grana:#E2507D; --gold:#F2C833;
+  --stripe-a:#123E93; --stripe-b:#8A1239; --on-stripe:#FFFFFF; --on-accent:#08101F;
+  --tint-blau:rgba(91,140,245,.14); --tint-grana:rgba(226,80,125,.12);
+  --win:#3DBB7C; --draw:#8E98B4; --loss:#EF5A6E; --on-sem:#06101C;
+  --r-elite:#6FA0FF; --r-good:#3DBB7C; --r-ok:#F2A93B; --r-poor:#EF5A6E;
+  --opp:#7D88A6; --z-uel:#F2913B; --z-uecl:#3DBB7C;
+  --pitch-a:#1B4A33; --pitch-b:#18432E;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+  color-scheme:dark;
+}
+
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.45;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--surface)}
+[hidden]{display:none!important}
+img{max-width:100%}
+a{color:inherit;text-decoration:none}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
+:focus-visible{outline:2px solid var(--blau);outline-offset:2px;border-radius:6px}
+h1,h2,h3,p{margin:0}
+
+/* ---------- App shell ---------- */
+.topbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--surface);border-bottom:1px solid var(--line);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.topbar-in{max-width:540px;margin:0 auto;height:56px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.brand{display:flex;align-items:center;gap:10px}
+.mark{width:26px;height:26px;border-radius:7px;background:repeating-linear-gradient(90deg,var(--stripe-a) 0 5.2px,var(--stripe-b) 5.2px 10.4px);box-shadow:inset 0 -4px 0 var(--gold)}
+.brand-name{font-family:var(--f-display);font-weight:800;font-size:24px;letter-spacing:.02em;text-transform:uppercase;line-height:1}
+.mode-chip{font-family:var(--f-label);font-weight:700;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line);border-radius:99px;padding:4px 10px;white-space:nowrap}
+.mode-chip.api{color:var(--blau);border-color:var(--blau)}
+.main{max-width:540px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px calc(96px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:22px}
+.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.tabbar-in{max-width:540px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr)}
+.tab{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 0 10px;font-family:var(--f-label);font-weight:600;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.tab svg{width:22px;height:22px}
+.tab[aria-current="page"]{color:var(--blau)}
+.tab[aria-current="page"]::before{content:"";position:absolute;top:-1px;left:28%;right:28%;height:3px;border-radius:0 0 3px 3px;background:var(--blau)}
+
+/* ---------- Shared pieces ---------- */
+.page-title{font-family:var(--f-display);font-weight:800;font-size:34px;line-height:1;text-transform:uppercase;letter-spacing:.01em}
+.page-sub{color:var(--muted);font-size:14px;margin-top:6px}
+.sec-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:10px}
+.sec-title{font-family:var(--f-label);font-weight:700;font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.sec-link{font-family:var(--f-label);font-weight:700;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--blau)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px}
+.note,.help{font-size:13px;color:var(--muted);line-height:1.45}
+.note{margin-top:8px}
+.help a{color:var(--blau);text-decoration:underline}
+.empty{padding:22px 18px;text-align:center;color:var(--muted);background:var(--surface);border:1px dashed var(--line);border-radius:14px;font-size:14px}
+.loading{padding:40px 0;text-align:center;color:var(--muted);font-family:var(--f-label);letter-spacing:.1em;text-transform:uppercase;font-weight:600}
+.errbox{padding:16px;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--loss);border-radius:12px;display:flex;flex-direction:column;gap:8px}
+.errbox p{color:var(--muted);font-size:14px}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+
+.badge{display:inline-grid;place-items:center;width:44px;height:44px;border-radius:50%;flex:none;font-family:var(--f-label);font-weight:700;font-size:14px;letter-spacing:.03em;color:#fff;background:hsl(var(--h,220) 30% 38%);box-shadow:inset 0 0 0 2px rgba(255,255,255,.22);text-shadow:0 1px 2px rgba(0,0,0,.35)}
+.badge-fcb{background:repeating-linear-gradient(90deg,var(--stripe-a) 0 7.3px,var(--stripe-b) 7.3px 14.6px)}
+.badge.sm{width:26px;height:26px;font-size:10px}
+.badge.lg{width:56px;height:56px;font-size:16px}
+.badge.sm.badge-fcb{background:repeating-linear-gradient(90deg,var(--stripe-a) 0 4.3px,var(--stripe-b) 4.3px 8.6px)}
+
+.tag{display:inline-block;font-family:var(--f-label);font-weight:700;font-size:11px;letter-spacing:.06em;padding:1px 6px;border-radius:5px;background:var(--tint-blau);color:var(--blau);line-height:1.5}
+.tag.c-ucl{background:var(--surface-2);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line)}
+.tag.c-cdr{background:var(--tint-grana);color:var(--grana)}
+.tag.c-oth{background:var(--surface-2);color:var(--muted)}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:40px;padding:0 16px;border-radius:10px;font-family:var(--f-label);font-weight:700;font-size:15px;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
+.btn svg{width:18px;height:18px}
+.btn-primary{background:var(--blau);color:var(--on-accent)}
+.btn-ghost{background:var(--surface-2);border:1px solid var(--line);color:var(--ink)}
+.btn-light{background:var(--on-stripe);color:var(--stripe-a)}
+.btn-sm{height:34px;padding:0 12px;font-size:14px}
+.btn.wide{width:100%}
+.link-btn{font-family:var(--f-label);font-weight:700;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--blau)}
+
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:4px;padding:4px;background:var(--surface-2);border:1px solid var(--line);border-radius:12px}
+.seg button{height:36px;border-radius:9px;font-family:var(--f-label);font-weight:700;font-size:14px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.seg button[aria-selected="true"],.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.14)}
+.chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
+.chip{flex:none;height:32px;padding:0 12px;border-radius:99px;border:1px solid var(--line);background:var(--surface);font-weight:600;font-size:13px;color:var(--ink)}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+
+.pill{display:inline-flex;align-items:center;gap:6px;font-family:var(--f-label);font-weight:700;font-size:13px;letter-spacing:.06em;padding:3px 10px;border-radius:99px;background:var(--surface-2);color:var(--muted);text-transform:uppercase;font-variant-numeric:tabular-nums;white-space:nowrap}
+.pill.live{background:var(--grana);color:var(--on-stripe)}
+.pill.sm{font-size:12px;padding:2px 8px}
+.dot{width:7px;height:7px;border-radius:50%;background:currentColor;animation:pulse 1.4s ease-in-out infinite;flex:none}
+.live-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--grana);margin-left:6px;animation:pulse 1.4s ease-in-out infinite;vertical-align:1px}
+
+.rt{display:inline-grid;place-items:center;min-width:34px;height:24px;padding:0 6px;border-radius:7px;font-family:var(--f-label);font-weight:700;font-size:14px;color:var(--on-sem);font-variant-numeric:tabular-nums}
+.r-elite{background:var(--r-elite)} .r-good{background:var(--r-good)} .r-ok{background:var(--r-ok)} .r-poor{background:var(--r-poor)}
+.rt.big{min-width:58px;height:42px;font-size:24px;border-radius:10px}
+
+.ico{width:20px;height:20px;flex:none}
+.b-bg{fill:var(--ball-bg);stroke:var(--ball-line);stroke-width:1.5}
+.b-ln{fill:var(--ball-line)}
+.b-st{fill:none;stroke:var(--ball-line);stroke-width:1.3}
+.x-ln{fill:none;stroke:var(--loss);stroke-width:2.6;stroke-linecap:round}
+.f-win{fill:var(--win)} .f-loss{fill:var(--loss)}
+.cd{display:inline-block;width:12px;height:16px;border-radius:2px;flex:none;margin:2px 4px}
+.cd.y{background:var(--card-y)} .cd.r{background:var(--card-r)}
+
+.toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 66px);transform:translateX(-50%);z-index:40;width:min(92vw,480px);background:var(--ink);color:var(--bg);border-radius:12px;padding:12px 14px;box-shadow:var(--shadow);display:flex;align-items:center;gap:10px;font-size:14px;animation:drop .35s ease}
+.toast b{font-family:var(--f-display);font-weight:800;font-size:20px;letter-spacing:.02em;text-transform:uppercase}
+.toast.goal{border-left:8px solid var(--gold)}
+
+/* ---------- Home: live card (the loud part) ---------- */
+.livecard{position:relative;border-radius:18px;overflow:hidden;color:var(--on-stripe);padding:16px 16px 14px;display:flex;flex-direction:column;gap:14px;box-shadow:var(--shadow);
+  background:linear-gradient(180deg,rgba(4,8,24,.2) 0%,rgba(4,8,24,.62) 100%),repeating-linear-gradient(90deg,var(--stripe-a) 0 36px,var(--stripe-b) 36px 72px)}
+#lc-dyn{display:flex;flex-direction:column;gap:14px}
+.live-top{display:flex;justify-content:space-between;align-items:center;gap:10px;font-family:var(--f-label);font-weight:600;font-size:13px;letter-spacing:.08em;text-transform:uppercase}
+.live-top>span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.live-pill{display:inline-flex;align-items:center;gap:6px;background:rgba(0,0,0,.38);padding:4px 10px;border-radius:99px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.live-pill .dot{background:var(--gold)}
+.live-score{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px}
+.lt{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;font-weight:600;font-size:15px;min-width:0}
+.nm{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ls{display:flex;gap:10px;font-family:var(--f-display);font-weight:800;font-size:66px;line-height:1;font-variant-numeric:tabular-nums;text-shadow:0 2px 14px rgba(0,0,0,.35)}
+.sep{opacity:.55}
+.live-last{display:flex;align-items:center;gap:8px;font-size:14px;background:rgba(0,0,0,.3);border-radius:10px;padding:8px 12px;min-height:38px}
+.live-last b{font-family:var(--f-label);font-weight:700;font-variant-numeric:tabular-nums}
+.live-last .cd{margin:0 2px}
+.live-last .txt{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar{position:relative;height:6px;border-radius:6px;background:rgba(255,255,255,.22);margin:4px 0}
+.bar-fill{position:absolute;inset:0 auto 0 0;border-radius:6px;background:var(--gold)}
+.bar-ht{position:absolute;top:-3px;bottom:-3px;width:2px;background:rgba(255,255,255,.6)}
+.bar-mark{position:absolute;top:50%;transform:translate(-50%,-50%);width:11px;height:11px;border-radius:50%;background:#fff;box-shadow:0 0 0 2px rgba(0,0,0,.35)}
+.bar-mark.y{width:7px;height:10px;border-radius:2px;background:var(--card-y);box-shadow:none}
+.bar-mark.r{width:7px;height:10px;border-radius:2px;background:var(--card-r);box-shadow:none}
+.live-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.live-note{font-size:13px;opacity:.85}
+.ctl-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ctl{width:40px;height:40px;border-radius:10px;display:inline-grid;place-items:center;background:rgba(255,255,255,.16)}
+.ctl svg{width:20px;height:20px}
+.speed{display:inline-flex;gap:2px;padding:3px;border-radius:10px;background:rgba(255,255,255,.16)}
+.speed button{height:34px;min-width:40px;border-radius:8px;font-family:var(--f-label);font-weight:700;font-size:14px;font-variant-numeric:tabular-nums}
+.speed button[aria-pressed="true"]{background:var(--on-stripe);color:var(--stripe-a)}
+.flash{animation:flash .8s ease}
+
+/* ---------- Home: next match, form ---------- */
+.next{padding:16px;display:flex;flex-direction:column;gap:14px}
+.next-meta{font-size:13px;color:var(--muted);display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.next-teams{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px}
+.nt{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;font-weight:600;min-width:0}
+.next-count{display:flex;flex-direction:column;align-items:center;gap:2px}
+.next-count small{font-family:var(--f-label);font-weight:600;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.next-count strong{font-family:var(--f-display);font-weight:800;font-size:34px;line-height:1;color:var(--blau);font-variant-numeric:tabular-nums;white-space:nowrap}
+.pred{border-top:1px dashed var(--line);padding-top:12px;display:flex;flex-direction:column;gap:8px}
+.pred-label{font-family:var(--f-label);font-weight:700;font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.pred-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.stepper{display:inline-flex;align-items:center;gap:6px}
+.st-team{font-family:var(--f-label);font-weight:700;font-size:13px;letter-spacing:.05em;color:var(--muted);min-width:30px;text-align:center}
+.step{width:32px;height:32px;border-radius:8px;background:var(--surface-2);border:1px solid var(--line);font-size:18px;font-weight:600;line-height:1}
+.stepper output{font-family:var(--f-display);font-weight:800;font-size:28px;min-width:20px;text-align:center;font-variant-numeric:tabular-nums}
+.pred-dash{font-family:var(--f-display);font-weight:800;font-size:24px;color:var(--muted)}
+.form{display:flex;gap:8px}
+.fchip{width:44px;height:44px;border-radius:10px;display:grid;place-items:center;font-family:var(--f-display);font-weight:800;font-size:22px;color:var(--on-sem)}
+.W{background:var(--win)} .D{background:var(--draw)} .L{background:var(--loss)}
+.latest{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:12px 14px;margin-top:10px}
+.latest .meta{font-size:13px;color:var(--muted)}
+.latest b{font-weight:600}
+.latest .sc{font-family:var(--f-display);font-weight:800;font-size:24px;font-variant-numeric:tabular-nums}
+
+/* ---------- Matches ---------- */
+.month{font-family:var(--f-label);font-weight:700;font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:2px 0 8px}
+.fxlist{display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.fx{display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:12px;align-items:center;padding:12px 14px;border-top:1px solid var(--line)}
+.fx:first-child{border-top:0}
+.fx:hover{background:var(--surface-2)}
+.fx.is-live{background:var(--tint-grana)}
+.fx-date{display:flex;flex-direction:column;align-items:center;line-height:1;gap:3px}
+.fx-date b{font-family:var(--f-display);font-weight:800;font-size:24px}
+.fx-date small{font-family:var(--f-label);font-weight:600;font-size:11px;letter-spacing:.08em;color:var(--muted);text-transform:uppercase}
+.fx-mid{min-width:0;display:flex;flex-direction:column;gap:5px}
+.fx-comp{font-size:12px;color:var(--muted);display:flex;gap:6px;align-items:center;min-width:0;white-space:nowrap;overflow:hidden}
+.fx-opp{display:flex;align-items:center;gap:8px;font-weight:600;min-width:0}
+.fx-opp>span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fx-end{display:flex;align-items:center;gap:8px;font-variant-numeric:tabular-nums}
+.fx-score{font-family:var(--f-display);font-weight:800;font-size:24px;line-height:1}
+.fx-time{font-family:var(--f-label);font-weight:700;font-size:16px}
+.res{width:24px;height:24px;border-radius:6px;display:grid;place-items:center;font-family:var(--f-label);font-weight:700;font-size:13px;color:var(--on-sem)}
+.predpts{font-family:var(--f-label);font-weight:700;font-size:12px;color:var(--blau)}
+
+/* ---------- Table ---------- */
+.tbl-wrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:14px}
+.tbl{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:14px}
+.tbl th{font-family:var(--f-label);font-weight:600;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);text-align:right;padding:10px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl td{padding:9px 8px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl tr:last-child td{border-bottom:0}
+.tbl th.club,.tbl td.club{text-align:left;width:100%}
+.tbl td.rank,.tbl th.rank{text-align:center;width:36px;position:relative;font-weight:600}
+.tbl td.rank::before{content:"";position:absolute;left:0;top:7px;bottom:7px;width:3px;border-radius:0 2px 2px 0;background:transparent}
+.tbl tr.z-ucl td.rank::before{background:var(--blau)}
+.tbl tr.z-uel td.rank::before{background:var(--z-uel)}
+.tbl tr.z-uecl td.rank::before{background:var(--z-uecl)}
+.tbl tr.z-rel td.rank::before{background:var(--loss)}
+.tbl td.pts{font-weight:700}
+.tbl tr.me td{background:var(--tint-blau)}
+.tbl tr.me td.club{font-weight:700}
+.club-in{display:flex;align-items:center;gap:8px}
+.club-in .cn{min-width:0;overflow:hidden;text-overflow:ellipsis;max-width:min(32vw,200px)}
+@media (max-width:440px){.tbl th,.tbl td{padding-left:5px;padding-right:5px}}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--muted);margin-top:10px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+
+/* ---------- Squad ---------- */
+.sq{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.sq-row{border-top:1px solid var(--line)}
+.sq-row:first-child{border-top:0}
+.sq-row summary{display:grid;grid-template-columns:36px minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:10px 14px;cursor:pointer;list-style:none}
+.sq-row summary::-webkit-details-marker{display:none}
+.sq-row[open] summary{background:var(--surface-2)}
+.sq-num{font-family:var(--f-display);font-weight:800;font-size:22px;color:var(--blau);text-align:center;font-variant-numeric:tabular-nums}
+.sq-name{min-width:0}
+.sq-name b{display:block;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sq-name small{color:var(--muted);font-size:12.5px}
+.sq-ga{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.sq-detail{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;padding:10px 14px 14px 60px;background:var(--surface-2)}
+.kv{display:flex;flex-direction:column}
+.kv b{font-family:var(--f-display);font-weight:800;font-size:24px;line-height:1.1;font-variant-numeric:tabular-nums}
+.kv small{font-family:var(--f-label);font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;font-size:11px}
+
+/* ---------- Match centre ---------- */
+.back{display:inline-flex;align-items:center;gap:2px;font-family:var(--f-label);font-weight:700;font-size:14px;letter-spacing:.06em;text-transform:uppercase;color:var(--blau);align-self:flex-start;margin-bottom:-8px}
+.back svg{width:18px;height:18px}
+.mc-head{padding:14px 14px 12px;display:flex;flex-direction:column;gap:12px}
+.mc-meta{font-size:12.5px;color:var(--muted);display:flex;gap:6px;align-items:center;justify-content:center;flex-wrap:wrap;text-align:center}
+.mc-score{display:grid;grid-template-columns:1fr auto 1fr;align-items:start;gap:8px}
+.mc-team{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;font-weight:600;min-width:0}
+.mc-mid{display:flex;flex-direction:column;align-items:center;gap:8px;padding-top:2px}
+.mc-num{display:flex;gap:8px;font-family:var(--f-display);font-weight:800;font-size:52px;line-height:1;font-variant-numeric:tabular-nums}
+.mc-ko{font-family:var(--f-display);font-weight:800;font-size:40px;line-height:1.1;color:var(--blau)}
+.mc-pens{font-size:12px;color:var(--muted)}
+.mc-scorers{display:grid;grid-template-columns:1fr 28px 1fr;gap:8px;font-size:12.5px;color:var(--muted);text-align:center}
+.mc-scorers ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+.mc-scorers .ico{width:16px;height:16px;justify-self:center;margin-top:1px}
+.mc-sub{font-size:12.5px;color:var(--muted);text-align:center;border-top:1px solid var(--line);padding-top:10px}
+.controls{display:flex;flex-direction:column;gap:10px;padding:12px 14px;background:var(--surface);border:1px solid var(--line);border-radius:14px}
+.controls .ctl{background:var(--surface-2);border:1px solid var(--line);color:var(--ink)}
+.controls .speed{background:var(--surface-2);border:1px solid var(--line)}
+.controls .speed button{color:var(--muted)}
+.controls .speed button[aria-pressed="true"]{background:var(--blau);color:var(--on-accent)}
+.ctl-foot{display:flex;justify-content:space-between;align-items:center;gap:10px}
+#ctl-label{font-family:var(--f-label);font-weight:700;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-variant-numeric:tabular-nums}
+input[type="range"]{width:100%;accent-color:var(--blau);margin:0}
+
+/* Timeline */
+.tl{list-style:none;margin:0;padding:0;position:relative;display:flex;flex-direction:column}
+.tl::before{content:"";position:absolute;left:50%;top:0;bottom:0;width:2px;background:var(--line);transform:translateX(-50%)}
+.tl-row{display:grid;grid-template-columns:minmax(0,1fr) 52px minmax(0,1fr);align-items:center;gap:6px;padding:7px 0;position:relative}
+.tl-min{grid-column:2;grid-row:1;justify-self:center;z-index:1;background:var(--bg);border:1px solid var(--line);border-radius:99px;padding:2px 8px;font-family:var(--f-label);font-weight:700;font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.tl-ev{grid-row:1;display:flex;align-items:flex-start;gap:8px;min-width:0}
+.tl-row.home .tl-ev{grid-column:1;flex-direction:row-reverse;text-align:right}
+.tl-row.away .tl-ev{grid-column:3}
+.tl-ev .txt{min-width:0}
+.tl-ev b{display:block;font-weight:600;overflow-wrap:anywhere}
+.tl-ev small{display:block;color:var(--muted);font-size:12.5px;overflow-wrap:anywhere}
+.tl-row.goal b{font-weight:700}
+.tl-ev .sc{display:inline-block;margin-top:3px;font-family:var(--f-display);font-weight:800;font-size:16px;line-height:1.3;background:var(--ink);color:var(--bg);border-radius:6px;padding:0 6px;font-variant-numeric:tabular-nums}
+.tl-mark{display:flex;justify-content:center;padding:10px 0;position:relative}
+.tl-mark span{z-index:1;background:var(--surface-2);border:1px solid var(--line);border-radius:99px;padding:4px 12px;font-family:var(--f-label);font-weight:700;font-size:13px;letter-spacing:.06em;text-transform:uppercase;font-variant-numeric:tabular-nums}
+
+/* Lineups */
+.pitch{position:relative;width:100%;max-width:440px;margin:0 auto;aspect-ratio:68/100;border-radius:14px;overflow:hidden;background:repeating-linear-gradient(180deg,var(--pitch-a) 0 10%,var(--pitch-b) 10% 20%)}
+.ln{position:absolute;border:2px solid var(--pitch-line);pointer-events:none}
+.ln.outline{inset:3% 4%;border-radius:3px}
+.ln.half{left:4%;right:4%;top:50%;height:0;border-width:2px 0 0}
+.ln.circle{width:26%;aspect-ratio:1;left:50%;top:50%;transform:translate(-50%,-50%);border-radius:50%}
+.ln.box{left:22%;right:22%;height:14%}
+.ln.six{left:37%;right:37%;height:5%}
+.ln.top{top:3%;border-top:0}
+.ln.bottom{bottom:3%;border-bottom:0}
+.pitch-label{position:absolute;left:6%;font-family:var(--f-label);font-weight:700;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.9);z-index:3;text-shadow:0 1px 3px rgba(0,0,0,.5)}
+.pitch-label.top{top:0.6%} .pitch-label.bottom{bottom:0.4%}
+.pl{position:absolute;transform:translate(-50%,-50%);width:72px;display:flex;flex-direction:column;align-items:center;gap:3px;z-index:2}
+.pl-dot{position:relative;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-family:var(--f-label);font-weight:700;font-size:14px;box-shadow:0 2px 6px rgba(0,0,0,.35)}
+.t-fcb .pl-dot{background:repeating-linear-gradient(90deg,var(--stripe-a) 0 5.7px,var(--stripe-b) 5.7px 11.4px);color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.7)}
+.t-opp .pl-dot{background:#F2F3F6;color:#14203F}
+.pl .rt{position:absolute;top:-9px;left:24px;height:18px;min-width:28px;font-size:12px;border-radius:5px;padding:0 4px}
+.pl-evs{position:absolute;bottom:-5px;right:24px;display:flex;gap:1px;align-items:center}
+.pl-evs .ico{width:14px;height:14px}
+.pl-evs .cd{width:8px;height:11px;margin:0 1px}
+.pl-name{font-size:11.5px;font-weight:600;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.75);max-width:72px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bench-wrap{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin-top:14px}
+.bench h3{font-family:var(--f-label);font-weight:700;font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.bench ul{list-style:none;padding:0;margin:0;background:var(--surface);border:1px solid var(--line);border-radius:12px}
+.bench li{border-top:1px solid var(--line)}
+.brow{display:grid;grid-template-columns:24px minmax(0,1fr) auto auto;gap:8px;align-items:center;padding:7px 10px;width:100%;text-align:left;font-size:14px}
+button.rrow:hover,button.brow:hover{background:var(--surface-2)}
+.bench li:first-child{border-top:0}
+.bench li.unused{color:var(--muted)}
+.bn{font-family:var(--f-label);font-weight:700;color:var(--muted);text-align:center}
+.bnm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bon{display:inline-flex;align-items:center;gap:2px;font-family:var(--f-label);font-weight:700;font-size:13px}
+.bon .ico{width:14px;height:14px}
+
+/* Stats */
+.stats{display:flex;flex-direction:column;gap:14px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px}
+.st-head{display:flex;justify-content:space-between;font-family:var(--f-label);font-weight:700;letter-spacing:.06em;font-size:13px;color:var(--muted)}
+.st-row{display:grid;grid-template-columns:58px minmax(0,1fr) 58px;align-items:center;gap:6px 8px}
+.st-v{font-family:var(--f-display);font-weight:800;font-size:20px;line-height:1;font-variant-numeric:tabular-nums;color:var(--muted)}
+.st-v.a{text-align:right}
+.st-v.lead{color:var(--ink)}
+.st-l{text-align:center;font-size:13px;color:var(--muted);font-weight:500}
+.st-bars{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.st-bar{display:flex;height:6px;border-radius:6px;background:var(--surface-2);overflow:hidden}
+.st-bar.h{justify-content:flex-end}
+.st-bar i{display:block;height:100%;border-radius:6px}
+.fill-fcb{background:var(--blau)} .fill-opp{background:var(--opp)}
+
+/* Ratings */
+.potm{width:100%;text-align:left;display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;padding:14px;background:var(--surface);border:1px solid var(--line);border-radius:14px;margin-bottom:14px}
+.potm small{display:block;font-family:var(--f-label);font-weight:700;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.potm b{display:block;font-size:18px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.potm .meta{font-size:13px;color:var(--muted)}
+.rgroup{margin-bottom:14px}
+.rgroup h3{font-family:var(--f-label);font-weight:700;font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.rlist{list-style:none;margin:0;padding:0;background:var(--surface);border:1px solid var(--line);border-radius:12px}
+.rlist li{border-top:1px solid var(--line)}
+.rrow{display:grid;grid-template-columns:auto 26px minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 12px;width:100%;text-align:left;font-size:14px}
+.rlist li:first-child{border-top:0}
+.rlist .nmw{min-width:0}
+.rlist .nmw b{display:block;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rlist .nmw small{color:var(--muted);font-size:12px}
+.rlist .icons{display:flex;gap:2px;align-items:center}
+.rlist .icons .ico{width:16px;height:16px}
+.rlist .icons .cd{width:9px;height:12px;margin:0 1px}
+.how{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:14px}
+.how summary{cursor:pointer;font-weight:600}
+.how ul{margin:10px 0 0;padding-left:18px;color:var(--muted);display:flex;flex-direction:column;gap:4px}
+
+/* ---------- Setup ---------- */
+.form-card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.fc-title{font-family:var(--f-label);font-weight:700;font-size:14px;letter-spacing:.1em;text-transform:uppercase}
+.field{display:flex;gap:8px}
+.field input,.form-card select{height:42px;border-radius:10px;border:1px solid var(--line);background:var(--surface-2);color:var(--ink);padding:0 12px;font:inherit;min-width:0;flex:1}
+.form-card select{flex:none;width:100%}
+.inline-field{display:flex;align-items:center;justify-content:space-between;gap:12px;font-weight:500}
+.inline-field select{width:auto;min-width:110px}
+.switch{display:flex;align-items:center;gap:10px;font-weight:500;cursor:pointer}
+.switch input{width:20px;height:20px;accent-color:var(--blau)}
+.about{font-size:13px;color:var(--muted);padding:0 4px}
+
+/* Match centre extras: team averages, tabs, injuries, head-to-head */
+.mc-tabs button{font-size:13px;letter-spacing:.03em}
+.lu-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}
+.lu-head>span{display:inline-flex;align-items:center;gap:8px;min-width:0;font-family:var(--f-label);font-weight:700;letter-spacing:.04em}
+.tap-hint{text-align:center;margin-top:8px}
+.demo-note{margin-top:12px}
+.inj{margin-top:18px}
+.inj>.sec-title{display:block;margin-bottom:8px}
+.inj .bench-wrap{margin-top:0}
+.injlist li{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 10px;font-size:14px}
+.injlist b{display:block;font-weight:600}
+.injlist small{color:var(--muted);font-size:12.5px}
+.h2h-sum{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;align-items:center;padding:16px;background:var(--surface);border:1px solid var(--line);border-radius:14px;margin-bottom:14px;text-align:center}
+.h2h-sum b{display:block;font-family:var(--f-display);font-weight:800;font-size:36px;line-height:1}
+.h2h-sum .w b{color:var(--blau)}
+.h2h-sum small{font-family:var(--f-label);font-weight:600;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.h2h-bar{grid-column:1/-1;display:flex;gap:2px;height:8px;border-radius:8px;overflow:hidden}
+.h2h-bar i{display:block;height:100%}
+.h2h-bar .d{background:var(--draw)}
+.tbl .form-col{display:none}
+@media (min-width:480px){.tbl .form-col{display:table-cell}}
+.fm{display:inline-flex;gap:2px;vertical-align:middle}
+.fm i{width:15px;height:15px;border-radius:3px;font-style:normal;font-family:var(--f-label);font-weight:700;font-size:10px;line-height:15px;text-align:center;color:var(--on-sem)}
+
+.prob{display:flex;flex-direction:column;gap:6px}
+.prob-bar{display:flex;gap:2px;height:8px;border-radius:8px;overflow:hidden}
+.prob-bar i{display:block;height:100%}
+.prob-bar .d{background:var(--draw)}
+.prob-legend{display:flex;justify-content:space-between;gap:8px;font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.real-note{margin:0}
+.brow.sq2{grid-template-columns:36px minmax(0,1fr)}
+
+/* Player card (slides up from the bottom) */
+#sheet-root{position:fixed;inset:0;z-index:50;display:flex;align-items:flex-end;justify-content:center}
+.sheet-back{position:absolute;inset:0;background:rgba(4,8,24,.55);animation:fade .2s ease}
+.sheet{position:relative;width:100%;max-width:540px;max-height:84vh;overflow-y:auto;background:var(--surface);border-radius:18px 18px 0 0;box-shadow:var(--shadow);padding-block:16px calc(20px + env(safe-area-inset-bottom,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:14px;animation:rise .25s ease}
+#sheet-content{display:flex;flex-direction:column;gap:14px}
+.sheet-top{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center}
+.sheet-num{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;font-family:var(--f-display);font-weight:800;font-size:22px}
+.sheet-num.t-fcb{background:repeating-linear-gradient(90deg,var(--stripe-a) 0 8px,var(--stripe-b) 8px 16px);color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.6)}
+.sheet-num.t-opp{background:var(--surface-2);border:1px solid var(--line)}
+.sheet-name{min-width:0}
+.sheet-name b{display:block;font-size:19px;font-weight:700;line-height:1.2}
+.sheet-name small{color:var(--muted);font-size:13px}
+.sheet-close{width:38px;height:38px;border-radius:50%;background:var(--surface-2);border:1px solid var(--line);display:grid;place-items:center;font-size:22px;line-height:1}
+.sheet-sum{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;align-items:center;padding:12px;background:var(--surface-2);border-radius:12px}
+.sheet-sum .kv{align-items:flex-start;gap:4px}
+.sheet h3{font-family:var(--f-label);font-weight:700;font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.kvlist{list-style:none;margin:0;padding:0}
+.kvlist li{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-top:1px solid var(--line);font-size:14px}
+.kvlist li:first-child{border-top:0}
+.kvlist b{font-weight:600;font-variant-numeric:tabular-nums}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+@keyframes rise{from{transform:translateY(24px);opacity:0}to{transform:none;opacity:1}}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.75)}}
+@keyframes flash{0%{transform:scale(1)}25%{transform:scale(1.22)}100%{transform:scale(1)}}
+@keyframes drop{from{opacity:0;transform:translate(-50%,-10px)}to{opacity:1;transform:translate(-50%,0)}}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+@media (max-width:380px){.ls{font-size:56px}.mc-num{font-size:44px}.badge.lg{width:48px;height:48px;font-size:14px}.sq-detail{padding-left:14px}}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-in">
+    <a class="brand" href="#home" aria-label="Culé Live, home"><span class="mark" aria-hidden="true"></span><span class="brand-name">Culé Live</span></a>
+    <span class="mode-chip" id="mode-chip">Demo data</span>
+  </div>
+</header>
+<main id="view" class="main"></main>
+<nav class="tabbar" aria-label="Main"><div class="tabbar-in" id="tabbar"></div></nav>
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+<div id="sheet-root" hidden></div>
+
+<script type="application/json" id="snapshot">{"at":"2026-11-02T22:08:00Z","la_liga":{"games":[{"id":"sr:sport_event:72478600","status":"final","start_time":"2026-09-19T19:00:00+00:00","home":"SEV","away":"BAR","teams":{"SEV":{"name":"Sevilla FC","abbreviation":"SEV"},"BAR":{"name":"FC Barcelona","abbreviation":"BAR"}},"score":{"SEV":1,"BAR":3}},{"id":"sr:sport_event:72478612","status":"final","start_time":"2026-10-10T16:30:00+00:00","home":"BAR","away":"GET","teams":{"BAR":{"name":"FC Barcelona","abbreviation":"BAR"},"GET":{"name":"Getafe CF","abbreviation":"GET"}},"score":{"BAR":3,"GET":0}},{"id":"sr:sport_event:72478626","status":"final","start_time":"2026-10-17T16:30:00+00:00","home":"RBB","away":"BAR","teams":{"RBB":{"name":"Real Betis Seville","abbreviation":"RBB"},"BAR":{"name":"FC Barcelona","abbreviation":"BAR"}},"score":{"RBB":2,"BAR":5}},{"id":"sr:sport_event:72478654","status":"final","start_time":"2026-10-25T20:00:00+00:00","home":"BAR","away":"RMA","teams":{"BAR":{"name":"FC Barcelona","abbreviation":"BAR"},"RMA":{"name":"Real Madrid","abbreviation":"RMA"}},"score":{"BAR":1,"RMA":2}},{"id":"sr:sport_event:72478674","status":"final","start_time":"2026-10-31T20:00:00+00:00","home":"BAR","away":"ALA","teams":{"BAR":{"name":"FC Barcelona","abbreviation":"BAR"},"ALA":{"name":"Deportivo Alaves","abbreviation":"ALA"}},"score":{"BAR":6,"ALA":1}},{"id":"sr:sport_event:72478686","status":"scheduled","start_time":"2026-11-08T20:00:00+00:00","home":"ATM","away":"BAR","teams":{"ATM":{"name":"Atletico Madrid","abbreviation":"ATM"},"BAR":{"name":"FC Barcelona","abbreviation":"BAR"}},"score":{"ATM":0,"BAR":0},"win_probability":{"ATM":26.1,"BAR":51.5,"draw":22.4}},{"id":"sr:sport_event:72478710","status":"scheduled","start_time":"2026-11-22T13:00:00+00:00","home":"BAR","away":"VIL","teams":{"BAR":{"name":"FC Barcelona","abbreviation":"BAR"},"VIL":{"name":"Villarreal CF","abbreviation":"VIL"}},"score":{"BAR":0,"VIL":0}},{"id":"sr:sport_event:72478730","status":"scheduled","start_time":"2026-11-29T19:00:00+00:00","home":"DEP","away":"BAR","teams":{"DEP":{"name":"RC Deportivo de A Coruna","abbreviation":"DEP"},"BAR":{"name":"FC Barcelona","abbreviation":"BAR"}},"score":{"DEP":0,"BAR":0}},{"id":"sr:sport_event:72478752","status":"scheduled","start_time":"2026-12-06T19:00:00+00:00","home":"BAR","away":"RCC","teams":{"BAR":{"name":"FC Barcelona","abbreviation":"BAR"},"RCC":{"name":"RC Celta de Vigo","abbreviation":"RCC"}},"score":{"BAR":0,"RCC":0}},{"id":"sr:sport_event:72478778","status":"scheduled","start_time":"2026-12-13T19:00:00+00:00","home":"MCF","away":"BAR","teams":{"MCF":{"name":"Malaga CF","abbreviation":"MCF"},"BAR":{"name":"FC Barcelona","abbreviation":"BAR"}},"score":{"MCF":0,"BAR":0}}]},"champions_league":{"games":[{"id":"sr:sport_event:74165880","status":"final","start_time":"2026-09-09T16:45:00+00:00","home":"BAR","away":"FEY","teams":{"BAR":{"name":"FC Barcelona","abbreviation":"BAR"},"FEY":{"name":"Feyenoord Rotterdam","abbreviation":"FEY"}},"score":{"BAR":5,"FEY":1}},{"id":"sr:sport_event:74165914","status":"final","start_time":"2026-10-13T19:00:00+00:00","home":"GAL","away":"BAR","teams":{"GAL":{"name":"Galatasaray Istanbul","abbreviation":"GAL"},"BAR":{"name":"FC Barcelona","abbreviation":"BAR"}},"score":{"GAL":1,"BAR":4}},{"id":"sr:sport_event:74165952","status":"final","start_time":"2026-10-20T19:00:00+00:00","home":"PSG","away":"BAR","teams":{"PSG":{"name":"Paris Saint-Germain","abbreviation":"PSG"},"BAR":{"name":"FC Barcelona","abbreviation":"BAR"}},"score":{"PSG":4,"BAR":2}},{"id":"sr:sport_event:74165984","status":"scheduled","start_time":"2026-11-03T20:00:00+00:00","home":"BAR","away":"AVL","teams":{"BAR":{"name":"FC Barcelona","abbreviation":"BAR"},"AVL":{"name":"Aston Villa","abbreviation":"AVL"}},"score":{"BAR":0,"AVL":0},"win_probability":{"BAR":77.1,"AVL":10.3,"draw":12.6}},{"id":"sr:sport_event:74166032","status":"scheduled","start_time":"2026-11-25T17:45:00+00:00","home":"SBH","away":"BAR","teams":{"SBH":{"name":"Sabah Masazir","abbreviation":"SBH"},"BAR":{"name":"FC Barcelona","abbreviation":"BAR"}},"score":{"SBH":0,"BAR":0}},{"id":"sr:sport_event:74166060","status":"scheduled","start_time":"2026-12-08T20:00:00+00:00","home":"BAR","away":"MCI","teams":{"BAR":{"name":"FC Barcelona","abbreviation":"BAR"},"MCI":{"name":"Manchester City","abbreviation":"MCI"}},"score":{"BAR":0,"MCI":0}},{"id":"sr:sport_event:74166118","status":"scheduled","start_time":"2027-01-20T20:00:00+00:00","home":"SPO","away":"BAR","teams":{"SPO":{"name":"Sporting CP","abbreviation":"SPO"},"BAR":{"name":"FC Barcelona","abbreviation":"BAR"}},"score":{"SPO":0,"BAR":0}},{"id":"sr:sport_event:74166134","status":"scheduled","start_time":"2027-01-27T20:00:00+00:00","home":"BAR","away":"COM","teams":{"BAR":{"name":"FC Barcelona","abbreviation":"BAR"},"COM":{"name":"Como 1907","abbreviation":"COM"}},"score":{"BAR":0,"COM":0}}]},"standings":{"standings":[{"rank":1,"team":{"name":"FC Barcelona","abbreviation":"BAR"},"wins":10,"losses":1,"draws":0,"points":30},{"rank":2,"team":{"name":"Atletico Madrid","abbreviation":"ATM"},"wins":9,"losses":1,"draws":1,"points":28},{"rank":3,"team":{"name":"Real Madrid","abbreviation":"RMA"},"wins":9,"losses":2,"draws":0,"points":27},{"rank":4,"team":{"name":"Real Betis Seville","abbreviation":"RBB"},"wins":7,"losses":2,"draws":2,"points":23},{"rank":5,"team":{"name":"Real Sociedad San Sebastian","abbreviation":"RSO"},"wins":6,"losses":4,"draws":1,"points":19},{"rank":6,"team":{"name":"Sevilla FC","abbreviation":"SEV"},"wins":5,"losses":4,"draws":2,"points":17},{"rank":7,"team":{"name":"Athletic Bilbao","abbreviation":"ATH"},"wins":4,"losses":3,"draws":3,"points":15},{"rank":8,"team":{"name":"RC Deportivo de A Coruna","abbreviation":"DEP"},"wins":3,"losses":3,"draws":5,"points":14},{"rank":9,"team":{"name":"Villarreal CF","abbreviation":"VIL"},"wins":3,"losses":5,"draws":3,"points":12},{"rank":10,"team":{"name":"RC Celta de Vigo","abbreviation":"RCC"},"wins":2,"losses":3,"draws":6,"points":12},{"rank":11,"team":{"name":"Deportivo Alaves","abbreviation":"ALA"},"wins":3,"losses":5,"draws":3,"points":12},{"rank":12,"team":{"name":"Rayo Vallecano","abbreviation":"RVC"},"wins":3,"losses":4,"draws":3,"points":12},{"rank":13,"team":{"name":"Getafe CF","abbreviation":"GET"},"wins":3,"losses":5,"draws":3,"points":12},{"rank":14,"team":{"name":"Espanyol Barcelona","abbreviation":"ESP"},"wins":3,"losses":6,"draws":2,"points":11},{"rank":15,"team":{"name":"CA Osasuna","abbreviation":"OSA"},"wins":3,"losses":6,"draws":2,"points":11},{"rank":16,"team":{"name":"Racing Santander","abbreviation":"RAC"},"wins":3,"losses":6,"draws":2,"points":11},{"rank":17,"team":{"name":"Elche CF","abbreviation":"ELC"},"wins":2,"losses":5,"draws":4,"points":10},{"rank":18,"team":{"name":"Levante UD","abbreviation":"LEV"},"wins":2,"losses":5,"draws":4,"points":10},{"rank":19,"team":{"name":"Valencia CF","abbreviation":"VCF"},"wins":2,"losses":6,"draws":3,"points":9},{"rank":20,"team":{"name":"Malaga CF","abbreviation":"MCF"},"wins":0,"losses":6,"draws":5,"points":5}]},"games":{"sr:sport_event:72478674":{"home":"BAR","away":"ALA","teams":{"BAR":{"name":"FC Barcelona","abbreviation":"BAR"},"ALA":{"name":"Deportivo Alaves","abbreviation":"ALA"}},"score":{"BAR":6,"ALA":1},"team_stats":{"BAR":{"ball_possession":77,"cards_given":2,"corner_kicks":3,"fouls":14,"free_kicks":11,"goal_kicks":3,"injuries":0,"offsides":1,"red_cards":0,"shots_blocked":3,"shots_off_target":3,"shots_on_target":7,"shots_saved":2,"shots_total":13,"substitutions":5,"throw_ins":24,"yellow_cards":2,"yellow_red_cards":0},"ALA":{"ball_possession":23,"cards_given":3,"corner_kicks":3,"fouls":11,"free_kicks":14,"goal_kicks":7,"injuries":0,"offsides":5,"red_cards":0,"shots_blocked":1,"shots_off_target":1,"shots_on_target":3,"shots_saved":1,"shots_total":5,"substitutions":5,"throw_ins":16,"yellow_cards":3,"yellow_red_cards":0}},"key_events":[{"type":"score_change","time":8,"team":"home","home_score":1,"away_score":0},{"type":"score_change","time":23,"team":"home","home_score":2,"away_score":0},{"type":"yellow_card","time":27,"team":"away"},{"type":"yellow_card","time":40,"team":"home"},{"type":"score_change","time":41,"team":"home","home_score":3,"away_score":0},{"type":"score_change","time":45,"team":"home","home_score":4,"away_score":0},{"type":"yellow_card","time":45,"team":"away"},{"type":"substitution","time":46,"team":"home"},{"type":"substitution","time":46,"team":"away"},{"type":"substitution","time":55,"team":"away"},{"type":"substitution","time":55,"team":"away"},{"type":"yellow_card","time":57,"team":"home"},{"type":"yellow_card","time":60,"team":"away"},{"type":"substitution","time":62,"team":"home"},{"type":"substitution","time":62,"team":"home"},{"type":"score_change","time":64,"team":"home","home_score":5,"away_score":0},{"type":"substitution","time":74,"team":"home"},{"type":"substitution","time":74,"team":"away"},{"type":"substitution","time":74,"team":"away"},{"type":"score_change","time":81,"team":"home","home_score":6,"away_score":0},{"type":"substitution","time":82,"team":"home"},{"type":"score_change","time":84,"team":"away","home_score":6,"away_score":1}],"lineups":{"BAR":["Garcia, Joan (goalkeeper)","Farinas Perez, Brian (midfielder)","Cubarsi, Pau (defender)","De Jong, Frenkie (midfielder)","Cancelo, Joao (defender)","Pedri (midfielder)","Rodri (midfielder)","Lopez, Fermin (midfielder)","Yamal, Lamine (forward)","Raphinha (forward)","Adeyemi, Karim (midfielder)","Victor Delgado, Guillem ()","Bernal, Marc (midfielder)","Cami, Alex (defender)","Hamza Abdelkarim (forward)"],"ALA":["Sivera, Antonio (goalkeeper)","Otto, Jonny (defender)","Tenaglia, Facundo (defender)","Koski, Ville (defender)","Enriquez, Youssef (defender)","Hidalgo, Angel (midfielder)","Guevara, Ander (midfielder)","Benavidez, Carlos (midfielder)","Suarez, Denis (midfielder)","Boye, Lucas (forward)","Rebbach, Abde (midfielder)","Manas, Aitor (forward)","Ibarzabal, Xanet Olaiz (defender)","Diallo, Selu (midfielder)","Valentini, Nicolas (defender)"]}},"sr:sport_event:72478654":{"home":"BAR","away":"RMA","teams":{"BAR":{"name":"FC Barcelona","abbreviation":"BAR"},"RMA":{"name":"Real Madrid","abbreviation":"RMA"}},"score":{"BAR":1,"RMA":2},"team_stats":{"BAR":{"ball_possession":63,"cards_given":3,"corner_kicks":6,"fouls":15,"free_kicks":13,"goal_kicks":8,"injuries":1,"offsides":3,"red_cards":0,"shots_blocked":5,"shots_off_target":5,"shots_on_target":6,"shots_saved":3,"shots_total":16,"substitutions":4,"throw_ins":19,"yellow_cards":3,"yellow_red_cards":0},"RMA":{"ball_possession":37,"cards_given":3,"corner_kicks":6,"fouls":11,"free_kicks":13,"goal_kicks":7,"injuries":1,"offsides":3,"red_cards":0,"shots_blocked":1,"shots_off_target":3,"shots_on_target":5,"shots_saved":5,"shots_total":9,"substitutions":4,"throw_ins":8,"yellow_cards":3,"yellow_red_cards":0}},"key_events":[{"type":"substitution","time":30,"team":"home"},{"type":"score_change","time":41,"team":"away","home_score":0,"away_score":1},{"type":"yellow_card","time":46,"team":"away"},{"type":"score_change","time":61,"team":"home","home_score":1,"away_score":1},{"type":"substitution","time":62,"team":"away"},{"type":"substitution","time":74,"team":"home"},{"type":"substitution","time":80,"team":"away"},{"type":"yellow_card","time":84,"team":"home"},{"type":"substitution","time":86,"team":"home"},{"type":"substitution","time":86,"team":"home"},{"type":"score_change","time":87,"team":"away","home_score":1,"away_score":2},{"type":"yellow_card","time":90,"team":"away"},{"type":"substitution","time":90,"team":"away"},{"type":"substitution","time":90,"team":"away"},{"type":"yellow_card","time":90,"team":"away"},{"type":"yellow_card","time":90,"team":"home"},{"type":"yellow_card","time":90,"team":"home"}],"lineups":{"BAR":["Garcia, Joan (goalkeeper)","Espart Font, Xavi (midfielder)","Cubarsi, Pau (defender)","Martin, Gerard (defender)","Cancelo, Joao (defender)","Pedri (midfielder)","Rodri (midfielder)","Lopez, Fermin (midfielder)","Yamal, Lamine (forward)","Raphinha (forward)","Gordon, Anthony (forward)","Farinas Perez, Brian (midfielder)","Cami, Alex (defender)","Goren, Orian (midfielder)","Livakovic, Dominik (goalkeeper)"],"RMA":["Lunin, Andriy (goalkeeper)","Valverde, Federico (midfielder)","Konate, Ibrahima (defender)","Huijsen, Dean (defender)","Cucurella, Marc (defender)","Guler, Arda (forward)","Tchouameni, Aurelien (midfielder)","Silva, Bernardo (midfielder)","Bellingham, Jude (midfielder)","Mbappe, Kylian (forward)","Diomande, Yan (forward)","Pitarch Pinar, Thiago (midfielder)","Espi, Carlos (forward)","Voloshyn, Ilya (goalkeeper)","Rudiger, Antonio (defender)"]}},"sr:sport_event:74165952":{"home":"PSG","away":"BAR","teams":{"PSG":{"name":"Paris Saint-Germain","abbreviation":"PSG"},"BAR":{"name":"FC Barcelona","abbreviation":"BAR"}},"score":{"PSG":4,"BAR":2},"team_stats":{"PSG":{"ball_possession":46,"cards_given":0,"corner_kicks":2,"fouls":11,"free_kicks":9,"goal_kicks":8,"injuries":2,"offsides":2,"red_cards":0,"shots_blocked":4,"shots_off_target":2,"shots_on_target":14,"shots_saved":7,"shots_total":20,"substitutions":5,"throw_ins":17,"yellow_cards":0,"yellow_red_cards":0},"BAR":{"ball_possession":54,"cards_given":1,"corner_kicks":3,"fouls":10,"free_kicks":11,"goal_kicks":4,"injuries":1,"offsides":1,"red_cards":0,"shots_blocked":3,"shots_off_target":8,"shots_on_target":9,"shots_saved":10,"shots_total":20,"substitutions":5,"throw_ins":11,"yellow_cards":1,"yellow_red_cards":0}},"key_events":[{"type":"yellow_card","time":17,"team":"away"},{"type":"substitution","time":20,"team":"home"},{"type":"substitution","time":27,"team":"away"},{"type":"score_change","time":38,"team":"home","home_score":1,"away_score":0},{"type":"score_change","time":55,"team":"away","home_score":1,"away_score":1},{"type":"substitution","time":59,"team":"home"},{"type":"substitution","time":59,"team":"home"},{"type":"substitution","time":60,"team":"away"},{"type":"substitution","time":60,"team":"away"},{"type":"substitution","time":60,"team":"away"},{"type":"score_change","time":72,"team":"home","home_score":2,"away_score":1},{"type":"substitution","time":74,"team":"away"},{"type":"substitution","time":78,"team":"home"},{"type":"substitution","time":78,"team":"home"},{"type":"score_change","time":79,"team":"away","home_score":2,"away_score":2},{"type":"score_change","time":81,"team":"home","home_score":3,"away_score":2},{"type":"score_change","time":86,"team":"home","home_score":4,"away_score":2}],"lineups":{"PSG":["Safonov, Matvey (goalkeeper)","Hakimi, Achraf (defender)","Marquinhos (defender)","Pacho, Willian (defender)","Hernandez, Lucas (defender)","Neves, Joao (midfielder)","Vitinha (midfielder)","Ruiz, Fabian (midfielder)","Doue, Desire (forward)","Dembele, Ousmane (forward)","Kvaratskhelia, Khvicha (forward)","Ndjantou, Quentin (forward)","Mayulu, Senny (midfielder)","Fernandez, Pedro (midfielder)","Mouak, Adam (goalkeeper)"],"BAR":["Garcia, Joan (goalkeeper)","Espart Font, Xavi (midfielder)","Cubarsi, Pau (defender)","Martin, Gerard (defender)","Cancelo, Joao (defender)","Bernal, Marc (midfielder)","Pedri (midfielder)","Yamal, Lamine (forward)","Olmo, Dani (forward)","Gordon, Anthony (forward)","Raphinha (forward)","Szczesny, Wojciech (goalkeeper)","Farinas Perez, Brian (midfielder)","Cami, Alex (defender)","Hamza Abdelkarim (forward)"]}},"sr:sport_event:72478626":{"home":"RBB","away":"BAR","teams":{"RBB":{"name":"Real Betis Seville","abbreviation":"RBB"},"BAR":{"name":"FC Barcelona","abbreviation":"BAR"}},"score":{"RBB":2,"BAR":5},"team_stats":{"RBB":{"ball_possession":42,"cards_given":4,"corner_kicks":2,"fouls":10,"free_kicks":10,"goal_kicks":8,"injuries":0,"offsides":1,"red_cards":1,"shots_blocked":1,"shots_off_target":0,"shots_on_target":5,"shots_saved":5,"shots_total":6,"substitutions":5,"throw_ins":18,"yellow_cards":3,"yellow_red_cards":0},"BAR":{"ball_possession":58,"cards_given":2,"corner_kicks":5,"fouls":11,"free_kicks":10,"goal_kicks":1,"injuries":2,"offsides":2,"red_cards":0,"shots_blocked":1,"shots_off_target":5,"shots_on_target":10,"shots_saved":3,"shots_total":16,"substitutions":5,"throw_ins":23,"yellow_cards":2,"yellow_red_cards":0}},"key_events":[{"type":"score_change","time":10,"team":"away","home_score":0,"away_score":1},{"type":"yellow_card","time":20,"team":"away"},{"type":"yellow_card","time":22,"team":"home"},{"type":"score_change","time":27,"team":"home","home_score":1,"away_score":1},{"type":"score_change","time":41,"team":"away","home_score":1,"away_score":2},{"type":"substitution","time":46,"team":"home"},{"type":"substitution","time":46,"team":"away"},{"type":"score_change","time":51,"team":"away","home_score":1,"away_score":3},{"type":"yellow_card","time":53,"team":"home"},{"type":"score_change","time":53,"team":"home","home_score":2,"away_score":3},{"type":"red_card","time":54,"team":"home"},{"type":"yellow_card","time":55,"team":"away"},{"type":"yellow_card","time":61,"team":"home"},{"type":"substitution","time":62,"team":"away"},{"type":"substitution","time":62,"team":"away"},{"type":"score_change","time":62,"team":"away","home_score":2,"away_score":4},{"type":"substitution","time":64,"team":"home"},{"type":"substitution","time":64,"team":"home"},{"type":"substitution","time":70,"team":"away"},{"type":"substitution","time":70,"team":"home"},{"type":"substitution","time":70,"team":"home"},{"type":"substitution","time":79,"team":"away"},{"type":"score_change","time":81,"team":"away","home_score":2,"away_score":5}],"lineups":{"RBB":["Valles, Alvaro (goalkeeper)","Bellerin, Hector (defender)","Llorente, Diego (defender)","Gomez, Diego (defender)","Garcia, Francisco (defender)","Bernal, Facundo (midfielder)","Ceballos, Dani (midfielder)","Fornals, Pablo (midfielder)","Lo Celso, Giovani (midfielder)","Ezzalzouli, Abde (forward)","Hernandez, Cucho (forward)","Antonio, Jose (forward)","Ortiz, Angel (midfielder)","Roca, Marc (midfielder)","Bartra, Marc (defender)"],"BAR":["Garcia, Joan (goalkeeper)","Kounde, Jules (defender)","Cubarsi, Pau (defender)","Martin, Gerard (defender)","Espart Font, Xavi (midfielder)","Rodri (midfielder)","Pedri (midfielder)","Yamal, Lamine (forward)","Lopez, Fermin (midfielder)","Adeyemi, Karim (midfielder)","Jesus, Gabriel (forward)","Gavi (midfielder)","Bernal, Marc (midfielder)","Farinas Perez, Brian (midfielder)","Szczesny, Wojciech (goalkeeper)"]}},"sr:sport_event:74165914":{"home":"GAL","away":"BAR","teams":{"GAL":{"name":"Galatasaray Istanbul","abbreviation":"GAL"},"BAR":{"name":"FC Barcelona","abbreviation":"BAR"}},"score":{"GAL":1,"BAR":4},"team_stats":{"GAL":{"ball_possession":35,"cards_given":2,"corner_kicks":1,"fouls":12,"free_kicks":9,"goal_kicks":10,"injuries":0,"offsides":8,"red_cards":0,"shots_blocked":0,"shots_off_target":0,"shots_on_target":2,"shots_saved":8,"shots_total":2,"substitutions":5,"throw_ins":15,"yellow_cards":2,"yellow_red_cards":0},"BAR":{"ball_possession":65,"cards_given":0,"corner_kicks":6,"fouls":10,"free_kicks":12,"goal_kicks":2,"injuries":0,"offsides":7,"red_cards":0,"shots_blocked":4,"shots_off_target":7,"shots_on_target":12,"shots_saved":1,"shots_total":23,"substitutions":5,"throw_ins":11,"yellow_cards":0,"yellow_red_cards":0}},"key_events":[{"type":"score_change","time":28,"team":"home","home_score":1,"away_score":0},{"type":"score_change","time":43,"team":"away","home_score":1,"away_score":1},{"type":"score_change","time":50,"team":"away","home_score":1,"away_score":2},{"type":"score_change","time":53,"team":"away","home_score":1,"away_score":3},{"type":"substitution","time":58,"team":"home"},{"type":"substitution","time":58,"team":"home"},{"type":"substitution","time":58,"team":"home"},{"type":"substitution","time":59,"team":"away"},{"type":"substitution","time":59,"team":"away"},{"type":"yellow_card","time":64,"team":"home"},{"type":"score_change","time":65,"team":"away","home_score":1,"away_score":4},{"type":"substitution","time":67,"team":"home"},{"type":"substitution","time":73,"team":"away"},{"type":"substitution","time":73,"team":"away"},{"type":"substitution","time":81,"team":"home"},{"type":"substitution","time":82,"team":"away"},{"type":"yellow_card","time":86,"team":"home"}],"lineups":{"GAL":["Cakir, Ugurcan (goalkeeper)","Yilmaz, Baris Alper (forward)","Sanchez, Davinson (defender)","Jakobs, Ismail (defender)","Elmali, Eren (defender)","Lemina, Mario (midfielder)","Torreira, Lucas (midfielder)","Akgun, Yunus (forward)","Batrakov, Aleksey (midfielder)","Leao, Rafael (forward)","Osimhen, Victor (forward)","Gundogan, Ilkay (midfielder)","Lus, Berat (forward)","Buyuk, Enes Emre (goalkeeper)","Nhaga, Renato (midfielder)"],"BAR":["Garcia, Joan (goalkeeper)","Garcia, Eric (defender)","Cubarsi, Pau (defender)","Martin, Gerard (defender)","Cancelo, Joao (defender)","Rodri (midfielder)","Pedri (midfielder)","Yamal, Lamine (forward)","Lopez, Fermin (midfielder)","Gordon, Anthony (forward)","Olmo, Dani (forward)","Espart Font, Xavi (midfielder)","Bernal, Marc (midfielder)","Farinas Perez, Brian (midfielder)","Hamza Abdelkarim (forward)"]}}}}</script>
+<script>
+'use strict';
+/* =====================================================================
+   CULÉ LIVE: an unofficial Barça fan app (MYP Personal Project)
+
+   How the code is organised:
+   1. Helpers and saved settings
+   2. Demo data (made up, so the app works without an API key)
+   3. API-Football connection (real data)
+   4. Data layer: demo and API data come out in the same shape
+   5. Match engine: score, stats and player ratings at any minute
+   6. Match clock: runs the live demo and match replays
+   7. Screens (Home, Matches, Match centre, Table, Squad, Setup)
+   8. Buttons, router and start-up
+   ===================================================================== */
+
+/* ---------- 1. Helpers and saved settings ---------- */
+const $ = (sel, el = document) => el.querySelector(sel);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const other = side => side === 'home' ? 'away' : 'home';
+
+// Everything saved stays in this browser only (localStorage).
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('cule:' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('cule:' + k, JSON.stringify(v)); } catch (e) { /* storage full or blocked */ } },
+  clear(prefix) { try { Object.keys(localStorage).filter(k => k.startsWith('cule:' + prefix)).forEach(k => localStorage.removeItem(k)); } catch (e) {} }
+};
+// After you set up your free Cloudflare data server, paste its address here
+// (for example 'https://cule-live.yourname.workers.dev') so everyone who opens the app gets real data.
+const DATA_SERVER = '';
+const settings = Object.assign({ mode: DATA_SERVER ? 'api' : 'real', apiKey: '', server: DATA_SERVER, season: 2024, refresh: 15, alerts: true }, store.get('settings', {}));
+if (DATA_SERVER && !settings.server) settings.server = DATA_SERVER;
+const saveSettings = () => store.set('settings', settings);
+if ((settings.v || 1) < 2) { settings.mode = DATA_SERVER ? 'api' : 'real'; settings.v = 2; saveSettings(); } // switch older installs to real data
+
+const BARCA_ID = 529;  // FC Barcelona's team number in API-Football
+const LALIGA_ID = 140; // La Liga's league number in API-Football
+
+const LOCALE = 'en-GB';
+const fmtDay = ts => new Date(ts).toLocaleDateString(LOCALE, { weekday: 'short', day: 'numeric', month: 'short' });
+const fmtDayLong = ts => new Date(ts).toLocaleDateString(LOCALE, { weekday: 'long', day: 'numeric', month: 'long' });
+const fmtTime = ts => new Date(ts).toLocaleTimeString(LOCALE, { hour: '2-digit', minute: '2-digit' });
+const fmtMonth = ts => new Date(ts).toLocaleDateString(LOCALE, { month: 'long', year: 'numeric' });
+const seasonLabel = y => `${y}–${String(y + 1).slice(2)}`;
+
+function countdown(ts) {
+  const ms = ts - Date.now();
+  if (ms <= 0) return 'Soon';
+  const d = Math.floor(ms / 864e5), h = Math.floor(ms % 864e5 / 36e5), m = Math.floor(ms % 36e5 / 6e4);
+  return d > 0 ? `${d}d ${h}h` : h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+// Turns any text into a steady number between 0 and 1 (used for badge colours and rating "form").
+function seedOf(text) {
+  let h = 2166136261;
+  for (const ch of String(text)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); }
+  h ^= h >>> 16; h = Math.imul(h, 0x85ebca6b); h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35); h ^= h >>> 16; // mix the bits well
+  return (h >>> 0) / 4294967295;
+}
+
+class AppError extends Error { constructor(msg, kind = 'api') { super(msg); this.kind = kind; } }
+
+// Small drawings used around the app
+const I = {
+  home: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h5v-6h4v6h5V9.5"/></svg>',
+  matches: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
+  table: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h12M9 12h12M9 18h12"/><path d="M4 6h1M4 12h1M4 18h1"/></svg>',
+  squad: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><circle cx="17" cy="9" r="2.8"/><path d="M15.6 14.3A5.5 5.5 0 0 1 21.5 20"/></svg>',
+  setup: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2.5"/><circle cx="8" cy="17" r="2.5"/></svg>',
+  play: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>',
+  pause: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6.5" y="5" width="4" height="14" rx="1"/><rect x="13.5" y="5" width="4" height="14" rx="1"/></svg>',
+  restart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>',
+  back: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>',
+  ball: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle class="b-bg" cx="12" cy="12" r="9.5"/><path class="b-ln" d="M12 7.2l4.1 3-1.6 4.8h-5L7.9 10.2z"/><path class="b-st" d="M12 7.2V2.6M16.1 10.2l4.3-1.4M14.5 15l2.7 3.7M9.5 15l-2.7 3.7M7.9 10.2 3.6 8.8"/></svg>',
+  miss: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle class="b-bg" cx="11" cy="11" r="8.5"/><path class="b-ln" d="M11 6.8l3.6 2.6-1.4 4.2H8.8L7.4 9.4z"/><path class="x-ln" d="M15.5 15.5l6 6M21.5 15.5l-6 6"/></svg>',
+  sub: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path class="f-win" d="M7.5 3 2.5 9.5h3.7V20h2.6V9.5h3.7z"/><path class="f-loss" d="M16.5 21l5-6.5h-3.7V4h-2.6v10.5h-3.7z"/></svg>',
+  up: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path class="f-win" d="M12 4l7 8h-4.5v8h-5v-8H5z"/></svg>',
+  down: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path class="f-loss" d="M12 20l7-8h-4.5V4h-5v8H5z"/></svg>',
+  var: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="4.5" width="19" height="13.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9 21h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><text x="12" y="14.4" text-anchor="middle" font-size="7.2" font-weight="700" fill="currentColor" font-family="Barlow Condensed, Arial Narrow, sans-serif">VAR</text></svg>'
+};
+const CARD = { yellow: '<span class="cd y" aria-label="Yellow card"></span>', red: '<span class="cd r" aria-label="Red card"></span>' };
+
+/* ---------- 2. Demo data ----------
+   Everything here is made up so the app can be tested without a key.
+   Dates are worked out from today, so the demo always looks current. */
+const COMPS = {
+  140: { id: 140, name: 'La Liga', short: 'LL' },
+  2: { id: 2, name: 'Champions League', short: 'UCL' },
+  143: { id: 143, name: 'Copa del Rey', short: 'CDR' },
+  556: { id: 556, name: 'Supercopa', short: 'SUP' },
+  667: { id: 667, name: 'Club friendly', short: 'FRI' }
+};
+function compOf(id, name) {
+  if (COMPS[id]) return COMPS[id];
+  const n = name || 'Other';
+  return { id, name: n, short: n.split(/\s+/).map(w => w[0]).join('').slice(0, 3).toUpperCase() };
+}
+const compClass = c => c.id === 2 ? 'c-ucl' : c.id === 143 ? 'c-cdr' : c.id === 140 ? '' : 'c-oth';
+
+const SHORT = { 'Barcelona':'BAR','Real Madrid':'RMA','Atletico Madrid':'ATM','Atlético Madrid':'ATM','Athletic Club':'ATH','Real Sociedad':'RSO','Real Betis':'BET','Villarreal':'VIL','Sevilla':'SEV','Valencia':'VAL','Girona':'GIR','Celta Vigo':'CEL','Osasuna':'OSA','Getafe':'GET','Mallorca':'MLL','Rayo Vallecano':'RAY','Espanyol':'ESP','Alaves':'ALA','Alavés':'ALA','Elche':'ELC','Levante':'LEV','Real Oviedo':'OVI','Las Palmas':'LPA','Leganes':'LEG','Valladolid':'VLL','Bayern München':'BAY','Bayern Munich':'BAY','Inter':'INT','Arsenal':'ARS','Borussia Dortmund':'BVB','Paris Saint Germain':'PSG','Racing de Santander':'RAC' };
+function shortName(n) {
+  if (SHORT[n]) return SHORT[n];
+  const words = String(n).normalize('NFD').replace(/[̀-ͯ]/g, '').split(/\s+/).filter(w => w.length > 2);
+  const longest = words.sort((a, b) => b.length - a.length)[0] || String(n);
+  return longest.slice(0, 3).toUpperCase();
+}
+
+const BARCA = { id: BARCA_ID, name: 'Barcelona' };
+function demoDate(days, hour = 21, min = 0) { const d = new Date(); d.setHours(hour, min, 0, 0); d.setDate(d.getDate() + days); return d.getTime(); }
+
+// Results: days from today, competition, opponent, home?, Barça scorers [min, extra, name, 'pen'?], opponent goal minutes
+const DEMO_RESULTS = [
+  { d: -25, c: 140, opp: 'Valencia', home: true, sc: [[23, 0, 'Raphinha'], [71, 0, 'Lamine Yamal']], om: [] },
+  { d: -22, c: 140, opp: 'Real Betis', home: false, sc: [[58, 0, 'Pedri']], om: [[34, 0], [80, 0]] },
+  { d: -18, c: 2, opp: 'Bayern München', home: true, sc: [[12, 0, 'Raphinha'], [49, 0, 'Ferran Torres'], [77, 0, 'Lamine Yamal']], om: [[63, 0]] },
+  { d: -15, c: 140, opp: 'Girona', home: true, sc: [[8, 0, 'Ferran Torres'], [30, 0, 'Dani Olmo'], [55, 0, 'Lamine Yamal'], [88, 0, 'Fermín López']], om: [] },
+  { d: -11, c: 140, opp: 'Villarreal', home: false, sc: [[40, 0, 'Raphinha', 'pen'], [85, 0, 'Jules Koundé']], om: [[18, 0]] },
+  { d: -8, c: 2, opp: 'Inter', home: false, sc: [[33, 0, 'Lamine Yamal'], [90, 2, 'Raphinha']], om: [[21, 0], [64, 0]] },
+  { d: -4, c: 140, opp: 'Sevilla', home: true, sc: [[15, 0, 'Ferran Torres'], [44, 0, 'Pedri'], [70, 0, 'Raphinha']], om: [[61, 0]] }
+];
+const DEMO_UPCOMING = [
+  { d: 4, c: 2, opp: 'Arsenal', home: true, h: 21 },
+  { d: 7, c: 140, opp: 'Athletic Club', home: false, h: 18, mi: 30 },
+  { d: 11, c: 140, opp: 'Atlético Madrid', home: true, h: 21 },
+  { d: 15, c: 140, opp: 'Real Sociedad', home: false, h: 16, mi: 15 },
+  { d: 18, c: 2, opp: 'Borussia Dortmund', home: false, h: 21 },
+  { d: 22, c: 140, opp: 'Osasuna', home: true, h: 21 },
+  { d: 29, c: 143, opp: 'Racing de Santander', home: false, h: 19 }
+];
+
+// The made-up live match: lineups, events and full-time stats
+const P = (number, name, pos, grid = null) => ({ id: name, name, number, pos, grid });
+const E = (min, extra, type, side, player, more = {}) => ({ min, extra, type, side, player, playerName: player, assist: null, ...more });
+const DEMO_LIVE = {
+  id: 'dlive', source: 'demo', status: 'LIVE', short: '1H', ts: 0,
+  comp: COMPS[140], round: 'Matchday 12', venue: 'Camp Nou',
+  home: { ...BARCA }, away: { id: 541, name: 'Real Madrid' },
+  goals: { home: null, away: null }, added: { h1: 2, h2: 4 }, official: null,
+  lineups: {
+    home: { formation: '4-3-3',
+      xi: [P(13, 'Joan García', 'G', '1:1'), P(23, 'Jules Koundé', 'D', '2:1'), P(4, 'Ronald Araújo', 'D', '2:2'), P(2, 'Pau Cubarsí', 'D', '2:3'), P(3, 'Alejandro Balde', 'D', '2:4'),
+           P(8, 'Pedri', 'M', '3:1'), P(21, 'Frenkie de Jong', 'M', '3:2'), P(20, 'Dani Olmo', 'M', '3:3'),
+           P(10, 'Lamine Yamal', 'F', '4:1'), P(7, 'Ferran Torres', 'F', '4:2'), P(11, 'Raphinha', 'F', '4:3')],
+      bench: [P(1, 'Marc-André ter Stegen', 'G'), P(24, 'Eric García', 'D'), P(15, 'Andreas Christensen', 'D'), P(18, 'Gerard Martín', 'D'), P(6, 'Gavi', 'M'), P(16, 'Fermín López', 'M'), P(17, 'Marc Casadó', 'M'), P(22, 'Marc Bernal', 'M'), P(28, 'Roony Bardghji', 'F')] },
+    away: { formation: '4-3-3',
+      xi: [P(1, 'Thibaut Courtois', 'G', '1:1'), P(12, 'Trent Alexander-Arnold', 'D', '2:1'), P(3, 'Éder Militão', 'D', '2:2'), P(24, 'Dean Huijsen', 'D', '2:3'), P(18, 'Álvaro Carreras', 'D', '2:4'),
+           P(8, 'Federico Valverde', 'M', '3:1'), P(14, 'Aurélien Tchouaméni', 'M', '3:2'), P(5, 'Jude Bellingham', 'M', '3:3'),
+           P(15, 'Arda Güler', 'F', '4:1'), P(10, 'Kylian Mbappé', 'F', '4:2'), P(7, 'Vinícius Júnior', 'F', '4:3')],
+      bench: [P(13, 'Andriy Lunin', 'G'), P(2, 'Dani Carvajal', 'D'), P(22, 'Antonio Rüdiger', 'D'), P(6, 'Eduardo Camavinga', 'M'), P(19, 'Dani Ceballos', 'M'), P(30, 'Franco Mastantuono', 'F'), P(11, 'Rodrygo', 'F'), P(16, 'Gonzalo García', 'F')] }
+  },
+  events: [
+    E(9, 0, 'yellow', 'away', 'Aurélien Tchouaméni'),
+    E(14, 0, 'goal', 'home', 'Lamine Yamal', { assist: 'Pedri' }),
+    E(27, 0, 'goal', 'away', 'Kylian Mbappé', { assist: 'Vinícius Júnior' }),
+    E(33, 0, 'yellow', 'home', 'Ronald Araújo'),
+    E(41, 0, 'var', 'home', 'Ferran Torres', { text: 'Goal disallowed for offside' }),
+    E(52, 0, 'goal', 'home', 'Raphinha', { assist: 'Lamine Yamal' }),
+    E(58, 0, 'sub', 'away', null, { in: 'Rodrygo', out: 'Arda Güler' }),
+    E(63, 0, 'sub', 'home', null, { in: 'Gavi', out: 'Dani Olmo' }),
+    E(67, 0, 'yellow', 'away', 'Jude Bellingham'),
+    E(70, 0, 'sub', 'home', null, { in: 'Fermín López', out: 'Ferran Torres' }),
+    E(76, 0, 'sub', 'away', null, { in: 'Eduardo Camavinga', out: 'Aurélien Tchouaméni' }),
+    E(78, 0, 'goal', 'home', 'Fermín López', { assist: 'Raphinha' }),
+    E(84, 0, 'sub', 'home', null, { in: 'Eric García', out: 'Alejandro Balde' }),
+    E(86, 0, 'pen_miss', 'away', 'Kylian Mbappé', { savedBy: 'Joan García' }),
+    E(89, 0, 'sub', 'away', null, { in: 'Gonzalo García', out: 'Federico Valverde' }),
+    E(90, 1, 'yellow', 'home', 'Gavi')
+  ],
+  stats: {
+    home: { possession: 58, xg: 2.41, shots: 17, sot: 8, shotsIn: 11, shotsOut: 6, blocked: 4, corners: 7, fouls: 11, offsides: 3, saves: 3, passes: 612, passAcc: 89 },
+    away: { possession: 42, xg: 1.62, shots: 11, sot: 4, shotsIn: 6, shotsOut: 5, blocked: 3, corners: 3, fouls: 14, offsides: 2, saves: 5, passes: 441, passAcc: 83 }
+  }
+};
+
+// La Liga table before the live match: name, played, won, drawn, lost, goals for, goals against
+const DEMO_TABLE = [
+  ['Barcelona', 11, 8, 2, 1, 29, 10], ['Real Madrid', 11, 8, 2, 1, 24, 9], ['Atlético Madrid', 12, 7, 3, 2, 20, 11],
+  ['Villarreal', 12, 7, 2, 3, 21, 15], ['Real Betis', 12, 6, 4, 2, 19, 13], ['Athletic Club', 12, 6, 3, 3, 16, 11],
+  ['Real Sociedad', 12, 5, 4, 3, 17, 14], ['Sevilla', 12, 5, 3, 4, 18, 17], ['Girona', 12, 4, 5, 3, 15, 16],
+  ['Celta Vigo', 12, 4, 4, 4, 16, 16], ['Osasuna', 12, 4, 4, 4, 12, 13], ['Valencia', 12, 4, 3, 5, 14, 17],
+  ['Rayo Vallecano', 12, 3, 5, 4, 12, 14], ['Espanyol', 12, 3, 4, 5, 13, 17], ['Getafe', 12, 3, 4, 5, 9, 14],
+  ['Mallorca', 12, 3, 3, 6, 11, 17], ['Alavés', 12, 2, 5, 5, 10, 16], ['Elche', 12, 2, 4, 6, 12, 20],
+  ['Levante', 12, 2, 3, 7, 11, 21], ['Real Oviedo', 12, 1, 4, 7, 8, 21]
+];
+
+// Squad: number, name, position, appearances, goals, assists, average rating
+const DEMO_SQUAD = [
+  [13, 'Joan García', 'G', 15, 0, 0, 7.0], [1, 'Marc-André ter Stegen', 'G', 1, 0, 0, 6.6],
+  [23, 'Jules Koundé', 'D', 15, 1, 3, 7.0], [2, 'Pau Cubarsí', 'D', 15, 0, 1, 7.1], [4, 'Ronald Araújo', 'D', 11, 1, 0, 6.8],
+  [3, 'Alejandro Balde', 'D', 13, 0, 4, 6.9], [24, 'Eric García', 'D', 9, 0, 1, 6.7], [15, 'Andreas Christensen', 'D', 5, 0, 0, 6.6], [18, 'Gerard Martín', 'D', 7, 0, 0, 6.5],
+  [8, 'Pedri', 'M', 16, 3, 5, 7.6], [21, 'Frenkie de Jong', 'M', 14, 0, 2, 7.1], [20, 'Dani Olmo', 'M', 12, 2, 3, 7.0], [6, 'Gavi', 'M', 10, 0, 1, 6.8],
+  [16, 'Fermín López', 'M', 13, 2, 2, 6.9], [17, 'Marc Casadó', 'M', 8, 0, 1, 6.6], [22, 'Marc Bernal', 'M', 6, 0, 0, 6.5],
+  [10, 'Lamine Yamal', 'F', 16, 8, 7, 8.0], [11, 'Raphinha', 'F', 16, 10, 5, 7.8], [7, 'Ferran Torres', 'F', 14, 6, 1, 7.0], [28, 'Roony Bardghji', 'F', 7, 1, 1, 6.6]
+];
+
+let demoList = null;
+function demoFixtures() {
+  if (demoList) return demoList;
+  const make = (r, i, kind) => {
+    const opp = { id: 'x-' + r.opp, name: r.opp };
+    const done = kind === 'r';
+    const bg = done ? r.sc.length : null, og = done ? r.om.length : null;
+    return {
+      id: kind + i, source: 'demo', ts: demoDate(r.d, r.h ?? 21, r.mi ?? 0), comp: compOf(r.c), round: '',
+      venue: r.home ? 'Camp Nou' : '', home: r.home ? { ...BARCA } : opp, away: r.home ? opp : { ...BARCA },
+      status: done ? 'FT' : 'NS', short: done ? 'FT' : 'NS',
+      goals: done ? (r.home ? { home: bg, away: og } : { home: og, away: bg }) : { home: null, away: null }, raw: r
+    };
+  };
+  demoList = [...DEMO_RESULTS.map((r, i) => make(r, i, 'r')), DEMO_LIVE, ...DEMO_UPCOMING.map((r, i) => make(r, i, 'u'))];
+  return demoList;
+}
+
+const demoModels = {};
+function demoMatch(id) {
+  if (id === DEMO_LIVE.id) return DEMO_LIVE;
+  if (demoModels[id]) return demoModels[id];
+  const f = demoFixtures().find(x => String(x.id) === String(id));
+  if (!f) throw new AppError('This match could not be found.');
+  const m = { ...f, events: [], lineups: null, stats: null, official: null };
+  if (f.status === 'FT') {
+    const bs = barcaSide(f), os = other(bs);
+    f.raw.sc.forEach(([min, extra, name, kind]) => m.events.push({ min, extra, type: kind === 'pen' ? 'pen' : 'goal', side: bs, player: name, playerName: name, assist: null }));
+    f.raw.om.forEach(([min, extra]) => m.events.push({ min, extra, type: 'goal', side: os, player: null, playerName: null, assist: null }));
+  }
+  return (demoModels[id] = m);
+}
+
+function demoTable() {
+  const rows = DEMO_TABLE.map(([name, p, w, d, l, gf, ga]) => ({ team: { id: name === 'Barcelona' ? BARCA_ID : 'x-' + name, name }, p, w, d, l, gf, ga }));
+  let live = false;
+  // The table updates live while the demo Clásico is being played
+  if (settings.mode === 'demo' && Clock.m === DEMO_LIVE) {
+    const st = Clock.state();
+    if (st && st.k > 0) {
+      live = !st.isFT;
+      const apply = (name, gf, ga) => {
+        const r = rows.find(x => x.team.name === name);
+        r.p++; r.gf += gf; r.ga += ga; r.liveNow = live;
+        if (gf > ga) r.w++; else if (gf === ga) r.d++; else r.l++;
+      };
+      apply('Barcelona', st.score.home, st.score.away);
+      apply('Real Madrid', st.score.away, st.score.home);
+    }
+  }
+  rows.forEach(r => { r.gd = r.gf - r.ga; r.pts = r.w * 3 + r.d; });
+  rows.sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf);
+  rows.forEach((r, i) => { r.rank = i + 1; r.zone = zoneByRank(r.rank); });
+  rows.forEach(r => { r.form = demoForm(r); });
+  return { title: `La Liga ${seasonLabel(2026)}`, rows, live, note: 'Demo table with made-up numbers.' };
+}
+function demoForm(r) {
+  if (r.team.id === BARCA_ID) return 'WLWWW'; // matches the demo results, oldest first
+  let out = '';
+  for (let i = 0; i < 5; i++) { const x = seedOf(r.team.name + i); out += x < r.w / r.p ? 'W' : x < (r.w + r.d) / r.p ? 'D' : 'L'; }
+  return out;
+}
+function demoH2H(opp) {
+  const out = [];
+  for (let k = 0; k < 6; k++) {
+    const bg = Math.floor(seedOf(opp.name + k) * 4), og = Math.floor(seedOf(k + opp.name + 'o') * 3), home = k % 2 === 0;
+    out.push({ id: 'h' + k, source: 'demo', ts: Date.now() - (k + 1) * 160 * 864e5, comp: COMPS[140], round: '', venue: '', home: home ? { ...BARCA } : opp, away: home ? opp : { ...BARCA }, status: 'FT', short: 'FT', goals: home ? { home: bg, away: og } : { home: og, away: bg } });
+  }
+  return out;
+}
+const zoneByRank = r => r <= 4 ? 'ucl' : r === 5 ? 'uel' : r === 6 ? 'uecl' : r >= 18 ? 'rel' : '';
+
+/* ---------- 3. API-Football connection ----------
+   Each request uses 1 of the free plan's 100 daily requests,
+   so answers are saved in the browser and reused for a while (caching). */
+const API_BASE = 'https://v3.football.api-sports.io';
+const BLOCKED_MSG = "Couldn't reach the match data. Inside the Claude preview, outside data is blocked, so open the app from its own web address (for example GitHub Pages). If you're already doing that, check your internet connection and the server address or key in Setup.";
+
+// ttl = how many seconds a saved answer can be reused (a number, or a function that looks at the saved answer)
+async function api(path, params = {}, ttl = 600, force = false) {
+  const qs = new URLSearchParams(params).toString();
+  const server = (settings.server || '').trim().replace(/\/+$/, '');
+  const url = `${server || API_BASE}/${path}${qs ? '?' + qs : ''}`;
+  const cacheKey = 'cache:' + url;
+  const saved = store.get(cacheKey, null);
+  const ttlSec = saved ? (typeof ttl === 'function' ? ttl(saved.data) : ttl) : 0;
+  if (!force && saved && Date.now() - saved.t < ttlSec * 1000) { if (path === 'fixtures') state.lastSync = saved.t; return saved.data; }
+  if (!server && !settings.apiKey) throw new AppError('Add your data server address or API-Football key in Setup first, or switch back to demo data.', 'nokey');
+  let res;
+  try { res = await fetch(url, server ? {} : { headers: { 'x-apisports-key': settings.apiKey } }); }
+  catch (e) { if (saved) return saved.data; throw new AppError(BLOCKED_MSG, 'network'); }
+  if (!res.ok) throw new AppError(`${server ? 'Your data server' : 'API-Football'} answered with error ${res.status}. Check the address or key in Setup.`, 'http');
+  const json = await res.json();
+  const errs = json.errors && (Array.isArray(json.errors) ? json.errors : Object.values(json.errors));
+  if (errs && errs.length) throw new AppError('API-Football says: ' + String(errs[0]), 'api');
+  store.set(cacheKey, { t: Date.now(), data: json });
+  if (path === 'fixtures') state.lastSync = Date.now();
+  return json;
+}
+
+/* The live clock: API-Football updates every 15 seconds, so between updates
+   the app keeps the match clock ticking every second by itself. */
+const liveBase = {};
+function noteLive(f) {
+  if (f.source !== 'api' && f.source !== 'real') return;
+  if (f.status !== 'LIVE' && f.status !== 'HT') { delete liveBase[f.id]; return; }
+  const b = liveBase[f.id];
+  if (!b || b.elapsed !== f.elapsed || b.status !== f.status) liveBase[f.id] = { status: f.status, elapsed: f.elapsed, extra: f.extraNow, at: Date.now() };
+  else b.extra = f.extraNow;
+}
+function clockText(id) {
+  const b = liveBase[id];
+  if (!b) return '';
+  if (b.status === 'HT') return 'HT';
+  if (b.elapsed == null) return 'LIVE';
+  if (b.extra) return `${b.elapsed}+${b.extra}'`;
+  const end = b.elapsed <= 45 ? 45 : b.elapsed <= 90 ? 90 : b.elapsed <= 105 ? 105 : 120;
+  const secs = (b.elapsed - 1) * 60 + Math.floor((Date.now() - b.at) / 1000);
+  if (secs >= end * 60) return `${end}+'`;
+  return `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
+}
+const agoText = () => state.lastSync ? `updated ${Math.max(0, Math.round((Date.now() - state.lastSync) / 1000))} s ago` : '';
+
+const normStatus = s => ['NS', 'TBD'].includes(s) ? 'NS' : s === 'HT' ? 'HT'
+  : ['1H', '2H', 'ET', 'BT', 'P', 'LIVE', 'INT', 'SUSP'].includes(s) ? 'LIVE'
+  : ['FT', 'AET', 'PEN'].includes(s) ? 'FT' : 'OFF';
+
+function normFixture(f) {
+  return {
+    id: f.fixture.id, source: 'api', ts: f.fixture.timestamp * 1000,
+    status: normStatus(f.fixture.status.short), short: f.fixture.status.short,
+    elapsed: f.fixture.status.elapsed, extraNow: f.fixture.status.extra ?? null,
+    venue: f.fixture.venue?.name || '', city: f.fixture.venue?.city || '', referee: f.fixture.referee || '',
+    comp: compOf(f.league.id, f.league.name), round: f.league.round || '',
+    home: { id: f.teams.home.id, name: f.teams.home.name }, away: { id: f.teams.away.id, name: f.teams.away.name },
+    goals: { home: f.goals.home, away: f.goals.away },
+    pen: f.score?.penalty?.home != null ? f.score.penalty : null
+  };
+}
+
+const STAT_MAP = { 'Shots insidebox': 'shotsIn', 'Shots outsidebox': 'shotsOut', 'Blocked Shots': 'blocked', 'Ball Possession': 'possession', 'expected_goals': 'xg', 'Total Shots': 'shots', 'Shots on Goal': 'sot', 'Corner Kicks': 'corners', 'Fouls': 'fouls', 'Offsides': 'offsides', 'Yellow Cards': 'yellow', 'Red Cards': 'red', 'Goalkeeper Saves': 'saves', 'Total passes': 'passes', 'Passes %': 'passAcc' };
+function mapStats(list) {
+  const o = {};
+  list.forEach(s => {
+    const k = STAT_MAP[s.type]; if (!k) return;
+    let v = s.value;
+    if (v == null) v = k === 'xg' ? null : 0;
+    else if (typeof v === 'string') v = parseFloat(v);
+    o[k] = Number.isFinite(v) ? v : null;
+  });
+  return o;
+}
+
+// Turns one full API match (events, lineups, stats, ratings) into the app's own shape
+function normDetail(f) {
+  const m = normFixture(f);
+  const sideOf = teamId => teamId === m.home.id ? 'home' : 'away';
+  const pl = p => ({ id: String(p.id ?? p.name), name: p.name || '?', number: p.number, pos: p.pos || 'M', grid: p.grid || null });
+  m.lineups = null;
+  if (f.lineups?.length === 2) {
+    m.lineups = {};
+    f.lineups.forEach(l => { m.lineups[sideOf(l.team.id)] = { formation: l.formation || '', xi: (l.startXI || []).map(x => pl(x.player)), bench: (l.substitutes || []).map(x => pl(x.player)) }; });
+    if (!m.lineups.home || !m.lineups.away || !m.lineups.home.xi.length) m.lineups = null;
+  }
+  const ids = new Set(), byName = { home: {}, away: {} };
+  if (m.lineups) for (const s of ['home', 'away']) [...m.lineups[s].xi, ...m.lineups[s].bench].forEach(p => { ids.add(p.id); byName[s][p.name] = p.id; });
+  const rid = (side, p) => {
+    if (!p || (p.id == null && !p.name)) return null;
+    const sid = p.id != null ? String(p.id) : null;
+    if (sid && ids.has(sid)) return sid;
+    if (p.name && byName[side][p.name]) return byName[side][p.name];
+    return sid ?? p.name;
+  };
+  // To tell who came off in a substitution, we track who is on the pitch
+  const onPitch = { home: new Set(m.lineups ? m.lineups.home.xi.map(p => p.id) : []), away: new Set(m.lineups ? m.lineups.away.xi.map(p => p.id) : []) };
+  const raw = (f.events || []).filter(e => !/shootout/i.test(e.comments || ''))
+    .sort((a, b) => (a.time.elapsed - b.time.elapsed) || ((a.time.extra || 0) - (b.time.extra || 0)));
+  m.events = [];
+  for (const e of raw) {
+    const side = sideOf(e.team?.id);
+    const base = { min: e.time.elapsed ?? 0, extra: e.time.extra || 0, side, player: rid(side, e.player), playerName: e.player?.name || null, assist: rid(side, e.assist), assistName: e.assist?.name || null };
+    const type = String(e.type || '').toLowerCase(), det = String(e.detail || '');
+    if (type === 'goal') {
+      if (/missed/i.test(det)) m.events.push({ ...base, type: 'pen_miss', assist: null });
+      else if (/own/i.test(det)) m.events.push({ ...base, type: 'own', assist: null });
+      else if (/penalty/i.test(det)) m.events.push({ ...base, type: 'pen', assist: null });
+      else m.events.push({ ...base, type: 'goal' });
+    } else if (type === 'card') {
+      m.events.push({ ...base, type: /red|second/i.test(det) ? 'red' : 'yellow', assist: null, text: /second/i.test(det) ? 'Second yellow card' : null });
+    } else if (type === 'subst') {
+      const a = base.player, b = base.assist;
+      let out = a, inn = b;
+      if (!onPitch[side].has(a) && onPitch[side].has(b)) { out = b; inn = a; }
+      onPitch[side].delete(out); if (inn != null) onPitch[side].add(inn);
+      m.events.push({ ...base, type: 'sub', player: null, assist: null, in: inn, out, inName: inn === a ? base.playerName : base.assistName, outName: out === a ? base.playerName : base.assistName });
+    } else if (type === 'var') {
+      m.events.push({ ...base, type: 'var', assist: null, text: det });
+    }
+  }
+  // Official ratings and each player's full match stats
+  m.official = {}; m.pstats = {};
+  (f.players || []).forEach(t => (t.players || []).forEach(pp => {
+    const st = pp.statistics?.[0]; if (!st) return;
+    const id = rid(sideOf(t.team.id), pp.player);
+    const r = parseFloat(st.games?.rating);
+    if (Number.isFinite(r)) m.official[id] = r;
+    m.pstats[id] = {
+      minutes: st.games?.minutes ?? 0, shots: st.shots?.total ?? 0, sot: st.shots?.on ?? 0,
+      saves: st.goals?.saves ?? null, passes: st.passes?.total ?? 0, keyPasses: st.passes?.key ?? 0, accurate: parseInt(st.passes?.accuracy, 10) || 0,
+      tackles: st.tackles?.total ?? 0, blocks: st.tackles?.blocks ?? 0, interceptions: st.tackles?.interceptions ?? 0,
+      duels: st.duels?.total ?? 0, duelsWon: st.duels?.won ?? 0, dribbles: st.dribbles?.attempts ?? 0, dribblesWon: st.dribbles?.success ?? 0,
+      dribbledPast: st.dribbles?.past ?? 0, fouls: st.fouls?.committed ?? 0, fouled: st.fouls?.drawn ?? 0, offsides: st.offsides ?? 0
+    };
+  }));
+  m.stats = null;
+  if (f.statistics?.length === 2) {
+    m.stats = {};
+    f.statistics.forEach(s => { m.stats[sideOf(s.team.id)] = mapStats(s.statistics || []); });
+    if (!m.stats.home || !m.stats.away) m.stats = null;
+  }
+  return m;
+}
+
+/* ---------- 3b. Built-in real data ----------
+   Real Barça fixtures, results, the La Liga table and match stats are saved inside the app.
+   When the app is opened inside Claude, it also asks Claude's sports data for fresh
+   numbers every 30 seconds, so scores update on their own there. */
+const SR_SERVER = 'widgets', SR_TOOL = 'fetch_sports_data';
+const SNAP = (() => { try { return JSON.parse(document.getElementById('snapshot').textContent); } catch (e) { return null; } })();
+const SR = {
+  raw: { la_liga: SNAP?.la_liga || null, champions_league: SNAP?.champions_league || null, standings: SNAP?.standings || null },
+  games: { ...(SNAP?.games || {}) },
+  at: SNAP ? Date.parse(SNAP.at) : 0,
+  live: false, mcp: null, watches: {}, timer: null,
+  async connect() {
+    if (this.mcp !== null) return;
+    this.mcp = false;
+    if (!window.claude?.use) return; // not inside Claude: use the saved data
+    let ns = null;
+    try { ns = await window.claude.use('mcp'); } catch (e) { ns = null; }
+    if (!ns) return;
+    this.mcp = ns;
+    this.watch('la_liga', { data_type: 'scores', league: 'la_liga', team: 'Barcelona' });
+    this.watch('champions_league', { data_type: 'scores', league: 'champions_league', team: 'Barcelona' });
+    this.watch('standings', { data_type: 'standings', league: 'la_liga' });
+  },
+  watch(key, input, gameId) {
+    if (!this.mcp || this.watches[key]) return;
+    this.watches[key] = this.mcp.watchTool(SR_SERVER, SR_TOOL, input, ev => {
+      if (ev.type === 'data') {
+        const p = ev.result && ev.result.payload;
+        if (!p || typeof p !== 'object') return;
+        if (gameId) this.games[gameId] = p; else this.raw[key] = p;
+        this.at = ev.result.cache?.storedAt || Date.now();
+        this.live = true;
+        this.changed();
+      } else if (['needs_reauth', 'server_not_connected', 'blocked_by_policy', 'approval_required', 'not_in_manifest', 'not_granted', 'capability_disabled'].includes(ev.error?.code)) {
+        // Live updates aren't allowed here, so go back to the saved data
+        if (!gameId && SNAP) this.raw[key] = SNAP[key];
+        this.live = false; this.changed();
+      } // other errors are temporary: keep showing the last good data
+    }, { refetchInterval: 30000 });
+  },
+  changed() {
+    clearTimeout(this.timer);
+    this.timer = setTimeout(() => { if (settings.mode !== 'real') return; state.fixtures = null; updateModeChip(); if (route().name !== 'setup') render(); }, 300);
+  },
+  async game(f) {
+    if (f.status === 'LIVE' || f.status === 'HT') this.watch('g:' + f.srid, { data_type: 'game_stats', league: f.league, game_id: f.srid }, f.srid);
+    if (this.games[f.srid] || !this.mcp || f.status === 'NS' || f.status === 'OFF') return this.games[f.srid] || null;
+    try {
+      const r = await this.mcp.callTool(SR_SERVER, SR_TOOL, { data_type: 'game_stats', league: f.league, game_id: f.srid }, { cache: { staleTime: 86400000, gcTime: 86400000 } });
+      if (r && r.payload && typeof r.payload === 'object') this.games[f.srid] = r.payload;
+    } catch (e) { /* carry on without details */ }
+    return this.games[f.srid] || null;
+  }
+};
+const SR_NAMES = { 'FC Barcelona': 'Barcelona', 'Real Sociedad San Sebastian': 'Real Sociedad', 'Real Betis Seville': 'Real Betis', 'Espanyol Barcelona': 'Espanyol', 'RC Deportivo de A Coruna': 'Deportivo', 'RC Celta de Vigo': 'Celta Vigo', 'Galatasaray Istanbul': 'Galatasaray', 'Feyenoord Rotterdam': 'Feyenoord', 'Sabah Masazir': 'Sabah', 'Athletic Bilbao': 'Athletic Club', 'Deportivo Alaves': 'Alavés', 'Atletico Madrid': 'Atlético Madrid', 'CA Osasuna': 'Osasuna', 'Sevilla FC': 'Sevilla', 'Getafe CF': 'Getafe', 'Villarreal CF': 'Villarreal', 'Elche CF': 'Elche', 'Levante UD': 'Levante', 'Valencia CF': 'Valencia', 'Malaga CF': 'Málaga' };
+const srTeam = (abbr, t) => t.name === 'FC Barcelona' ? { ...BARCA } : { id: 'sr-' + (t.abbreviation || abbr), name: SR_NAMES[t.name] || t.name || '?', abbr: t.abbreviation || abbr };
+const srId = id => 'sr' + String(id).replace(/\D/g, '');
+function srStatus(st) {
+  const x = String(st || '').toLowerCase();
+  if (['final', 'closed', 'ended', 'complete', 'completed'].includes(x)) return 'FT';
+  if (['scheduled', 'not_started', 'created'].includes(x)) return 'NS';
+  if (['postponed', 'cancelled', 'canceled', 'abandoned', 'delayed', 'suspended'].includes(x)) return 'OFF';
+  if (['halftime', 'half_time', 'pause', 'break'].includes(x)) return 'HT';
+  return 'LIVE';
+}
+function srFixtures() {
+  const out = [];
+  [['la_liga', COMPS[140]], ['champions_league', COMPS[2]]].forEach(([key, comp]) => {
+    (SR.raw[key]?.games || []).forEach(g => {
+      const H = g.teams?.[g.home], A = g.teams?.[g.away];
+      if (!H || !A || (H.name !== 'FC Barcelona' && A.name !== 'FC Barcelona')) return; // only Barça matches
+      const status = srStatus(g.status);
+      const minute = parseInt(g.clock ?? g.minute ?? g.match_time ?? g.elapsed, 10);
+      out.push({ id: srId(g.id), srid: g.id, league: key, source: 'real', ts: Date.parse(g.start_time), status, short: status === 'OFF' ? String(g.status) : status,
+        elapsed: Number.isFinite(minute) ? minute : null, extraNow: null, venue: '', city: '', referee: '', comp, round: '',
+        home: srTeam(g.home, H), away: srTeam(g.away, A),
+        goals: status === 'NS' ? { home: null, away: null } : { home: g.score?.[g.home] ?? 0, away: g.score?.[g.away] ?? 0 },
+        prob: g.win_probability ? { home: g.win_probability[g.home], away: g.win_probability[g.away], draw: g.win_probability.draw } : null });
+    });
+  });
+  return out.sort((a, b) => a.ts - b.ts);
+}
+function srTable() {
+  const rows = (SR.raw.standings?.standings || []).map(r => {
+    const w = r.wins ?? 0, d = r.draws ?? 0, l = r.losses ?? 0;
+    return { rank: r.rank, team: srTeam(r.team?.abbreviation, r.team || {}), p: w + d + l, w, d, l, gd: null, pts: r.points ?? w * 3 + d, zone: zoneByRank(r.rank), form: '' };
+  });
+  return { title: `La Liga ${seasonLabel(2026)}`, rows, live: false, note: '' };
+}
+function srPlayer(text) {
+  const mt = String(text).match(/^(.*?)\s*\(([^)]*)\)\s*$/);
+  let name = (mt ? mt[1] : String(text)).trim();
+  const pos = (mt ? mt[2] : '').toLowerCase();
+  if (name.includes(',')) { const [last, first] = name.split(',').map(x => x.trim()); name = first ? `${first} ${last}` : last; }
+  return { name, pos: pos.startsWith('goal') ? 'G' : pos.startsWith('def') ? 'D' : pos.startsWith('for') ? 'F' : 'M' };
+}
+const srStats = t => ({ possession: t.ball_possession ?? null, shots: t.shots_total ?? null, sot: t.shots_on_target ?? null, shotsOff: t.shots_off_target ?? null, blocked: t.shots_blocked ?? null, corners: t.corner_kicks ?? null, fouls: t.fouls ?? null, offsides: t.offsides ?? null, yellow: t.yellow_cards ?? null, red: (t.red_cards ?? 0) + (t.yellow_red_cards ?? 0), saves: t.shots_saved ?? null, freeKicks: t.free_kicks ?? null, throwIns: t.throw_ins ?? null });
+function srMatch(f, raw) {
+  const m = { ...f, events: [], lineups: null, stats: null, official: null, pstats: null, squads: null };
+  if (!raw) return m;
+  const H = raw.team_stats?.[raw.home], A = raw.team_stats?.[raw.away];
+  if (H && A) m.stats = { home: srStats(H), away: srStats(A) };
+  let ph = 0, pa = 0;
+  (raw.key_events || []).forEach(e => {
+    const t = Number(e.time) || 0, min = t > 90 ? 90 : t, extra = t > 90 ? t - 90 : 0;
+    const side = e.team === 'away' ? 'away' : 'home';
+    const base = { min, extra, side, player: null, playerName: null, assist: null };
+    if (e.type === 'score_change') {
+      let who = side;
+      if (e.home_score != null && e.away_score != null) { who = e.home_score > ph ? 'home' : e.away_score > pa ? 'away' : side; ph = e.home_score; pa = e.away_score; }
+      m.events.push({ ...base, side: who, type: 'goal' });
+    } else if (e.type === 'yellow_card') m.events.push({ ...base, type: 'yellow' });
+    else if (e.type === 'red_card' || e.type === 'yellow_red_card') m.events.push({ ...base, type: 'red', text: e.type === 'yellow_red_card' ? 'Second yellow card' : null });
+    else if (e.type === 'substitution') m.events.push({ ...base, type: 'sub', in: null, out: null });
+  });
+  if (raw.lineups) m.squads = { home: (raw.lineups[raw.home] || []).map(srPlayer), away: (raw.lineups[raw.away] || []).map(srPlayer) };
+  return m;
+}
+function srSquad() {
+  const seen = new Map(); let n = 0;
+  Object.values(SR.games).forEach(g => {
+    const abbr = Object.keys(g.teams || {}).find(k => g.teams[k].name === 'FC Barcelona');
+    if (!abbr || !g.lineups?.[abbr]) return;
+    n++;
+    g.lineups[abbr].forEach(t => {
+      const p = srPlayer(t);
+      const x = seen.get(p.name) || { id: p.name, name: p.name, number: null, pos: p.pos, apps: 0, goals: null, assists: null, rating: null, minutes: null, age: null };
+      x.apps++; seen.set(p.name, x);
+    });
+  });
+  state.squadGames = n;
+  return [...seen.values()].sort((a, b) => b.apps - a.apps || a.name.localeCompare(b.name));
+}
+
+/* ---------- 4. Data layer ----------
+   Screens ask Data for things; Data decides whether to use demo or API data. */
+const state = { fixtures: null, matchTab: 'upcoming', comp: 'all', mcTab: 'timeline', pred: {}, lastTab: 'home', scrubbing: false, cache: {}, sheetPid: null, sheetReturn: null };
+
+const Data = {
+  async fixtures(force = false) {
+    if (settings.mode === 'demo') return (state.fixtures = demoFixtures());
+    if (settings.mode === 'real') { const list = srFixtures(); list.forEach(noteLive); state.lastSync = SR.at; return (state.fixtures = list); }
+    const liveOrSoon = data => (data.response || []).some(f => {
+      const s = normStatus(f.fixture.status.short), dt = f.fixture.timestamp * 1000 - Date.now();
+      return s === 'LIVE' || s === 'HT' || (s === 'NS' && dt < 15 * 60e3 && dt > -3 * 3600e3);
+    });
+    const json = await api('fixtures', { team: BARCA_ID, season: settings.season }, data => liveOrSoon(data) ? settings.refresh : 1800, force);
+    const list = (json.response || []).map(normFixture).sort((a, b) => a.ts - b.ts);
+    list.forEach(noteLive);
+    if (state.fixtures && settings.alerts) announceScoreChanges(state.fixtures, list);
+    return (state.fixtures = list);
+  },
+  async match(id, force = false) {
+    if (settings.mode === 'demo') return demoMatch(id);
+    if (settings.mode === 'real') {
+      const f = srFixtures().find(x => String(x.id) === String(id));
+      if (!f) throw new AppError('This match could not be found.');
+      const m = srMatch(f, await SR.game(f));
+      noteLive(m);
+      return m;
+    }
+    if (Clock.m && String(Clock.m.id) === String(id)) return Clock.m; // keep a running replay
+    const ttl = data => { const s = normStatus(data.response?.[0]?.fixture?.status?.short); return s === 'FT' ? 7 * 86400 : (s === 'LIVE' || s === 'HT') ? settings.refresh : 300; };
+    const json = await api('fixtures', { id }, ttl, force);
+    const f = json.response && json.response[0];
+    if (!f) throw new AppError('This match could not be found.');
+    const m = normDetail(f);
+    noteLive(m);
+    return m;
+  },
+  async standings() {
+    if (settings.mode === 'demo') return demoTable();
+    if (settings.mode === 'real') return srTable();
+    const json = await api('standings', { league: LALIGA_ID, season: settings.season }, 6 * 3600);
+    const list = json.response?.[0]?.league?.standings?.[0] || [];
+    const zone = d => /champions/i.test(d || '') ? 'ucl' : /europa league/i.test(d || '') ? 'uel' : /conference/i.test(d || '') ? 'uecl' : /relegation/i.test(d || '') ? 'rel' : '';
+    const rows = list.map(r => ({ rank: r.rank, team: { id: r.team.id, name: r.team.name }, p: r.all.played, w: r.all.win, d: r.all.draw, l: r.all.lose, gf: r.all.goals.for, ga: r.all.goals.against, gd: r.goalsDiff, pts: r.points, form: r.form || '', zone: zone(r.description) }));
+    return { title: `La Liga ${seasonLabel(settings.season)}`, rows, live: false, note: '' };
+  },
+  async squad() {
+    if (settings.mode === 'real') return srSquad();
+    if (settings.mode === 'demo') {
+      return DEMO_SQUAD.map(([number, name, pos, apps, goals, assists, rating]) => ({ id: name, name, number, pos, apps, goals, assists, rating, minutes: null, age: null }));
+    }
+    let page = 1, total = 1, all = [];
+    do {
+      const json = await api('players', { team: BARCA_ID, season: settings.season, page }, 86400);
+      all = all.concat(json.response || []); total = json.paging?.total || 1; page++;
+    } while (page <= total && page <= 4);
+    const posMap = { Goalkeeper: 'G', Defender: 'D', Midfielder: 'M', Attacker: 'F' };
+    return all.map(p => {
+      const st = (p.statistics || []).filter(s => s.team?.id === BARCA_ID);
+      const sum = f => st.reduce((n, s) => n + (f(s) || 0), 0);
+      const apps = sum(s => s.games.appearences);
+      const rated = st.filter(s => s.games.rating && s.games.appearences);
+      const rating = rated.length ? rated.reduce((n, s) => n + parseFloat(s.games.rating) * s.games.appearences, 0) / rated.reduce((n, s) => n + s.games.appearences, 0) : null;
+      return { id: String(p.player.id), name: p.player.name, age: p.player.age, number: st.find(s => s.games.number)?.games.number ?? null, pos: posMap[st[0]?.games.position] || 'M', apps, goals: sum(s => s.goals.total), assists: sum(s => s.goals.assists), minutes: sum(s => s.games.minutes), rating: rating ? Math.round(rating * 10) / 10 : null };
+    });
+  },
+  async h2h(m) {
+    const opp = m[other(barcaSide(m))];
+    if (settings.mode === 'demo') return demoH2H(opp);
+    if (settings.mode === 'real') return srFixtures().filter(f => f.status === 'FT' && (f.home.id === opp.id || f.away.id === opp.id)).sort((a, b) => b.ts - a.ts);
+    const json = await api('fixtures/headtohead', { h2h: `${BARCA_ID}-${opp.id}`, last: 10 }, 86400);
+    return (json.response || []).map(normFixture).filter(f => f.status === 'FT').sort((a, b) => b.ts - a.ts);
+  },
+  async injuries(m) {
+    const json = await api('injuries', { fixture: m.id }, 3600);
+    return (json.response || []).map(x => ({ side: x.team?.id === m.home.id ? 'home' : 'away', name: x.player?.name || '?', type: x.player?.type || '', reason: x.player?.reason || '' }));
+  },
+  async status() {
+    const json = await api('status', {}, 0, true);
+    const r = Array.isArray(json.response) ? json.response[0] : json.response;
+    if (!r || !r.requests) return 'No account details came back.';
+    return `Requests used today: ${r.requests.current} of ${r.requests.limit_day}. Plan: ${r.subscription?.plan || 'unknown'}.`;
+  }
+};
+
+/* ---------- 5. Match engine ----------
+   A match is split into "ticks" (one per minute, plus added time, half-time and full-time).
+   stateAt(match, tick) works out everything at that moment: score, events so far,
+   who is on the pitch, player ratings and stats. Replays just move through the ticks. */
+function buildTicks(m) {
+  const ev = m.events || [];
+  const maxExtra = minute => Math.max(0, ...ev.filter(e => e.min === minute).map(e => e.extra || 0));
+  let s1 = Math.max(m.added?.h1 ?? 2, maxExtra(45));
+  let s2 = Math.max(m.added?.h2 ?? 3, maxExtra(90));
+  if (m.elapsed === 45 && m.extraNow) s1 = Math.max(s1, m.extraNow);
+  if (m.elapsed === 90 && m.extraNow) s2 = Math.max(s2, m.extraNow);
+  const ticks = [];
+  for (let i = 0; i <= 45; i++) ticks.push({ min: i, extra: 0 });
+  for (let i = 1; i <= s1; i++) ticks.push({ min: 45, extra: i });
+  ticks.push({ min: 45, extra: 99, ht: true });
+  for (let i = 46; i <= 90; i++) ticks.push({ min: i, extra: 0 });
+  for (let i = 1; i <= s2; i++) ticks.push({ min: 90, extra: i });
+  if (ev.some(e => e.min > 90) || ['AET', 'PEN', 'ET', 'BT', 'P'].includes(m.short)) {
+    const s3 = Math.max(1, maxExtra(105)), s4 = Math.max(1, maxExtra(120));
+    for (let i = 91; i <= 105; i++) ticks.push({ min: i, extra: 0 });
+    for (let i = 1; i <= s3; i++) ticks.push({ min: 105, extra: i });
+    for (let i = 106; i <= 120; i++) ticks.push({ min: i, extra: 0 });
+    for (let i = 1; i <= s4; i++) ticks.push({ min: 120, extra: i });
+  }
+  ticks.push({ min: 999, extra: 0, ft: true });
+  ticks.forEach(t => { t.key = t.min * 100 + t.extra; });
+  return ticks;
+}
+
+function prep(m) {
+  if (m._prep) return m._prep;
+  const ticks = buildTicks(m);
+  const idx = {};
+  for (const side of ['home', 'away']) {
+    const L = m.lineups?.[side]; if (!L) continue;
+    L.xi.forEach(p => { idx[p.id] = { p, side, starter: true }; });
+    L.bench.forEach(p => { idx[p.id] = { p, side, starter: false }; });
+  }
+  const events = (m.events || []).map((e, i) => ({ ...e, key: e.min * 100 + (e.extra || 0), n: i })).sort((a, b) => a.key - b.key || a.n - b.n);
+  events.forEach(e => {
+    if (e.type === 'goal' || e.type === 'pen') e.scoreSide = e.side;
+    if (e.type === 'own') e.scoreSide = other(e.side);
+  });
+  // Own goals: check against the final score and flip if needed
+  if (m.status === 'FT' && m.goals?.home != null && events.some(e => e.type === 'own')) {
+    const c = { home: 0, away: 0 }; events.forEach(e => { if (e.scoreSide) c[e.scoreSide]++; });
+    if (c.home !== m.goals.home || c.away !== m.goals.away) events.forEach(e => { if (e.type === 'own') e.scoreSide = e.side; });
+  }
+  const playKeys = ticks.filter(t => !t.ht && !t.ft && t.key > 0).map(t => t.key);
+  return (m._prep = { ticks, idx, events, playKeys });
+}
+
+const minutesBetween = (P, fromKey, toKey) => { let n = 0; for (const k of P.playKeys) if (k > fromKey && k <= toKey) n++; return n; };
+const shareAt = (P, key) => P.playKeys.length ? minutesBetween(P, -1, key) / P.playKeys.length : 0;
+
+function stateAt(m, i, opt = {}) {
+  const P = prep(m);
+  i = Math.max(0, Math.min(i, P.ticks.length - 1));
+  const tick = P.ticks[i], k = tick.key;
+  const events = P.events.filter(e => e.key <= k);
+  const score = { home: 0, away: 0 };
+  events.forEach(e => { if (e.scoreSide) score[e.scoreSide]++; });
+  if (opt.actual && m.goals?.home != null) { score.home = m.goals.home; score.away = m.goals.away; }
+
+  // When each player came on and went off
+  const spans = {};
+  for (const id in P.idx) if (P.idx[id].starter) spans[id] = { inKey: 0, outKey: Infinity };
+  for (const e of events) {
+    if (e.type === 'sub') { if (spans[e.out]) spans[e.out].outKey = e.key; if (e.in != null && P.idx[e.in]) spans[e.in] = { inKey: e.key, outKey: Infinity }; }
+    if (e.type === 'red' && spans[e.player]) spans[e.player].outKey = e.key;
+  }
+  const minutes = {}, ratings = {};
+  for (const id in spans) {
+    const s = spans[id];
+    minutes[id] = minutesBetween(P, s.inKey, Math.min(s.outKey, k));
+    const off = opt.official && m.official && m.official[id] != null;
+    ratings[id] = off ? m.official[id] : rateByFormula(P, id, s, minutes[id], events);
+  }
+  const progress = shareAt(P, k);
+  const stats = statsAt(m, i, events, score, progress, opt.actual);
+  return { i, tick, k, events, score, spans, minutes, ratings, stats, progress, isFT: !!tick.ft, isHT: !!tick.ht };
+}
+
+/* Culé Live's own rating formula (used for the demo and for replays).
+   Everyone starts at 6.0 and goes up or down with what happens while they play. */
+function rateByFormula(P, id, span, mins, events) {
+  if (mins < 1) return null;
+  const { side, p } = P.idx[id];
+  const defensive = p.pos === 'G' || p.pos === 'D';
+  const share = Math.min(1, mins / 90);
+  let r = 6.0 + 0.6 * share + (seedOf(id) - 0.5) * 0.6 * share; // playing time + a little "form"
+  let conceded = 0;
+  for (const e of events) {
+    if (e.player === id) {
+      if (e.type === 'goal') r += 1.0;
+      if (e.type === 'pen') r += 0.8;
+      if (e.type === 'own') r -= 1.0;
+      if (e.type === 'yellow') r -= 0.3;
+      if (e.type === 'red') r -= 1.5;
+      if (e.type === 'pen_miss') r -= 0.6;
+    }
+    if (e.assist === id && (e.type === 'goal' || e.type === 'pen')) r += 0.6;
+    if (e.savedBy === id) r += 0.8;
+    if (e.scoreSide && e.key > span.inKey && e.key <= span.outKey) {
+      if (e.scoreSide === side) r += 0.1;
+      else { conceded++; r -= defensive ? 0.25 : 0.1; }
+    }
+  }
+  if (defensive && mins >= 60 && conceded === 0) r += 0.3; // clean sheet bonus
+  return Math.round(Math.max(3, Math.min(10, r)) * 10) / 10;
+}
+
+const STAT_ROWS = [['possession', 'Possession', '%'], ['xg', 'Expected goals (xG)', ''], ['shots', 'Total shots', ''], ['sot', 'Shots on target', ''], ['shotsOff', 'Shots off target', ''], ['shotsIn', 'Shots inside the box', ''], ['shotsOut', 'Shots outside the box', ''], ['blocked', 'Blocked shots', ''], ['corners', 'Corners', ''], ['fouls', 'Fouls', ''], ['offsides', 'Offsides', ''], ['yellow', 'Yellow cards', ''], ['red', 'Red cards', ''], ['saves', 'Goalkeeper saves', ''], ['passes', 'Passes', ''], ['passAcc', 'Pass accuracy', '%'], ['freeKicks', 'Free kicks', ''], ['throwIns', 'Throw-ins', '']];
+
+// Final stats are known; during a replay they grow in step with the clock.
+function statsAt(m, i, events, score, f, actual) {
+  const fin = m.stats;
+  if (!fin || !fin.home || !fin.away) return null;
+  if (actual) return fin;
+  const out = { home: {}, away: {} };
+  for (const side of ['home', 'away']) {
+    const F = fin[side], o = out[side];
+    const grow = key => F[key] == null ? null : Math.round(F[key] * f);
+    ['shots', 'sot', 'shotsIn', 'shotsOut', 'blocked', 'corners', 'fouls', 'offsides', 'passes', 'saves'].forEach(key => { o[key] = grow(key); });
+    o.xg = F.xg == null ? null : Math.round(F.xg * f * 100) / 100;
+    o.passAcc = F.passAcc ?? null;
+    if (o.sot != null) o.sot = Math.max(o.sot, score[side]);
+    if (o.shots != null && o.sot != null) o.shots = Math.max(o.shots, o.sot);
+    o.yellow = events.filter(e => e.side === side && e.type === 'yellow').length;
+    o.red = events.filter(e => e.side === side && e.type === 'red').length;
+    if (o.offsides != null) o.offsides = Math.max(o.offsides, events.filter(e => e.side === side && e.type === 'var' && /offside/i.test(e.text || '')).length);
+  }
+  for (const side of ['home', 'away']) {
+    const opp = other(side);
+    if (out[side].saves != null && out[opp].sot != null) out[side].saves = Math.min(out[side].saves, Math.max(0, out[opp].sot - score[opp]));
+  }
+  if (fin.home.possession != null) {
+    const wobble = (1 - f) * 6 * Math.sin(i * 0.7); // possession moves around early, then settles
+    const h = Math.round(Math.max(30, Math.min(70, fin.home.possession + wobble)));
+    out.home.possession = h; out.away.possession = 100 - h;
+  }
+  return out;
+}
+
+const minuteLabel = t => !t ? '' : t.ft ? 'FT' : t.ht ? 'HT' : t.extra ? `${t.min}+${t.extra}'` : `${t.min}'`;
+const evMinute = e => e.extra ? `${e.min}+${e.extra}'` : `${e.min}'`;
+
+function actualIdx(m) {
+  const T = prep(m).ticks;
+  if (m.status === 'FT') return T.length - 1;
+  if (m.status === 'NS' || m.status === 'OFF') return 0;
+  if (m.status === 'HT') return T.findIndex(t => t.ht);
+  if (m.elapsed == null) { let j = 0; T.forEach((t, x) => { if (!t.ft && !t.ht) j = x; }); return j; } // live but minute unknown: show everything so far
+  const k = (m.elapsed || 0) * 100 + (m.extraNow || 0);
+  let i = 0; T.forEach((t, j) => { if (!t.ft && !t.ht && t.key <= k) i = j; });
+  return i;
+}
+const tickIndexFor = (m, minute) => Math.max(0, prep(m).ticks.findIndex(t => t.key >= minute * 100));
+
+/* ---------- 6. Match clock ----------
+   Moves through a match one tick at a time: the live demo and replays both use it. */
+const Clock = {
+  m: null, mode: null, idx: 0, playing: false, speed: 1, timer: null, memo: null,
+  load(m, mode, idx = 0) { this.stop(); this.m = m; this.mode = mode; this.idx = idx; this.memo = null; },
+  stop() { this.playing = false; clearTimeout(this.timer); },
+  unload() { this.stop(); this.m = null; this.mode = null; },
+  get max() { return prep(this.m).ticks.length - 1; },
+  state() {
+    if (!this.m) return null;
+    if (this.memo && this.memo.i === this.idx && this.memo.m === this.m) return this.memo.st;
+    const st = stateAt(this.m, this.idx);
+    this.memo = { i: this.idx, m: this.m, st };
+    return st;
+  },
+  play() { if (!this.m) return; if (this.idx >= this.max) this.idx = 0; this.playing = true; this.schedule(); },
+  toggle() { if (this.playing) this.stop(); else this.play(); onClockChange([]); },
+  schedule() {
+    clearTimeout(this.timer);
+    if (!this.playing) return;
+    const t = prep(this.m).ticks[this.idx];
+    this.timer = setTimeout(() => this.step(), (t.ht ? 3500 : 1000) / this.speed);
+  },
+  step() {
+    const P = prep(this.m);
+    if (this.idx >= this.max) { this.stop(); onClockChange([]); return; }
+    const before = P.ticks[this.idx].key;
+    this.idx++;
+    const t = P.ticks[this.idx];
+    const fresh = P.events.filter(e => e.key > before && e.key <= t.key);
+    if (settings.alerts) {
+      fresh.forEach(e => alertFor(this.m, e));
+      if (t.ht) toast(`<b>Half-time</b><span>${scoreLine(this.m, this.state().score)}</span>`);
+      if (t.ft) toast(`<b>Full time</b><span>${scoreLine(this.m, this.state().score)}</span>`);
+    }
+    if (t.ft) this.stop();
+    onClockChange(fresh);
+    if (this.playing) this.schedule();
+  },
+  seek(i) { this.idx = Math.max(0, Math.min(i, this.max)); onClockChange([]); if (this.playing) this.schedule(); },
+  setSpeed(s) { this.speed = s; if (this.playing) this.schedule(); onClockChange([]); }
+};
+
+/* ---------- 7. Screens ---------- */
+const barcaSide = f => f.home.id === BARCA_ID ? 'home' : 'away';
+const RES_NAME = { W: 'Win', D: 'Draw', L: 'Loss' };
+function resultOf(f, score) {
+  const s = barcaSide(f), o = other(s);
+  let a = score[s], b = score[o];
+  if (a === b && f.pen && f.pen.home != null) { a = f.pen[s]; b = f.pen[o]; }
+  return a > b ? 'W' : a < b ? 'L' : 'D';
+}
+// What a fixture looks like right now (the demo match follows the clock)
+function fxView(f) {
+  if (f.id === DEMO_LIVE.id && Clock.m === DEMO_LIVE) {
+    const st = Clock.state();
+    return { status: st.isFT ? 'FT' : st.isHT ? 'HT' : 'LIVE', minute: minuteLabel(st.tick), score: st.score };
+  }
+  const minute = f.status === 'HT' ? 'HT' : f.elapsed != null ? `${f.elapsed}${f.extraNow ? '+' + f.extraNow : ''}'` : '';
+  return { status: f.status, minute, score: f.goals };
+}
+const fstat = f => fxView(f).status;
+const isLiveF = f => ['LIVE', 'HT'].includes(fstat(f));
+
+function badge(team, size = '') {
+  const isB = team.id === BARCA_ID;
+  const hue = Math.round(seedOf(team.name) * 360);
+  return `<span class="badge ${size} ${isB ? 'badge-fcb' : ''}" ${isB ? '' : `style="--h:${hue}"`} aria-hidden="true">${esc(team.abbr || shortName(team.name))}</span>`;
+}
+const rtClass = r => r >= 8 ? 'r-elite' : r >= 7 ? 'r-good' : r >= 6 ? 'r-ok' : 'r-poor';
+const rtBadge = (r, cls = '') => `<span class="rt ${rtClass(r)} ${cls}">${r.toFixed(1)}</span>`;
+
+function shortPlayer(name) {
+  const w = String(name || '').trim().split(/\s+/);
+  if (w.length < 2) return w[0] || '';
+  const last = w[w.length - 1], prev = w[w.length - 2];
+  if (/^(júnior|junior|jr\.?)$/i.test(last)) return w[0];
+  if (/^(de|da|do|dos|van|von|der|ter|le|la|di|el)$/i.test(prev)) return prev + ' ' + last;
+  return last;
+}
+const pname = (m, id, fallback) => (id != null && prep(m).idx[id]?.p.name) || fallback || (id != null ? String(id) : '');
+const scoreLine = (m, s) => `${esc(m.home.name)} ${s.home}–${s.away} ${esc(m.away.name)}`;
+const empty = msg => `<div class="empty">${msg}</div>`;
+
+function evText(m, e) {
+  const n = (id, fb) => esc(pname(m, id, fb));
+  switch (e.type) {
+    case 'goal': return e.player != null || e.playerName ? `Goal · ${n(e.player, e.playerName)}${e.assist != null ? ` (${n(e.assist, e.assistName)})` : ''}` : `Goal · ${esc(m[e.side].name)}`;
+    case 'pen': return `Penalty goal · ${n(e.player, e.playerName)}`;
+    case 'own': return `Own goal · ${n(e.player, e.playerName)}`;
+    case 'yellow': return `Yellow card · ${n(e.player, e.playerName) || esc(m[e.side].name)}`;
+    case 'red': return `Red card · ${n(e.player, e.playerName) || esc(m[e.side].name)}`;
+    case 'sub': return e.in == null && !e.inName ? `Substitution · ${esc(m[e.side].name)}` : `${n(e.in, e.inName)} on for ${n(e.out, e.outName)}`;
+    case 'var': return `VAR · ${esc(e.text || 'Check')}`;
+    case 'pen_miss': return `Penalty ${e.savedBy ? 'saved' : 'missed'} · ${n(e.player, e.playerName)}`;
+  }
+  return '';
+}
+const evIcon = e => ({ goal: I.ball, pen: I.ball, own: I.ball, yellow: CARD.yellow, red: CARD.red, sub: I.sub, var: I.var, pen_miss: I.miss })[e.type] || '';
+
+function alertFor(m, e) {
+  const s = Clock.state().score;
+  if (e.scoreSide) {
+    const forBarca = m[e.scoreSide].id === BARCA_ID;
+    toast(`${I.ball}<span><b>${forBarca ? 'Gooool!' : 'Goal'}</b><br>${scoreLine(m, s)} · ${esc(pname(m, e.player, e.playerName) || m[e.scoreSide].name)} ${evMinute(e)}</span>`, 'goal');
+  } else if (e.type === 'red') toast(`${CARD.red}<span>Red card · ${esc(pname(m, e.player, e.playerName))} ${evMinute(e)}</span>`);
+  else if (e.type === 'pen_miss') toast(`${I.miss}<span>${evText(m, e)} ${evMinute(e)}</span>`);
+}
+function announceScoreChanges(oldList, newList) {
+  newList.forEach(f => {
+    const o = oldList.find(x => x.id === f.id);
+    if (!o || o.goals.home == null || f.goals.home == null) return;
+    if (o.goals.home !== f.goals.home || o.goals.away !== f.goals.away) toast(`${I.ball}<span><b>Goal</b><br>${scoreLine(f, f.goals)}</span>`, 'goal');
+  });
+}
+let toastTimer;
+function toast(html, kind = '') {
+  const t = $('#toast');
+  t.innerHTML = html; t.className = 'toast ' + kind; t.hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 3800);
+}
+
+/* --- Home --- */
+function ctrlHTML() {
+  return `<div class="ctl-row">
+    <button class="ctl" data-act="clock-toggle" aria-label="${Clock.playing ? 'Pause' : 'Play'}">${Clock.playing ? I.pause : I.play}</button>
+    <div class="speed" role="group" aria-label="Speed">${[1, 3, 10].map(s => `<button data-act="speed" data-speed="${s}" aria-pressed="${Clock.speed === s}">${s}×</button>`).join('')}</div>
+    <button class="ctl" data-act="clock-restart" aria-label="Restart from kick-off">${I.restart}</button>
+  </div>`;
+}
+function barHTML(m, st) {
+  const P = prep(m);
+  const htPos = shareAt(P, 4599) * 100;
+  const marks = st.events.filter(e => e.scoreSide || e.type === 'yellow' || e.type === 'red').map(e => {
+    const cls = e.scoreSide ? '' : e.type === 'yellow' ? 'y' : 'r';
+    return `<span class="bar-mark ${cls}" style="left:${(shareAt(P, e.key) * 100).toFixed(1)}%"></span>`;
+  }).join('');
+  return `<div class="bar" aria-hidden="true"><span class="bar-fill" style="width:${(st.progress * 100).toFixed(1)}%"></span><span class="bar-ht" style="left:${htPos.toFixed(1)}%"></span>${marks}</div>`;
+}
+function lcDynHTML(m, st, mode, flash = false) {
+  const live = !st.isFT;
+  const pill = st.isFT ? 'Full time' : st.isHT ? 'Half-time' : mode === 'api' ? fxView(m).minute : minuteLabel(st.tick);
+  const pillHTML = mode === 'api' && !st.isFT && !st.isHT ? `<span data-clock="${m.id}">${esc(clockText(m.id) || pill)}</span>` : esc(pill);
+  const last = st.events[st.events.length - 1];
+  return `<div class="live-top"><span>${esc(m.comp.name)}${m.round ? ' · ' + esc(m.round) : ''}</span>
+      <span class="live-pill">${live && !st.isHT ? '<span class="dot"></span>LIVE ' : ''}${pillHTML}</span></div>
+    <div class="live-score">
+      <div class="lt">${badge(m.home, 'lg')}<span class="nm">${esc(m.home.name)}</span></div>
+      <div class="ls ${flash ? 'flash' : ''}" aria-label="Score ${st.score.home} to ${st.score.away}"><span>${st.score.home}</span><span class="sep">–</span><span>${st.score.away}</span></div>
+      <div class="lt">${badge(m.away, 'lg')}<span class="nm">${esc(m.away.name)}</span></div>
+    </div>
+    <p class="live-last">${last ? `<b>${evMinute(last)}</b>${evIcon(last)}<span class="txt">${evText(m, last)}</span>` : `<span class="txt">Kick-off ${fmtTime(m.ts)} · ${esc(m.venue || '')}</span>`}</p>
+    ${barHTML(m, st)}`;
+}
+function demoLiveCardHTML() {
+  return `<section aria-label="Live match"><article class="livecard" id="live-card">
+      <div id="lc-dyn">${lcDynHTML(DEMO_LIVE, Clock.state(), 'demo')}</div>
+      <div class="live-actions"><a class="btn btn-light" href="#match-${DEMO_LIVE.id}">Match centre</a>${ctrlHTML()}</div>
+    </article><p class="note">Demo match with made-up events, so the app works without an API key. Pause it, speed it up or restart it with the controls.</p></section>`;
+}
+function apiLiveCardHTML(m) {
+  const st = stateAt(m, actualIdx(m), { actual: true, official: true });
+  return `<section aria-label="Live match"><article class="livecard" id="live-card">
+      <div id="lc-dyn">${lcDynHTML(m, st, 'api')}</div>
+      <div class="live-actions"><a class="btn btn-light" href="#match-${m.id}">Match centre</a><span class="live-note">New data every ${settings.mode === 'real' ? 30 : settings.refresh} s · <span data-ago>${agoText()}</span></span></div>
+    </article></section>`;
+}
+function stepper(id, k, code, value, label) {
+  return `<span class="stepper"><span class="st-team">${esc(code)}</span>
+    <button class="step" data-act="pred" data-id="${id}" data-k="${k}" data-d="-1" aria-label="${esc(label)}: one less">−</button>
+    <output id="pred-${id}-${k}" aria-label="${esc(label)}">${value}</output>
+    <button class="step" data-act="pred" data-id="${id}" data-k="${k}" data-d="1" aria-label="${esc(label)}: one more">+</button></span>`;
+}
+function probHTML(f) {
+  const bs = barcaSide(f), os = other(bs), b = f.prob[bs], d = f.prob.draw, o = f.prob[os];
+  if (b == null || d == null || o == null) return '';
+  return `<div class="prob"><span class="pred-label">Who will win</span>
+    <div class="prob-bar" aria-hidden="true"><i class="fill-fcb" style="width:${b}%"></i><i class="d" style="width:${d}%"></i><i class="fill-opp" style="width:${o}%"></i></div>
+    <div class="prob-legend"><span>Barça ${Math.round(b)}%</span><span>Draw ${Math.round(d)}%</span><span>${esc(f[os].name)} ${Math.round(o)}%</span></div></div>`;
+}
+function realNoteHTML() {
+  return `<p class="note real-note">${SR.live ? '<span class="live-dot"></span> Real data, refreshing every 30 seconds.' : `Real data saved ${fmtDay(SR.at)} at ${fmtTime(SR.at)}. For live scores during matches, connect API-Football in Setup.`}</p>`;
+}
+function nextCardHTML(f) {
+  const opp = f[other(barcaSide(f))];
+  const saved = store.get('pred:' + f.id, null);
+  const d = state.pred[f.id] || (state.pred[f.id] = saved ? { ...saved } : { b: 2, o: 1 });
+  return `<section aria-labelledby="next-h">
+    <div class="sec-head"><h2 class="sec-title" id="next-h">Next match</h2><a class="sec-link" href="#match-${f.id}">Details</a></div>
+    <article class="card next">
+      <div class="next-meta"><span class="tag ${compClass(f.comp)}">${esc(f.comp.short)}</span><span>${esc(f.comp.name)} · ${fmtDay(f.ts)} · ${fmtTime(f.ts)}</span></div>
+      <div class="next-teams">
+        <div class="nt">${badge(f.home)}<span class="nm">${esc(f.home.name)}</span></div>
+        <div class="next-count"><small>Kick-off in</small><strong data-count="${f.ts}">${countdown(f.ts)}</strong></div>
+        <div class="nt">${badge(f.away)}<span class="nm">${esc(f.away.name)}</span></div>
+      </div>
+      ${f.prob ? probHTML(f) : ''}
+      <div class="pred">
+        <span class="pred-label">Your prediction</span>
+        <div class="pred-row">
+          ${stepper(f.id, 'b', 'BAR', d.b, 'Barça goals')}<span class="pred-dash">–</span>${stepper(f.id, 'o', opp.abbr || shortName(opp.name), d.o, opp.name + ' goals')}
+          <button class="btn btn-primary btn-sm" data-act="pred-save" data-id="${f.id}">Save</button>
+        </div>
+        <p class="help" id="pred-note-${f.id}">${saved ? `Saved: Barça ${saved.b}–${saved.o} ${esc(opp.name)}` : 'Exact score earns 3 points, the right result earns 1.'}</p>
+      </div>
+    </article></section>`;
+}
+function formHTML(results) {
+  const last5 = results.slice(0, 5).reverse();
+  const f = results[0], v = fxView(f), bs = barcaSide(f), opp = f[other(bs)];
+  return `<section aria-labelledby="form-h">
+    <div class="sec-head"><h2 class="sec-title" id="form-h">Form · last ${last5.length}</h2><a class="sec-link" href="#matches" data-act="go-results">Results</a></div>
+    <div class="form">${last5.map(x => { const r = resultOf(x, fxView(x).score); const o = x[other(barcaSide(x))]; return `<a class="fchip ${r}" href="#match-${x.id}" title="${RES_NAME[r]} against ${esc(o.name)}" aria-label="${RES_NAME[r]} against ${esc(o.name)}">${r}</a>`; }).join('')}</div>
+    <a class="card latest" href="#match-${f.id}">${badge(opp, 'sm')}<span><b>${bs === 'home' ? 'vs' : 'at'} ${esc(opp.name)}</b><br><span class="meta">${esc(f.comp.name)} · ${fmtDay(f.ts)}</span></span><span class="sc">${v.score[bs]}–${v.score[other(bs)]}</span></a>
+  </section>`;
+}
+function tableRowHTML(r, mini) {
+  const me = r.team.id === BARCA_ID;
+  const gd = r.gd == null ? '–' : r.gd > 0 ? '+' + r.gd : r.gd;
+  const cells = mini ? [r.p, gd] : [r.p, r.w, r.d, r.l, gd];
+  return `<tr class="${me ? 'me' : ''} ${r.zone ? 'z-' + r.zone : ''}"><td class="rank">${r.rank}</td><td class="club"><span class="club-in">${badge(r.team, 'sm')}<span class="cn">${esc(r.team.name)}${r.liveNow ? '<span class="live-dot" title="Playing now"></span>' : ''}</span></span></td>${cells.map(c => `<td>${c}</td>`).join('')}${mini ? '' : `<td class="form-col">${formChips(r.form)}</td>`}<td class="pts">${r.pts}</td></tr>`;
+}
+const formChips = f => f ? `<span class="fm" aria-label="Form ${esc(f)}">${String(f).slice(-5).split('').map(c => `<i class="${/[WDL]/.test(c) ? c : 'D'}">${esc(c)}</i>`).join('')}</span>` : '';
+function tableSnapHTML(t) {
+  const rows = t.rows, i = rows.findIndex(r => r.team.id === BARCA_ID);
+  if (i < 0) return `<p class="help">Barça isn't in this table.</p>`;
+  const start = Math.max(0, Math.min(i - 1, rows.length - 4));
+  return `<div class="tbl-wrap"><table class="tbl"><thead><tr><th class="rank">#</th><th class="club">Club</th><th>P</th><th>GD</th><th>Pts</th></tr></thead><tbody>${rows.slice(start, start + 4).map(r => tableRowHTML(r, true)).join('')}</tbody></table></div>`;
+}
+async function tableSnapSection() {
+  let inner;
+  try { inner = tableSnapHTML(await Data.standings()); }
+  catch (e) { inner = `<p class="help">${esc(e.message || 'The table is unavailable right now.')}</p>`; }
+  return `<section aria-labelledby="tbl-h"><div class="sec-head"><h2 class="sec-title" id="tbl-h">La Liga table</h2><a class="sec-link" href="#table">Full table</a></div><div id="table-snap">${inner}</div></section>`;
+}
+async function viewHome() {
+  const list = await Data.fixtures();
+  const isDemo = settings.mode === 'demo';
+  let html = settings.mode === 'real' ? realNoteHTML() : '';
+  if (isDemo && Clock.m === DEMO_LIVE) html += demoLiveCardHTML();
+  else if (!isDemo) {
+    const live = list.find(isLiveF);
+    if (live) html += apiLiveCardHTML(await Data.match(live.id));
+  }
+  const next = list.filter(f => fstat(f) === 'NS' && f.ts > Date.now() - 2 * 3600e3).sort((a, b) => a.ts - b.ts)[0];
+  const results = list.filter(f => fstat(f) === 'FT' && f.id !== DEMO_LIVE.id).sort((a, b) => b.ts - a.ts);
+  if (next) html += nextCardHTML(next);
+  else if (!isDemo) html += empty(`No upcoming matches in the ${seasonLabel(settings.season)} data. Open any result and press <b>Replay</b> to watch it back minute by minute.`);
+  if (results.length) html += formHTML(results);
+  html += await tableSnapSection();
+  return html;
+}
+
+/* --- Matches --- */
+function fxRowHTML(f) {
+  const v = fxView(f), bs = barcaSide(f), os = other(bs), opp = f[os];
+  const live = v.status === 'LIVE' || v.status === 'HT';
+  let end;
+  if (v.status === 'FT') {
+    const r = resultOf(f, v.score);
+    end = `<b class="fx-score">${v.score[bs]}–${v.score[os]}</b><span class="res ${r}" aria-label="${RES_NAME[r]}">${r}</span>`;
+  } else if (live) end = `<span class="pill live sm"><span class="dot"></span>${(f.source === 'api' || f.source === 'real') && v.status === 'LIVE' ? `<span data-clock="${f.id}">${esc(clockText(f.id) || v.minute)}</span>` : esc(v.minute)}</span><b class="fx-score">${v.score[bs]}–${v.score[os]}</b>`;
+  else if (v.status === 'OFF') end = `<span class="pill sm">${esc(f.short)}</span>`;
+  else end = `<b class="fx-time">${fmtTime(f.ts)}</b>`;
+  const pred = store.get('pred:' + f.id, null);
+  let predTxt = '';
+  if (pred && v.status === 'FT') {
+    const exact = pred.b === v.score[bs] && pred.o === v.score[os];
+    const same = Math.sign(pred.b - pred.o) === Math.sign(v.score[bs] - v.score[os]);
+    predTxt = `<span class="predpts">· You said ${pred.b}–${pred.o}: +${exact ? 3 : same ? 1 : 0}</span>`;
+  } else if (pred) predTxt = `<span class="predpts">· You said ${pred.b}–${pred.o}</span>`;
+  return `<a class="fx ${live ? 'is-live' : ''}" href="#match-${f.id}" ${f.id === DEMO_LIVE.id ? 'id="live-row"' : ''}>
+    <span class="fx-date"><b>${new Date(f.ts).getDate()}</b><small>${new Date(f.ts).toLocaleDateString(LOCALE, { weekday: 'short' })}</small></span>
+    <span class="fx-mid"><span class="fx-comp"><span class="tag ${compClass(f.comp)}">${esc(f.comp.short)}</span><span>${esc(f.comp.name)}</span>${predTxt}</span>
+      <span class="fx-opp">${badge(opp, 'sm')}<span>${bs === 'home' ? 'vs' : 'at'} ${esc(opp.name)}</span></span></span>
+    <span class="fx-end">${end}</span></a>`;
+}
+async function viewMatches() {
+  const list = await Data.fixtures();
+  const comps = [...new Map(list.map(f => [String(f.comp.id), f.comp])).values()];
+  const pass = f => state.comp === 'all' || String(f.comp.id) === state.comp;
+  const liveNow = list.filter(f => isLiveF(f) && pass(f));
+  const items = state.matchTab === 'upcoming'
+    ? list.filter(f => ['NS', 'OFF'].includes(fstat(f)) && pass(f)).sort((a, b) => a.ts - b.ts)
+    : list.filter(f => fstat(f) === 'FT' && pass(f)).sort((a, b) => b.ts - a.ts);
+  const groups = [];
+  items.forEach(f => { const label = fmtMonth(f.ts); const g = groups[groups.length - 1]; if (g && g.label === label) g.items.push(f); else groups.push({ label, items: [f] }); });
+  return `<div><h1 class="page-title">Matches</h1><p class="page-sub">${settings.mode === 'demo' ? 'Demo fixtures' : settings.mode === 'real' ? 'Season 2026–27 · La Liga and Champions League' : 'Season ' + seasonLabel(settings.season)}</p></div>
+    <div class="seg" role="tablist" aria-label="Show">
+      <button role="tab" data-act="mtab" data-tab="upcoming" aria-selected="${state.matchTab === 'upcoming'}">Upcoming</button>
+      <button role="tab" data-act="mtab" data-tab="results" aria-selected="${state.matchTab === 'results'}">Results</button>
+    </div>
+    <div class="chips" role="group" aria-label="Competition">
+      <button class="chip" data-act="comp" data-comp="all" aria-pressed="${state.comp === 'all'}">All</button>
+      ${comps.map(c => `<button class="chip" data-act="comp" data-comp="${esc(c.id)}" aria-pressed="${state.comp === String(c.id)}">${esc(c.name)}</button>`).join('')}
+    </div>
+    ${liveNow.length ? `<section><h2 class="month">Live now</h2><div class="fxlist">${liveNow.map(fxRowHTML).join('')}</div></section>` : ''}
+    ${groups.length ? groups.map(g => `<section><h2 class="month">${g.label}</h2><div class="fxlist">${g.items.map(fxRowHTML).join('')}</div></section>`).join('')
+      : empty(state.matchTab === 'upcoming' ? 'No upcoming matches here.' : 'No results here yet.')}`;
+}
+
+/* --- Match centre --- */
+const TABS = [['timeline', 'Events'], ['lineups', 'Lineups'], ['stats', 'Stats'], ['ratings', 'Ratings'], ['h2h', 'H2H']];
+function isClocked(m) { return !!(Clock.m && String(Clock.m.id) === String(m.id)); }
+function mcStateOf(m) { return isClocked(m) ? Clock.state() : stateAt(m, actualIdx(m), { actual: true, official: true }); }
+function statusPill(m, st, clocked) {
+  if (clocked) {
+    if (st.isFT) return '<span class="pill">Full time</span>';
+    if (st.isHT) return '<span class="pill">Half-time</span>';
+    return `<span class="pill live"><span class="dot"></span>${Clock.mode === 'replay' ? 'Replay ' : ''}${minuteLabel(st.tick)}</span>`;
+  }
+  if (m.status === 'NS') return `<span class="pill">In ${countdown(m.ts)}</span>`;
+  if (m.status === 'HT') return '<span class="pill">Half-time</span>';
+  if (m.status === 'LIVE') return `<span class="pill live"><span class="dot"></span><span data-clock="${m.id}">${esc(clockText(m.id) || fxView(m).minute)}</span></span>`;
+  if (m.status === 'FT') return `<span class="pill">${m.short === 'AET' ? 'After extra time' : m.short === 'PEN' ? 'Penalties' : 'Full time'}</span>`;
+  return `<span class="pill">${esc(m.short)}</span>`;
+}
+function scorersHTML(m, st, side) {
+  const goals = st.events.filter(e => e.scoreSide === side);
+  const byName = new Map();
+  goals.forEach(e => {
+    const name = e.player != null || e.playerName ? shortPlayer(pname(m, e.player, e.playerName)) : 'Goal';
+    const tag = e.type === 'pen' ? ' (pen)' : e.type === 'own' ? ' (OG)' : '';
+    byName.set(name, [...(byName.get(name) || []), evMinute(e) + tag]);
+  });
+  return `<ul>${[...byName].map(([n, mins]) => `<li>${esc(n)} ${mins.join(', ')}</li>`).join('')}</ul>`;
+}
+function mcHeadInner(m, st, clocked, flash = false) {
+  const notStarted = !clocked && m.status === 'NS';
+  const hasGoals = st.events.some(e => e.scoreSide);
+  return `<div class="mc-meta"><span class="tag ${compClass(m.comp)}">${esc(m.comp.short)}</span><span>${esc(m.comp.name)}${m.round ? ' · ' + esc(m.round) : ''}</span></div>
+    <div class="mc-score">
+      <div class="mc-team">${badge(m.home, 'lg')}<span class="nm">${esc(m.home.name)}</span></div>
+      <div class="mc-mid">${notStarted ? `<div class="mc-ko">${fmtTime(m.ts)}</div>` : `<div class="mc-num ${flash ? 'flash' : ''}"><span>${st.score.home}</span><span class="sep">–</span><span>${st.score.away}</span></div>`}
+        ${statusPill(m, st, clocked)}${m.pen && !clocked ? `<span class="mc-pens">${m.pen.home}–${m.pen.away} on penalties</span>` : ''}</div>
+      <div class="mc-team">${badge(m.away, 'lg')}<span class="nm">${esc(m.away.name)}</span></div>
+    </div>
+    ${hasGoals ? `<div class="mc-scorers">${scorersHTML(m, st, 'home')}${I.ball}${scorersHTML(m, st, 'away')}</div>` : ''}
+    <p class="mc-sub">${fmtDayLong(m.ts)}${m.venue ? ' · ' + esc(m.venue) + (m.city ? ', ' + esc(m.city) : '') : ''}${m.referee ? ' · Referee: ' + esc(m.referee) : ''}${!clocked && (m.status === 'LIVE' || m.status === 'HT') ? ` · <span data-ago>${agoText()}</span>` : ''}</p>`;
+}
+const ctlLabel = () => `${Clock.mode === 'replay' ? 'Replay' : 'Demo match'} · ${minuteLabel(Clock.state().tick)}`;
+
+function tlRow(m, e, scoreTxt) {
+  const n = (id, fb) => esc(pname(m, id, fb));
+  let main = '', sub = '';
+  switch (e.type) {
+    case 'goal': main = e.player != null || e.playerName ? n(e.player, e.playerName) : `${esc(m[e.side].name)} goal`; sub = e.assist != null ? `Assist: ${n(e.assist, e.assistName)}` : 'Goal'; break;
+    case 'pen': main = n(e.player, e.playerName); sub = 'Penalty goal'; break;
+    case 'own': main = n(e.player, e.playerName); sub = 'Own goal'; break;
+    case 'yellow': main = n(e.player, e.playerName) || esc(m[e.side].name); sub = 'Yellow card'; break;
+    case 'red': main = n(e.player, e.playerName) || esc(m[e.side].name); sub = e.text || 'Red card'; break;
+    case 'sub': if (e.in == null && !e.inName) { main = esc(m[e.side].name); sub = 'Substitution'; } else { main = `On: ${n(e.in, e.inName)}`; sub = `Off: ${n(e.out, e.outName)}`; } break;
+    case 'var': main = 'VAR'; sub = `${esc(e.text || 'Check')}${e.player != null ? ' · ' + n(e.player, e.playerName) : ''}`; break;
+    case 'pen_miss': main = n(e.player, e.playerName); sub = e.savedBy ? `Penalty saved by ${n(e.savedBy)}` : 'Penalty missed'; break;
+  }
+  return `<li class="tl-row ${e.side} ${e.scoreSide ? 'goal' : ''}"><div class="tl-ev">${evIcon(e)}<div class="txt"><b>${main}</b><small>${sub}</small>${scoreTxt ? `<span class="sc">${scoreTxt}</span>` : ''}</div></div><span class="tl-min">${evMinute(e)}</span></li>`;
+}
+function timelineHTML(m, st) {
+  if (!st.events.length && st.k <= 0) return empty(m.status === 'NS' ? `Kick-off is on ${fmtDayLong(m.ts)} at ${fmtTime(m.ts)}. Goals, cards and subs will appear here during the match.` : 'Nothing has happened yet.');
+  let h = 0, a = 0, hh = 0, ha = 0;
+  const after = new Map();
+  st.events.forEach(e => {
+    if (!e.scoreSide) return;
+    e.scoreSide === 'home' ? h++ : a++;
+    if (e.key < 4599) { hh = h; ha = a; }
+    after.set(e, `${h}–${a}`);
+  });
+  const mark = t => `<li class="tl-mark"><span>${t}</span></li>`;
+  const items = [{ key: -1, html: mark('Kick-off') }];
+  if (st.k >= 4599) items.push({ key: 4599.5, html: mark(`Half-time · ${hh}–${ha}`) });
+  if (st.isFT) items.push({ key: 1e9, html: mark(`Full time · ${st.score.home}–${st.score.away}`) });
+  st.events.forEach((e, i) => items.push({ key: e.key + i * 1e-4, html: tlRow(m, e, after.get(e)) }));
+  items.sort((x, y) => y.key - x.key); // newest first, like a live feed
+  return `<ol class="tl">${items.map(x => x.html).join('')}</ol>`;
+}
+
+function withGrid(xi) {
+  const ok = xi.every(p => /^\d+:\d+$/.test(p.grid || ''));
+  if (ok) return xi.map(p => { const [r, c] = p.grid.split(':').map(Number); return { ...p, _r: r, _c: c }; });
+  const order = ['G', 'D', 'M', 'F'], count = {};
+  return xi.map(p => { const r = order.indexOf(p.pos) + 1 || 3; count[r] = (count[r] || 0) + 1; return { ...p, _r: r, _c: count[r] }; });
+}
+function playerIcons(st, id) {
+  let out = '';
+  st.events.forEach(e => {
+    if (e.player === id && (e.type === 'goal' || e.type === 'pen')) out += I.ball;
+    if (e.player === id && e.type === 'yellow') out += CARD.yellow;
+    if (e.player === id && e.type === 'red') out += CARD.red;
+    if (e.type === 'sub' && e.out === id) out += I.down;
+  });
+  return out;
+}
+function sidePlayers(m, st, side) {
+  const xi = withGrid(m.lineups[side].xi);
+  const rows = {};
+  xi.forEach(p => { (rows[p._r] = rows[p._r] || []).push(p); });
+  Object.values(rows).forEach(r => r.sort((a, b) => a._c - b._c));
+  const R = Math.max(...Object.keys(rows).map(Number));
+  const isB = m[side].id === BARCA_ID;
+  return xi.map(p => {
+    const row = rows[p._r], n = row.length, c = row.indexOf(p);
+    const xr = 10 + (c + 0.5) / n * 80;
+    const x = side === 'home' ? 100 - xr : xr;
+    const span = R > 1 ? (p._r - 1) / (R - 1) : 0;
+    const y = side === 'home' ? 89 - span * 33 : 11 + span * 33;
+    const r = st.ratings[p.id], icons = playerIcons(st, p.id);
+    return `<button class="pl ${isB ? 't-fcb' : 't-opp'}" data-act="player" data-pid="${esc(p.id)}" aria-label="${esc(p.name)}${r != null ? ', rating ' + r.toFixed(1) : ''}" style="left:${x.toFixed(1)}%;top:${y.toFixed(1)}%"><span class="pl-dot">${p.number ?? ''}${r != null ? rtBadge(r) : ''}${icons ? `<span class="pl-evs">${icons}</span>` : ''}</span><span class="pl-name">${esc(shortPlayer(p.name))}</span></button>`;
+  }).join('');
+}
+function benchHTML(m, st, side) {
+  const L = m.lineups[side], onAt = {};
+  st.events.forEach(e => { if (e.type === 'sub' && e.side === side && e.in != null) onAt[e.in] = e; });
+  const used = L.bench.filter(p => onAt[p.id]).sort((a, b) => onAt[a.id].key - onAt[b.id].key);
+  const unused = L.bench.filter(p => !onAt[p.id]);
+  return `<div class="bench"><h3>${esc(m[side].name)} bench</h3><ul>${[...used, ...unused].map(p => {
+    const e = onAt[p.id], r = st.ratings[p.id];
+    const inner = `<span class="bn">${p.number ?? ''}</span><span class="bnm">${esc(p.name)}</span><span class="bon">${e ? I.up + evMinute(e) : ''}</span>${r != null ? rtBadge(r) : '<span></span>'}`;
+    return `<li class="${e ? '' : 'unused'}">${e ? `<button class="brow" data-act="player" data-pid="${esc(p.id)}">${inner}</button>` : `<div class="brow">${inner}</div>`}</li>`;
+  }).join('')}</ul></div>`;
+}
+function teamAvg(m, st, side) {
+  const P = prep(m);
+  const v = Object.keys(st.ratings).filter(id => P.idx[id]?.side === side && st.ratings[id] != null).map(id => st.ratings[id]);
+  return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
+}
+const avgBadge = a => a == null ? '' : `<span class="rt ${rtClass(a)}" title="Team average rating">${a.toFixed(2)}</span>`;
+
+// Extra data (head-to-head, injuries) is loaded once, then the open tab is redrawn
+function loadInto(key, fn) {
+  state.cache[key] = 'loading';
+  Promise.resolve().then(fn)
+    .then(d => { state.cache[key] = { data: d }; })
+    .catch(e => { state.cache[key] = { error: e instanceof AppError ? e.message : 'This could not be loaded.' }; })
+    .finally(() => setTimeout(refreshPanel, 0));
+}
+function refreshPanel() {
+  const r = route(); if (r.name !== 'match') return;
+  Data.match(r.id).then(m => { const p = $('#mc-panel'); if (p) p.innerHTML = panelHTML(m, mcStateOf(m), isClocked(m)); }).catch(() => {});
+}
+function injuriesHTML(m) {
+  if (m.source !== 'api') return '<p class="help demo-note">Injury and suspension news comes with API-Football (see Setup).</p>';
+  const key = 'inj:' + m.id, v = state.cache[key];
+  if (!v) { loadInto(key, () => Data.injuries(m)); return ''; }
+  if (v === 'loading' || v.error || !v.data.length) return '';
+  const list = side => v.data.filter(x => x.side === side);
+  return `<section class="inj"><h2 class="sec-title">Injuries and suspensions</h2><div class="bench-wrap">${['home', 'away'].filter(sd => list(sd).length).map(sd => `<div class="bench"><h3>${esc(m[sd].name)}</h3><ul class="injlist">${list(sd).map(x => `<li><span><b>${esc(x.name)}</b><small>${esc(x.reason)}</small></span><span class="pill sm">${/questionable/i.test(x.type) ? 'Doubtful' : 'Out'}</span></li>`).join('')}</ul></div>`).join('')}</div></section>`;
+}
+function squadsHTML(m) {
+  const posName = { G: 'GK', D: 'DEF', M: 'MID', F: 'FWD' };
+  return `<p class="help">Players who played in this match. Pitch positions, ratings and player stats come with API-Football (see Setup).</p>
+    <div class="bench-wrap">${['home', 'away'].map(sd => `<div class="bench"><h3>${esc(m[sd].name)}</h3><ul>${(m.squads[sd] || []).map(p => `<li><div class="brow sq2"><span class="bn">${posName[p.pos]}</span><span class="bnm">${esc(p.name)}</span></div></li>`).join('')}</ul></div>`).join('')}</div>`;
+}
+function lineupsHTML(m, st) {
+  if (!m.lineups && m.squads) return squadsHTML(m);
+  if (!m.lineups && m.source === 'real') return empty(m.status === 'NS' ? 'Lineups are usually announced about an hour before kick-off.' : "This match's lineups aren't in the saved data. The app saves the last five matches.");
+  if (!m.lineups) return empty(m.status === 'NS' ? 'Lineups are usually announced about an hour before kick-off.' : settings.mode === 'demo' ? 'In demo mode only the live Clásico has full lineups. Real matches get them from API-Football.' : "Lineups aren't available for this match.");
+  return `<div class="lu-head"><span>${badge(m.home, 'sm')}${esc(m.lineups.home.formation)}${avgBadge(teamAvg(m, st, 'home'))}</span><span>${avgBadge(teamAvg(m, st, 'away'))}${esc(m.lineups.away.formation)}${badge(m.away, 'sm')}</span></div>
+    <div class="pitch" role="group" aria-label="Starting lineups on the pitch">
+      <span class="ln outline"></span><span class="ln half"></span><span class="ln circle"></span>
+      <span class="ln box top"></span><span class="ln box bottom"></span><span class="ln six top"></span><span class="ln six bottom"></span>
+      <span class="pitch-label top">${esc(m.away.name)}</span>
+      <span class="pitch-label bottom">${esc(m.home.name)}</span>
+      ${sidePlayers(m, st, 'away')}${sidePlayers(m, st, 'home')}
+    </div>
+    <p class="help tap-hint">Tap any player to see their match stats.</p>
+    <div class="bench-wrap">${benchHTML(m, st, 'home')}${benchHTML(m, st, 'away')}</div>
+    ${injuriesHTML(m)}`;
+}
+function statsHTML(m, st) {
+  if (!st.stats && m.source === 'real') return empty(m.status === 'NS' ? 'Stats appear once the match starts.' : "This match's stats aren't in the saved data. The app saves the last five matches.");
+  if (!st.stats) return empty(m.status === 'NS' ? 'Stats appear once the match starts.' : settings.mode === 'demo' ? 'In demo mode only the live Clásico has full stats. Real matches get them from API-Football.' : "Stats aren't available for this match.");
+  const hB = m.home.id === BARCA_ID, aB = m.away.id === BARCA_ID;
+  const rows = STAT_ROWS.filter(([k]) => st.stats.home[k] != null && st.stats.away[k] != null).map(([k, label, unit]) => {
+    const h = +st.stats.home[k], a = +st.stats.away[k], tot = h + a;
+    const fmt = v => k === 'xg' ? v.toFixed(2) : `${v}${unit}`;
+    const lead = h === a ? '' : h > a ? 'h' : 'a';
+    return `<div class="st-row"><span class="st-v ${lead === 'h' ? 'lead' : ''}">${fmt(h)}</span><span class="st-l">${label}</span><span class="st-v a ${lead === 'a' ? 'lead' : ''}">${fmt(a)}</span>
+      <div class="st-bars"><span class="st-bar h"><i class="${hB ? 'fill-fcb' : 'fill-opp'}" style="width:${(tot ? h / tot * 100 : 50).toFixed(1)}%"></i></span><span class="st-bar"><i class="${aB ? 'fill-fcb' : 'fill-opp'}" style="width:${(tot ? a / tot * 100 : 50).toFixed(1)}%"></i></span></div></div>`;
+  });
+  return `<div class="stats"><div class="st-head"><span>${esc(m.home.abbr || shortName(m.home.name))}</span><span>${esc(m.away.abbr || shortName(m.away.name))}</span></div>${rows.join('')}</div>`;
+}
+function ratingsHTML(m, st, clocked) {
+  if (m.source === 'real') return empty("Player ratings aren't in the built-in data. They come with API-Football (see Setup).");
+  if (!m.lineups) return empty(settings.mode === 'demo' && m.status !== 'NS' ? 'In demo mode only the live Clásico has player ratings.' : 'Ratings appear once the match has started and lineups are in.');
+  const P = prep(m);
+  const list = side => Object.keys(st.ratings).filter(id => P.idx[id]?.side === side && st.ratings[id] != null)
+    .map(id => ({ id, p: P.idx[id].p, r: st.ratings[id], mins: st.minutes[id] })).sort((a, b) => b.r - a.r);
+  const groups = ['home', 'away'].map(sd => ({ side: sd, rows: list(sd) }));
+  const all = [...groups[0].rows, ...groups[1].rows].sort((a, b) => b.r - a.r);
+  if (!all.length) return empty('Ratings appear after the first minutes of play.');
+  const top = all[0], topSide = P.idx[top.id].side;
+  const official = !clocked && m.official && Object.keys(m.official).length > 0;
+  return `<button class="potm" data-act="player" data-pid="${esc(top.id)}">${rtBadge(top.r, 'big')}<div><small>${st.isFT ? 'Player of the match' : 'Top rated so far'}</small><b>${esc(top.p.name)}</b><span class="meta">${esc(m[topSide].name)} · ${Math.min(90, top.mins)}' played</span></div>${badge(m[topSide], 'sm')}</button>
+    ${groups.map(g => `<div class="rgroup"><h3>${esc(m[g.side].name)} ${avgBadge(teamAvg(m, st, g.side))}</h3><ul class="rlist">${g.rows.map(x => `<li><button class="rrow" data-act="player" data-pid="${esc(x.id)}">${rtBadge(x.r)}<span class="bn">${x.p.number ?? ''}</span><span class="nmw"><b>${esc(x.p.name)}</b><small>${Math.min(90, x.mins)}' played</small></span><span class="icons">${playerIcons(st, x.id)}</span></button></li>`).join('')}</ul></div>`).join('')}
+    ${official ? '<p class="help">Ratings from API-Football.</p>' : `<details class="how"><summary>How these ratings are worked out</summary><ul>
+      <li>Every player starts at 6.0 and gains up to 0.6 for time on the pitch, plus a little up or down for general form.</li>
+      <li>Goal +1.0 (penalty +0.8), assist +0.6, penalty save +0.8.</li>
+      <li>Yellow card −0.3, red card −1.5, missed penalty −0.6, own goal −1.0.</li>
+      <li>Team scores while you're on: +0.1. Team concedes: −0.25 for goalkeepers and defenders, −0.1 for everyone else.</li>
+      <li>Goalkeepers and defenders who play 60+ minutes without conceding get +0.3.</li>
+      <li>Ratings stay between 3.0 and 10.0.</li></ul></details>`}`;
+}
+function h2hRow(f) {
+  const v = f.goals, r = resultOf(f, v), d = new Date(f.ts);
+  const inner = `<span class="fx-date"><b>${d.getDate()}</b><small>${d.toLocaleDateString(LOCALE, { month: 'short' })} ${String(d.getFullYear()).slice(2)}</small></span>
+    <span class="fx-mid"><span class="fx-comp"><span class="tag ${compClass(f.comp)}">${esc(f.comp.short)}</span><span>${esc(f.comp.name)}</span></span>
+      <span class="fx-opp"><span>${esc(f.home.name)} ${v.home}–${v.away} ${esc(f.away.name)}</span></span></span>
+    <span class="fx-end"><span class="res ${r}" aria-label="${RES_NAME[r]}">${r}</span></span>`;
+  return f.source === 'api' ? `<a class="fx" href="#match-${f.id}">${inner}</a>` : `<div class="fx">${inner}</div>`;
+}
+function h2hHTML(m) {
+  const key = 'h2h:' + m.id, v = state.cache[key];
+  if (!v) { loadInto(key, () => Data.h2h(m)); return '<div class="loading">Loading…</div>'; }
+  if (v === 'loading') return '<div class="loading">Loading…</div>';
+  if (v.error) return empty(esc(v.error));
+  const list = v.data;
+  if (!list.length) return empty(m.source === 'real' ? 'No meetings with this team so far this season. Full history comes with API-Football.' : 'No earlier meetings found.');
+  let w = 0, d = 0, l = 0;
+  list.forEach(f => { const r = resultOf(f, f.goals); if (r === 'W') w++; else if (r === 'D') d++; else l++; });
+  const n = list.length, opp = m[other(barcaSide(m))];
+  return `<div class="h2h-sum"><div class="w"><b>${w}</b><small>Barça wins</small></div><div><b>${d}</b><small>Draws</small></div><div><b>${l}</b><small>${esc(opp.name)} wins</small></div>
+      <div class="h2h-bar" aria-hidden="true"><i class="fill-fcb" style="width:${(w / n * 100).toFixed(1)}%"></i><i class="d" style="width:${(d / n * 100).toFixed(1)}%"></i><i class="fill-opp" style="width:${(l / n * 100).toFixed(1)}%"></i></div></div>
+    <h2 class="month">${n === 1 ? 'Last meeting' : `Last ${n} meetings`}</h2><div class="fxlist">${list.map(h2hRow).join('')}</div>
+    ${m.source === 'demo' ? '<p class="help demo-note">Made-up results for the demo.</p>' : m.source === 'real' ? '<p class="help demo-note">This season only. Full history comes with API-Football.</p>' : ''}`;
+}
+function panelHTML(m, st, clocked) {
+  switch (state.mcTab) {
+    case 'lineups': return lineupsHTML(m, st);
+    case 'stats': return statsHTML(m, st);
+    case 'ratings': return ratingsHTML(m, st, clocked);
+    case 'h2h': return h2hHTML(m);
+    default: return timelineHTML(m, st);
+  }
+}
+
+/* --- Player card: tap a player to see their match stats --- */
+const PROFILES = { // typical numbers per 90 minutes, used only for demo stats
+  G: { passes: 30, acc: .8, key: 0, shots: 0, sot: 0, tackles: 0, int: .4, blocks: 0, duels: 1, drib: 0, past: 0, fouls: .1, fouled: .2, off: 0 },
+  D: { passes: 68, acc: .9, key: .5, shots: .6, sot: .2, tackles: 2.2, int: 1.6, blocks: .8, duels: 7, drib: .4, past: .7, fouls: 1.1, fouled: .7, off: 0 },
+  M: { passes: 72, acc: .89, key: 1.8, shots: 1.4, sot: .5, tackles: 2, int: 1, blocks: .3, duels: 8, drib: 1.5, past: .8, fouls: 1.2, fouled: 1.4, off: .1 },
+  F: { passes: 32, acc: .8, key: 1.6, shots: 3, sot: 1.2, tackles: .7, int: .3, blocks: .1, duels: 10, drib: 4, past: .5, fouls: .9, fouled: 2, off: .6 }
+};
+function playerStatsAt(m, st, pid) {
+  const P = prep(m), { p, side } = P.idx[pid], mins = st.minutes[pid] || 0, span = st.spans[pid];
+  const mine = type => st.events.filter(e => e.player === pid && e.type === type).length;
+  const goals = mine('goal') + mine('pen');
+  const assists = st.events.filter(e => e.assist === pid && e.scoreSide).length;
+  const conceded = span ? st.events.filter(e => e.scoreSide === other(side) && e.key > span.inKey && e.key <= span.outKey).length : 0;
+  const off = m.pstats && m.pstats[pid];
+  let s, source;
+  if (off) {
+    const clocked = isClocked(m);
+    const ratio = clocked ? (off.minutes ? Math.min(1, mins / off.minutes) : st.progress) : 1;
+    s = {};
+    for (const k in off) s[k] = typeof off[k] === 'number' ? Math.round(off[k] * ratio) : off[k];
+    source = clocked ? 'Replay: the totals grow with the match clock.' : 'Stats from API-Football.';
+  } else {
+    const pr = PROFILES[p.pos] || PROFILES.M, k = (0.75 + seedOf(pid + 'x') * 0.5) * Math.min(1, mins / 90), n = v => Math.round(v * k);
+    s = { passes: n(pr.passes), keyPasses: n(pr.key), shots: n(pr.shots), sot: n(pr.sot), tackles: n(pr.tackles), interceptions: n(pr.int), blocks: n(pr.blocks), duels: n(pr.duels), dribbles: n(pr.drib), dribbledPast: n(pr.past), fouls: n(pr.fouls), fouled: n(pr.fouled), offsides: n(pr.off), saves: p.pos === 'G' ? (st.stats?.[side]?.saves ?? 0) : null };
+    s.accurate = Math.round(s.passes * Math.min(0.97, pr.acc + (seedOf(pid + 'a') - 0.5) * 0.08));
+    s.duelsWon = Math.round(s.duels * (0.4 + seedOf(pid + 'd') * 0.3));
+    s.dribblesWon = Math.round(s.dribbles * (0.4 + seedOf(pid + 'r') * 0.35));
+    source = 'Demo stats are made up.';
+  }
+  Object.assign(s, { goals, assists, conceded, yellow: mine('yellow'), red: mine('red') });
+  s.shots = Math.max(s.shots || 0, goals); s.sot = Math.max(s.sot || 0, goals);
+  return { s, mins, source };
+}
+function sheetHeadHTML(m, pid) {
+  const info = prep(m).idx[pid];
+  if (!info) return '';
+  const { p, side } = info, isB = m[side].id === BARCA_ID;
+  const posName = { G: 'Goalkeeper', D: 'Defender', M: 'Midfielder', F: 'Forward' }[p.pos] || '';
+  return `<div class="sheet-top"><span class="sheet-num ${isB ? 't-fcb' : 't-opp'}">${p.number ?? ''}</span><span class="sheet-name"><b id="sheet-title">${esc(p.name)}</b><small>${esc(m[side].name)}${posName ? ' · ' + posName : ''}</small></span><button class="sheet-close" data-act="sheet-close" aria-label="Close player stats">×</button></div>`;
+}
+function sheetBodyHTML(m, st, pid) {
+  const info = prep(m).idx[pid];
+  if (!info) return '<p class="help">Player not found.</p>';
+  if (!st.spans[pid] || st.minutes[pid] < 1) return `<p class="help">${st.spans[pid] ? 'Stats appear after the first minute on the pitch.' : "Hasn't played in this match."}</p>`;
+  const { s, mins, source } = playerStatsAt(m, st, pid), r = st.ratings[pid];
+  const pct = (a, b) => b ? Math.round(a / b * 100) : 0;
+  const passTxt = s.accurate > s.passes ? `${s.accurate}% of ${s.passes}` : `${s.accurate}/${s.passes} (${pct(s.accurate, s.passes)}%)`;
+  const row = (label, val) => `<li><span>${label}</span><b>${val}</b></li>`;
+  const sec = (title, rows) => `<section><h3>${title}</h3><ul class="kvlist">${rows.join('')}</ul></section>`;
+  const parts = [];
+  if (info.p.pos === 'G') parts.push(sec('Goalkeeping', [row('Saves', s.saves ?? 0), row('Goals conceded', s.conceded)]));
+  parts.push(sec('Attacking', [row('Shots (on target)', `${s.shots} (${s.sot})`), row('Dribbles won', `${s.dribblesWon ?? 0}/${s.dribbles ?? 0}`), row('Fouls won', s.fouled ?? 0), row('Offsides', s.offsides ?? 0)]));
+  parts.push(sec('Passing', [row('Accurate passes', passTxt), row('Key passes', s.keyPasses ?? 0)]));
+  parts.push(sec('Defending', [row('Tackles', s.tackles ?? 0), row('Interceptions', s.interceptions ?? 0), row('Blocked shots', s.blocks ?? 0), row('Duels won', `${s.duelsWon ?? 0}/${s.duels ?? 0}`), row('Dribbled past', s.dribbledPast ?? 0)]));
+  parts.push(sec('Discipline', [row('Fouls committed', s.fouls ?? 0), row('Yellow cards', s.yellow), row('Red cards', s.red)]));
+  return `<div class="sheet-sum"><div class="kv">${r != null ? rtBadge(r, 'big') : '<b>–</b>'}<small>Rating</small></div><div class="kv"><b>${Math.min(90, mins)}'</b><small>Minutes</small></div><div class="kv"><b>${s.goals}</b><small>Goals</small></div><div class="kv"><b>${s.assists}</b><small>Assists</small></div></div>${parts.join('')}<p class="help">${source}</p>`;
+}
+function openPlayer(pid, from) {
+  const r = route(); if (r.name !== 'match') return;
+  state.sheetPid = pid; state.sheetReturn = from || null;
+  Data.match(r.id).then(m => {
+    if (state.sheetPid !== pid) return;
+    const root = $('#sheet-root');
+    root.innerHTML = `<div class="sheet-back" data-act="sheet-close"></div><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">${sheetHeadHTML(m, pid)}<div id="sheet-content">${sheetBodyHTML(m, mcStateOf(m), pid)}</div></div>`;
+    root.hidden = false; document.body.style.overflow = 'hidden';
+    root.querySelector('.sheet-close')?.focus();
+  }).catch(() => {});
+}
+function closeSheet(restoreFocus = true) {
+  if (!state.sheetPid) return;
+  state.sheetPid = null;
+  const root = $('#sheet-root'); root.hidden = true; root.innerHTML = ''; document.body.style.overflow = '';
+  if (restoreFocus && state.sheetReturn && document.contains(state.sheetReturn)) state.sheetReturn.focus();
+  state.sheetReturn = null;
+}
+async function viewMatch(r) {
+  const m = await Data.match(r.id);
+  const clocked = isClocked(m), st = mcStateOf(m);
+  let ctrl = '';
+  if (clocked) {
+    ctrl = `<section class="controls" id="mc-ctrl" aria-label="Match clock">${ctrlHTML()}
+      <input type="range" id="scrub" min="0" max="${Clock.max}" value="${Clock.idx}" aria-label="Jump to a minute">
+      <div class="ctl-foot"><span id="ctl-label">${ctlLabel()}</span>${Clock.mode === 'replay' ? '<button class="link-btn" data-act="replay-exit">Exit replay</button>' : ''}</div></section>`;
+  } else if (m.source === 'api' && m.status === 'FT' && m.events.length) {
+    ctrl = `<button class="btn btn-ghost wide" data-act="replay" data-id="${m.id}">${I.play} Replay this match</button>`;
+  }
+  return `<a class="back" href="#${state.lastTab === 'home' ? 'home' : 'matches'}">${I.back} Back</a>
+    <section class="card mc-head" id="mc-head" aria-label="Score">${mcHeadInner(m, st, clocked)}</section>
+    ${ctrl}
+    <div class="seg mc-tabs" role="tablist" aria-label="Match details">${TABS.map(([k, label]) => `<button role="tab" data-act="mc-tab" data-tab="${k}" aria-selected="${state.mcTab === k}">${label}</button>`).join('')}</div>
+    <section id="mc-panel" role="tabpanel">${panelHTML(m, st, clocked)}</section>`;
+}
+
+/* --- Table --- */
+async function viewTable() {
+  const t = await Data.standings();
+  if (!t.rows.length) return `<h1 class="page-title">Table</h1>${empty('No table for this season yet.')}`;
+  return `<div><h1 class="page-title">Table</h1><p class="page-sub">${esc(t.title)}${t.live ? ' · <span class="live-dot"></span> updating live' : ''}</p></div>
+    <div class="tbl-wrap"><table class="tbl"><thead><tr><th class="rank">#</th><th class="club">Club</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GD</th><th class="form-col">Last 5</th><th>Pts</th></tr></thead>
+    <tbody id="table-body">${t.rows.map(r => tableRowHTML(r, false)).join('')}</tbody></table></div>
+    <div class="legend"><span><i style="background:var(--blau)"></i>Champions League</span><span><i style="background:var(--z-uel)"></i>Europa League</span><span><i style="background:var(--z-uecl)"></i>Conference League</span><span><i style="background:var(--loss)"></i>Relegation</span></div>
+    ${t.note ? `<p class="help">${esc(t.note)}</p>` : ''}`;
+}
+
+/* --- Squad --- */
+async function viewSquad() {
+  const sq = await Data.squad();
+  const groups = [['G', 'Goalkeepers', 'Goalkeeper'], ['D', 'Defenders', 'Defender'], ['M', 'Midfielders', 'Midfielder'], ['F', 'Forwards', 'Forward']];
+  const html = groups.map(([k, title, one]) => {
+    const players = sq.filter(p => p.pos === k).sort((a, b) => (a.number ?? 99) - (b.number ?? 99));
+    if (!players.length) return '';
+    return `<section><h2 class="month">${title}</h2><div class="sq">${players.map(p => `<details class="sq-row"><summary>
+        <span class="sq-num">${p.number ?? '–'}</span><span class="sq-name"><b>${esc(p.name)}</b><small>${one}${p.age ? ' · ' + p.age : ''}</small></span>
+        <span class="sq-ga">${p.goals == null ? `${p.apps} game${p.apps === 1 ? '' : 's'}` : `${p.goals} G · ${p.assists} A`}</span>${p.rating != null ? rtBadge(p.rating) : '<span></span>'}</summary>
+        <div class="sq-detail"><div class="kv"><b>${p.apps}</b><small>Games</small></div><div class="kv"><b>${p.goals ?? '–'}</b><small>Goals</small></div><div class="kv"><b>${p.assists ?? '–'}</b><small>Assists</small></div><div class="kv"><b>${p.minutes != null ? p.minutes : p.rating != null ? p.rating.toFixed(1) : '–'}</b><small>${p.minutes != null ? 'Minutes' : 'Avg rating'}</small></div></div>
+      </details>`).join('')}</div></section>`;
+  }).join('');
+  return `<div><h1 class="page-title">Squad</h1><p class="page-sub">${settings.mode === 'demo' ? 'Season stats are made up for the demo.' : settings.mode === 'real' ? `Players used in the last ${state.squadGames || 0} matches. Goals, assists and ratings come with API-Football.` : 'Season ' + seasonLabel(settings.season) + ' · all competitions'}</p></div>${html || empty('No players found for this season.')}`;
+}
+
+/* --- Setup --- */
+function viewSetup() {
+  const isApi = settings.mode === 'api';
+  return `<div><h1 class="page-title">Setup</h1><p class="page-sub">Choose where match data comes from.</p></div>
+    <section class="form-card"><h2 class="fc-title">Data source</h2>
+      <div class="seg" role="group" aria-label="Data source">
+        <button data-act="mode" data-mode="real" aria-pressed="${settings.mode === 'real'}">Built-in</button>
+        <button data-act="mode" data-mode="api" aria-pressed="${isApi}">API-Football</button>
+        <button data-act="mode" data-mode="demo" aria-pressed="${settings.mode === 'demo'}">Demo</button>
+      </div>
+      <p class="help">${settings.mode === 'real' ? 'Real fixtures, results, table and team stats built into the app. Inside Claude it refreshes every 30 seconds; elsewhere it shows the saved data.' : isApi ? 'Live fixtures, lineups, player stats and ratings from API-Football. Needs a key or data server below.' : 'A made-up live Clásico and sample season for testing.'}</p>
+    </section>
+    <section class="form-card"><h2 class="fc-title">Data server</h2>
+      <label class="help" for="server">The best option: your own free Cloudflare data server. It keeps your key secret, gives real data to everyone who opens the app, and shares one set of requests between all of them.</label>
+      <div class="field"><input id="server" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://cule-live.yourname.workers.dev" value="${esc(settings.server)}"></div>
+      <button class="btn btn-primary" data-act="server-save">Save server</button>
+    </section>
+    <section class="form-card"><h2 class="fc-title">Or: your own API key</h2>
+      <label class="help" for="api-key">Only needed without a data server, and it only works on this device. Get a free key at <a href="https://dashboard.api-football.com/register" target="_blank" rel="noopener">dashboard.api-football.com</a>. It's saved only in this browser, never in the app's code.</label>
+      <div class="field"><input id="api-key" type="password" autocomplete="off" spellcheck="false" placeholder="Paste your key" value="${esc(settings.apiKey)}"><button class="btn btn-ghost" data-act="key-show">Show</button></div>
+      <button class="btn btn-primary" data-act="key-save">Save key</button>
+      <p class="help">Real data only loads when the app is opened from its own web address, such as GitHub Pages. The Claude preview blocks outside data, so use Demo there.</p>
+    </section>
+    <section class="form-card"><h2 class="fc-title">Season</h2>
+      <select id="season" aria-label="Season">${[2022, 2023, 2024, 2025, 2026].map(y => `<option value="${y}" ${settings.season === y ? 'selected' : ''}>${seasonLabel(y)}</option>`).join('')}</select>
+      <p class="help">The free plan covers older seasons only (2022–2024 when this app was built). Pick one of those to replay real Barça matches. Current-season live data needs a paid plan.</p>
+    </section>
+    <section class="form-card"><h2 class="fc-title">Live updates</h2>
+      <label class="inline-field" for="refresh"><span>Refresh live matches every</span>
+        <select id="refresh">${[15, 30, 60].map(s => `<option value="${s}" ${settings.refresh === s ? 'selected' : ''}>${s} seconds</option>`).join('')}</select></label>
+      <p class="help">API-Football updates live scores and events every 15 seconds, so 15 s is the fastest useful setting. The match clock still ticks every second in between. Following a whole live match this way takes several hundred requests, which needs the Pro plan.</p>
+      <label class="switch" for="alerts"><input type="checkbox" id="alerts" ${settings.alerts ? 'checked' : ''}><span>Goal alerts</span></label>
+    </section>
+    <section class="form-card"><h2 class="fc-title">Account</h2>
+      <div class="row"><button class="btn btn-ghost" data-act="status">Check requests used</button><button class="btn btn-ghost" data-act="clear-cache">Clear saved data</button></div>
+      <p class="help" id="status-out" aria-live="polite"></p>
+    </section>
+    <p class="about"><b>Culé Live</b> is an unofficial fan app made for an MYP Personal Project. It isn't connected to FC Barcelona. Match data comes from API-Football.</p>`;
+}
+
+/* ---------- 8. Buttons, router and start-up ---------- */
+const VIEWS = { home: viewHome, matches: viewMatches, table: viewTable, squad: viewSquad, setup: viewSetup, match: viewMatch };
+const NAV = [['home', 'Home'], ['matches', 'Matches'], ['table', 'Table'], ['squad', 'Squad'], ['setup', 'Setup']];
+function route() {
+  const h = location.hash.slice(1);
+  if (h.startsWith('match-')) return { name: 'match', id: h.slice(6) };
+  return { name: NAV.some(([k]) => k === h) ? h : 'home' };
+}
+const routeKey = r => r.name + (r.id ? ':' + r.id : '');
+
+let renderSeq = 0;
+async function render() {
+  const seq = ++renderSeq, r = route(), view = $('#view');
+  if (r.name !== 'match') state.lastTab = r.name;
+  document.querySelectorAll('.tab').forEach(t => { if (t.dataset.tab === (r.name === 'match' ? state.lastTab : r.name)) t.setAttribute('aria-current', 'page'); else t.removeAttribute('aria-current'); });
+  const sameView = view.dataset.route === routeKey(r);
+  if (!sameView) { closeSheet(false); view.innerHTML = '<div class="loading">Loading…</div>'; window.scrollTo(0, 0); }
+  let html;
+  try { html = await VIEWS[r.name](r); }
+  catch (e) { html = errorHTML(e); }
+  if (seq !== renderSeq) return;
+  view.innerHTML = html; view.dataset.route = routeKey(r);
+  if (r.name === 'match' && state.sheetPid) Data.match(r.id).then(m => { const c = $('#sheet-content'); if (c) c.innerHTML = sheetBodyHTML(m, mcStateOf(m), state.sheetPid); }).catch(() => {});
+}
+function errorHTML(e) {
+  const msg = e instanceof AppError ? e.message : 'Something went wrong while loading. Please try again.';
+  if (!(e instanceof AppError)) console.warn(e);
+  return `<div class="errbox" role="alert"><b>Couldn't load this</b><p>${esc(msg)}</p><div class="row"><button class="btn btn-ghost" data-act="retry">Try again</button>${settings.mode === 'api' ? '<button class="btn btn-ghost" data-act="use-demo">Use demo data</button><a class="btn btn-ghost" href="#setup">Setup</a>' : ''}</div></div>`;
+}
+
+// Called every time the clock moves: only the parts that change are redrawn
+function onClockChange(fresh) {
+  const r = route(), goal = fresh.some(e => e.scoreSide);
+  if (r.name === 'home' && Clock.m === DEMO_LIVE) {
+    const dyn = $('#lc-dyn'); if (dyn) dyn.innerHTML = lcDynHTML(DEMO_LIVE, Clock.state(), 'demo', goal);
+    const snap = $('#table-snap'); if (snap) snap.innerHTML = tableSnapHTML(demoTable());
+  } else if (r.name === 'match' && Clock.m && String(Clock.m.id) === r.id) {
+    const st = Clock.state();
+    const head = $('#mc-head'); if (head) head.innerHTML = mcHeadInner(Clock.m, st, true, goal);
+    const panel = $('#mc-panel'); if (panel && state.mcTab !== 'h2h') panel.innerHTML = panelHTML(Clock.m, st, true);
+    const sheet = $('#sheet-content'); if (sheet && state.sheetPid) sheet.innerHTML = sheetBodyHTML(Clock.m, st, state.sheetPid);
+  } else if (r.name === 'matches' && Clock.m === DEMO_LIVE) {
+    const row = $('#live-row'); if (row) row.outerHTML = fxRowHTML(DEMO_LIVE);
+  } else if (r.name === 'table' && Clock.m === DEMO_LIVE) {
+    const body = $('#table-body'); if (body) body.innerHTML = demoTable().rows.map(x => tableRowHTML(x, false)).join('');
+  }
+  syncControls();
+}
+function syncControls() {
+  document.querySelectorAll('[data-act="clock-toggle"]').forEach(b => { b.innerHTML = Clock.playing ? I.pause : I.play; b.setAttribute('aria-label', Clock.playing ? 'Pause' : 'Play'); });
+  document.querySelectorAll('[data-act="speed"]').forEach(b => b.setAttribute('aria-pressed', String(Clock.speed === +b.dataset.speed)));
+  const s = $('#scrub'); if (s && Clock.m) { s.max = Clock.max; if (!state.scrubbing) s.value = Clock.idx; }
+  const l = $('#ctl-label'); if (l && Clock.m) l.textContent = ctlLabel();
+}
+
+async function startReplay(id) {
+  try {
+    const m = await Data.match(id);
+    Clock.load(m, 'replay', 0); Clock.speed = 3; Clock.play();
+    $('#view').dataset.route = ''; render();
+  } catch (e) { toast(esc(e.message || 'Could not start the replay.')); }
+}
+function startDemo() {
+  DEMO_LIVE.ts = Date.now() - 11 * 60e3;
+  Clock.load(DEMO_LIVE, 'demo', tickIndexFor(DEMO_LIVE, 11)); Clock.speed = 1; Clock.play();
+}
+function resetApp() {
+  Clock.unload(); state.fixtures = null; state.cache = {}; demoList = null;
+  if (settings.mode === 'demo') startDemo();
+  if (settings.mode === 'real') SR.connect();
+  updateModeChip(); schedulePoll();
+  $('#view').dataset.route = ''; render();
+}
+function updateModeChip() {
+  const c = $('#mode-chip');
+  c.textContent = settings.mode === 'demo' ? 'Demo data' : settings.mode === 'real' ? (SR.live ? 'Real · live' : 'Real data') : `API · ${seasonLabel(settings.season)}`;
+  c.classList.toggle('api', settings.mode !== 'demo');
+}
+
+// API mode: refresh live matches every few seconds (only while the page is visible)
+let pollTimer;
+function schedulePoll() {
+  clearInterval(pollTimer);
+  if (settings.mode !== 'api') return;
+  pollTimer = setInterval(async () => {
+    if (document.hidden || !state.fixtures || route().name === 'setup') return;
+    const live = state.fixtures.find(isLiveF);
+    const soon = state.fixtures.find(f => f.status === 'NS' && f.ts - Date.now() < 15 * 60e3 && f.ts - Date.now() > -3 * 3600e3);
+    if (!live && !soon) return;
+    try { await Data.fixtures(true); if (live) await Data.match(live.id, true); render(); } catch (e) { /* try again next time */ }
+  }, settings.refresh * 1000);
+}
+
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-act]');
+  if (!b) return;
+  const act = b.dataset.act;
+  switch (act) {
+    case 'clock-toggle': Clock.toggle(); break;
+    case 'speed': Clock.setSpeed(+b.dataset.speed); break;
+    case 'clock-restart': Clock.seek(0); if (!Clock.playing) Clock.play(); syncControls(); break;
+    case 'replay': startReplay(b.dataset.id); break;
+    case 'replay-exit': Clock.unload(); $('#view').dataset.route = ''; render(); break;
+    case 'mc-tab': {
+      state.mcTab = b.dataset.tab;
+      document.querySelectorAll('[data-act="mc-tab"]').forEach(t => t.setAttribute('aria-selected', String(t.dataset.tab === state.mcTab)));
+      refreshPanel();
+      break;
+    }
+    case 'player': openPlayer(b.dataset.pid, b); break;
+    case 'sheet-close': closeSheet(); break;
+    case 'mtab': state.matchTab = b.dataset.tab; render(); break;
+    case 'go-results': state.matchTab = 'results'; break;
+    case 'comp': state.comp = b.dataset.comp; render(); break;
+    case 'pred': {
+      const id = b.dataset.id, k = b.dataset.k, d = state.pred[id] || (state.pred[id] = { b: 2, o: 1 });
+      d[k] = Math.max(0, Math.min(15, d[k] + Number(b.dataset.d)));
+      const out = document.getElementById(`pred-${id}-${k}`); if (out) out.textContent = d[k];
+      break;
+    }
+    case 'pred-save': {
+      const id = b.dataset.id, d = state.pred[id]; if (!d) break;
+      store.set('pred:' + id, d);
+      const note = document.getElementById('pred-note-' + id); if (note) note.textContent = `Saved: Barça ${d.b}–${d.o}`;
+      toast('Prediction saved'); break;
+    }
+    case 'mode':
+      if (settings.mode !== b.dataset.mode) { settings.mode = b.dataset.mode; saveSettings(); resetApp(); }
+      break;
+    case 'key-show': { const inp = $('#api-key'); inp.type = inp.type === 'password' ? 'text' : 'password'; b.textContent = inp.type === 'password' ? 'Show' : 'Hide'; break; }
+    case 'key-save':
+      settings.apiKey = $('#api-key').value.trim(); saveSettings();
+      toast(settings.apiKey ? 'Key saved' : 'Key removed');
+      if (settings.mode === 'api') { state.fixtures = null; schedulePoll(); }
+      break;
+    case 'server-save': {
+      let v = $('#server').value.trim();
+      if (v && !/^https?:\/\//i.test(v)) v = 'https://' + v;
+      settings.server = v; saveSettings(); $('#server').value = v;
+      toast(v ? 'Server saved' : 'Server removed');
+      state.fixtures = null; schedulePoll(); break;
+    }
+    case 'status': {
+      const out = $('#status-out'); out.textContent = 'Checking…';
+      Data.status().then(t => { out.textContent = t; }).catch(err => { out.textContent = err.message; });
+      break;
+    }
+    case 'clear-cache': store.clear('cache:'); state.fixtures = null; state.cache = {}; toast('Saved match data cleared'); break;
+    case 'use-demo': settings.mode = 'demo'; saveSettings(); resetApp(); break;
+    case 'retry': $('#view').dataset.route = ''; render(); break;
+  }
+});
+document.addEventListener('change', e => {
+  const t = e.target;
+  if (t.id === 'season') { settings.season = +t.value; saveSettings(); state.fixtures = null; if (Clock.mode === 'replay') Clock.unload(); updateModeChip(); }
+  if (t.id === 'refresh') { settings.refresh = +t.value; saveSettings(); schedulePoll(); }
+  if (t.id === 'alerts') { settings.alerts = t.checked; saveSettings(); }
+  if (t.id === 'scrub') state.scrubbing = false;
+});
+document.addEventListener('input', e => { if (e.target.id === 'scrub') { state.scrubbing = true; Clock.seek(+e.target.value); } });
+document.addEventListener('pointerup', () => { state.scrubbing = false; });
+window.addEventListener('hashchange', render);
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
+setInterval(() => document.querySelectorAll('[data-count]').forEach(el => { el.textContent = countdown(+el.dataset.count); }), 30000);
+setInterval(() => {
+  document.querySelectorAll('[data-clock]').forEach(el => { const t = clockText(el.dataset.clock); if (t) el.textContent = t; });
+  document.querySelectorAll('[data-ago]').forEach(el => { el.textContent = agoText(); });
+}, 1000);
+
+(function init() {
+  $('#tabbar').innerHTML = NAV.map(([k, label]) => `<a class="tab" href="#${k}" data-tab="${k}">${I[k]}<span>${label}</span></a>`).join('');
+  updateModeChip();
+  if (settings.mode === 'demo') startDemo();
+  if (settings.mode === 'real') SR.connect();
+  schedulePoll();
+  render();
+})();
+</script>
+
+</body>
+</html>
