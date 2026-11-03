@@ -1509,6 +1509,7 @@ function hlMatch(f, det, lu, bs) {
   (Array.isArray(bs) ? bs : []).forEach(t => (t.players || []).forEach(pl => {
     const id = String(pl.id), st = pl.statistics || {};
     addName(pl.name, id); addName(pl.fullName, id);
+    if (pl.fullName) (m.fullNames || (m.fullNames = {}))[id] = pl.fullName;
     const r = parseFloat(pl.matchRating);
     if (Number.isFinite(r)) m.official[id] = r;
     m.pstats[id] = { minutes: pl.minutesPlayed ?? 0, shots: st.shotsTotal ?? 0, sot: st.shotsOnTarget ?? 0, saves: st.goalsSaved ?? null, passes: st.passesTotal ?? 0, keyPasses: st.passesKey ?? 0, accurate: st.passesSuccessful ?? 0,
@@ -1670,7 +1671,7 @@ function fullName(squad, p) { // "F. de Jong" in a lineup → "Frenkie de Jong" 
   if (!hit) hit = squad.find(x => nameWords(x.name).some(t => t.length >= 4 && w.includes(t)));
   return hit ? hit.name : null;
 }
-const photoKey = (team, name) => 'photo:' + teamKey(team.name) + ':' + normName(name);
+const photoKey = (team, name) => 'photo2:' + teamKey(team.name) + ':' + normName(name); // "photo2": ignores wrong "no photo" answers saved by the previous version
 function photoCached(team, p) {
   const v = store.get(photoKey(team, p.name), null);
   return v && Date.now() - v.t < (v.url ? PHOTO_TTL : 7 * 86400e3) ? v : null; // "no photo" is checked again after a week
@@ -1681,39 +1682,55 @@ let tsdbVia = 'server'; // switches to asking TheSportsDB straight from this pho
 async function tsdbSearch(name) {
   if (tsdbVia === 'server') {
     try { return await api('tsdb/searchplayers.php', { p: name }, 30 * 86400); }
-    catch (e) { tsdbVia = 'direct'; }
+    catch (e) { /* the server was turned away: ask TheSportsDB from this phone instead */ }
   }
-  const res = await fetch('https://www.thesportsdb.com/api/v1/json/123/searchplayers.php?p=' + encodeURIComponent(name));
-  if (!res.ok) throw new Error('TheSportsDB answered ' + res.status);
-  return res.json();
+  try {
+    const res = await fetch('https://www.thesportsdb.com/api/v1/json/123/searchplayers.php?p=' + encodeURIComponent(name));
+    if (!res.ok) throw new Error('TheSportsDB answered ' + res.status);
+    return await res.json();
+  } catch (e) { tsdbVia = 'server'; throw e; }
 }
 let photoBusy = false, photoTimer = null;
 function photoChanged() {
   clearTimeout(photoTimer);
   photoTimer = setTimeout(() => { refreshPanel(); refreshSheet(); if (route().name === 'squad') render(); }, 700);
 }
-function wantPhoto(team, p, query, first) {
+function photoQueries(p, full) { // name versions to try: "Pedri", then "Pedri_González", then "Pedro González López"
+  const base = (full || p.name || '').replace(/^[A-Z]\.\s*/, '').trim(), hl = (p.fullName || '').trim();
+  const out = [base];
+  if (base && !base.includes(' ') && hl.includes(' ')) out.push(base + '_' + hl.split(/\s+/)[1].normalize('NFD').replace(/[\u0300-\u036f]/g, ''));
+  if (hl && normName(hl) !== normName(base)) out.push(hl);
+  return [...new Set(out.filter(q => q.length >= 3))];
+}
+function wantPhoto(team, p, full, first) {
   const k = photoKey(team, p.name);
   if (photoQueued.has(k)) return;
   photoQueued.add(k);
-  const job = { team, k, query: (query || p.name).replace(/^[A-Z]\.\s*/, '') };
+  const job = { team, k, names: [p.name, full, p.fullName].filter(Boolean), queries: photoQueries(p, full), tries: 0 };
   if (first) photoQueue.unshift(job); else photoQueue.push(job);
   runPhotos();
 }
 async function runPhotos() {
   if (photoBusy) return;
   photoBusy = true;
+  const club = team => teamKey(team.name).split(' ').filter(w => w.length >= 4);
   while (photoQueue.length) {
-    const job = photoQueue.shift(), t0 = Date.now();
-    try {
-      const json = await tsdbSearch(job.query);
-      const club = teamKey(job.team.name).split(' ').filter(w => w.length >= 4);
-      const pl = (json.player || []).find(x => normName(x.strPlayer) === normName(job.query) || teamKey(x.strTeam || '').split(' ').some(w => club.includes(w)));
-      const url = pl ? (pl.strCutout || pl.strThumb || null) : null;
-      store.set(job.k, { t: Date.now(), url });
-      if (url) photoChanged();
-    } catch (e) { photoQueued.delete(job.k); } // try again another time
-    if (Date.now() - t0 > 250) await new Promise(r => setTimeout(r, 2100)); // TheSportsDB allows 30 lookups a minute
+    const job = photoQueue.shift();
+    let url = null, failed = false;
+    for (const q of job.queries) {
+      const t0 = Date.now();
+      try {
+        const json = await tsdbSearch(q);
+        // the right person: plays for this club, or has exactly this name (their club may not be updated yet)
+        const pl = (json.player || []).find(x => teamKey(x.strTeam || '').split(' ').some(w => club(job.team).includes(w)) || job.names.some(n => normName(n) === normName(x.strPlayer || '')));
+        url = pl ? (pl.strCutout || pl.strThumb || null) : null;
+      } catch (e) { failed = true; }
+      if (Date.now() - t0 > 250) await new Promise(r => setTimeout(r, 2100)); // TheSportsDB allows 30 lookups a minute
+      if (url || failed) break;
+    }
+    if (url || !failed) { store.set(job.k, { t: Date.now(), url }); if (url) photoChanged(); }
+    else if (++job.tries < 3) setTimeout(() => { photoQueue.push(job); runPhotos(); }, 30000); // busy: try again in 30 seconds
+    else photoQueued.delete(job.k);
   }
   photoBusy = false;
 }
@@ -1732,6 +1749,7 @@ function photosFor(team, players, first) {
 }
 function attachPhotos(m) {
   if (!m.lineups) return;
+  if (m.fullNames) ['home', 'away'].forEach(sd => [...m.lineups[sd].xi, ...m.lineups[sd].bench].forEach(p => { if (!p.fullName && m.fullNames[p.id]) p.fullName = m.fullNames[p.id]; }));
   const sides = ['home', 'away'].sort((a, b) => (m[b].id === BARCA_ID) - (m[a].id === BARCA_ID)); // Barça first
   sides.forEach(side => photosFor(m[side], [...m.lineups[side].xi, ...m.lineups[side].bench], m[side].id === BARCA_ID));
 }
