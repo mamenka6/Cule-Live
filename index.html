@@ -1479,7 +1479,8 @@ function fdFixture(x) {
     comp: FD_COMP[x.competition?.code] || compOf(x.competition?.id, x.competition?.name), round: x.matchday ? `Matchday ${x.matchday}` : '',
     home: fdTeam(x.homeTeam || {}), away: fdTeam(x.awayTeam || {}),
     goals: status === 'NS' ? { home: null, away: null } : { home: ft.home ?? 0, away: ft.away ?? 0 },
-    pen: x.score?.penalties?.home != null ? x.score.penalties : null, prob: null
+    pen: x.score?.penalties?.home != null ? x.score.penalties : null, prob: null,
+    htGoals: x.score?.halfTime?.home != null ? { home: x.score.halfTime.home, away: x.score.halfTime.away } : null // half-time score, for when goal events are missing
   };
 }
 async function fdFixtures(force) {
@@ -2746,7 +2747,9 @@ function timelineHTML(m, st) {
   });
   const mark = t => `<li class="tl-mark"><span>${t}</span></li>`;
   const items = [{ key: -1, html: mark('Kick-off') }];
-  if (st.k >= 4599) items.push({ key: 4599.5, html: mark(`Half-time · ${hh}–${ha}`) });
+  const allGoals = h === st.score.home && a === st.score.away; // false when some goals have no event (no Highlightly data)
+  const htTxt = allGoals ? `${hh}–${ha}` : m.htGoals ? `${m.htGoals.home}–${m.htGoals.away}` : '';
+  if (st.k >= 4599) items.push({ key: 4599.5, html: mark(htTxt ? `Half-time · ${htTxt}` : 'Half-time') });
   if (st.isFT) items.push({ key: 1e9, html: mark(`Full time · ${st.score.home}–${st.score.away}`) });
   st.events.forEach((e, i) => items.push({ key: e.key + i * 1e-4, html: tlRow(m, e, after.get(e)) }));
   items.sort((x, y) => y.key - x.key); // newest first, like a live feed
