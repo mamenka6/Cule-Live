@@ -736,6 +736,7 @@ const T_ROWS = [
   ['Videos appear after kick-off.', 'Los vídeos aparecen tras el inicio.', "Les vidéos apparaissent après le coup d'envoi.", 'تظهر الفيديوهات بعد انطلاق المباراة.'],
   ['Videos come with real match data.', 'Los vídeos llegan con los datos reales.', 'Les vidéos viennent avec les données réelles.', 'الفيديوهات متاحة مع البيانات الحقيقية.'],
   ['No videos for this match yet. Highlights usually appear a few hours after the final whistle.', 'Aún no hay vídeos de este partido. Los resúmenes suelen aparecer unas horas después del final.', 'Pas encore de vidéos pour ce match. Les résumés arrivent souvent quelques heures après la fin.', 'لا توجد فيديوهات لهذه المباراة بعد. تظهر الملخصات عادةً بعد ساعات من نهايتها.'],
+  ['Player photos come from Wikipedia (Wikimedia Commons, free licences) and TheSportsDB. Videos come from official YouTube channels.', 'Las fotos de jugadores vienen de Wikipedia (Wikimedia Commons, licencias libres) y TheSportsDB. Los vídeos, de canales oficiales de YouTube.', 'Les photos des joueurs viennent de Wikipédia (Wikimedia Commons, licences libres) et de TheSportsDB. Les vidéos viennent de chaînes YouTube officielles.', 'صور اللاعبين من ويكيبيديا (ويكيميديا كومنز، تراخيص حرة) وTheSportsDB. والفيديوهات من قنوات YouTube الرسمية.'],
   ['Videos from official YouTube channels.', 'Vídeos de canales oficiales de YouTube.', 'Vidéos des chaînes YouTube officielles.', 'فيديوهات من قنوات YouTube الرسمية.'],
   ['Videos are found by Highlightly and come from YouTube and other sites.', 'Los vídeos los encuentra Highlightly y vienen de YouTube y otras webs.', 'Les vidéos sont trouvées par Highlightly et viennent de YouTube et d\'autres sites.', 'تعثر Highlightly على الفيديوهات من YouTube ومواقع أخرى.'],
   ['Replay this match', 'Repetir este partido', 'Revoir ce match', 'إعادة هذه المباراة'], ['Exit replay', 'Salir de la repetición', 'Quitter la rediffusion', 'الخروج من الإعادة'], ['Replay', 'Repetición', 'Rediffusion', 'إعادة']
@@ -1655,9 +1656,10 @@ document.addEventListener('error', e => {
 }, true);
 
 /* ---------- 3h. Player photos ----------
-   Photos come from TheSportsDB (free). Each player is looked up once, by full name, through
-   the data server, which saves the answer for a month for everyone. Full names come from
-   football-data.org's squad lists, because lineups often use short names like "F. de Jong". */
+   Photos come from Wikipedia (free photos from Wikimedia Commons), asked straight from the
+   phone, with TheSportsDB as a backup. Each player is looked up once and saved for a month.
+   Full names come from football-data.org's squad lists, because lineups often use short
+   names like "F. de Jong". */
 const PHOTO_TTL = 30 * 86400e3;
 const nameWords = n => normName(n).split(' ').filter(w => w.length >= 3);
 const fdTeamId = team => team.id === BARCA_ID ? 81 : ((/^fd-(\d+)$/.exec(String(team.id)) || [])[1] || null);
@@ -1671,13 +1673,24 @@ function fullName(squad, p) { // "F. de Jong" in a lineup → "Frenkie de Jong" 
   if (!hit) hit = squad.find(x => nameWords(x.name).some(t => t.length >= 4 && w.includes(t)));
   return hit ? hit.name : null;
 }
-const photoKey = (team, name) => 'photo2:' + teamKey(team.name) + ':' + normName(name); // "photo2": ignores wrong "no photo" answers saved by the previous version
+const photoKey = (team, name) => 'photo3:' + teamKey(team.name) + ':' + normName(name); // "photo3": ignores "no photo" answers saved by older versions
 function photoCached(team, p) {
   const v = store.get(photoKey(team, p.name), null);
   return v && Date.now() - v.t < (v.url ? PHOTO_TTL : 7 * 86400e3) ? v : null; // "no photo" is checked again after a week
 }
-const sized = url => url + '/small'; // TheSportsDB's smaller version of the picture
+const sized = url => /thesportsdb/.test(url) ? url + '/small' : url; // TheSportsDB's smaller version of the picture
 const photoQueue = [], photoQueued = new Set(), photoLoading = new Set();
+// Wikipedia: search "<name> footballer <club>" and take the first football player's page with a photo
+async function wikiPhoto(name, team) {
+  const q = `${name.replace(/_/g, ' ')} footballer ${team.id === BARCA_ID ? 'Barcelona' : team.name}`;
+  const url = 'https://en.wikipedia.org/w/api.php?action=query&format=json&origin=*&redirects=1&generator=search&gsrlimit=3&prop=pageimages%7Cdescription&piprop=thumbnail&pithumbsize=200&gsrsearch=' + encodeURIComponent(q);
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('Wikipedia answered ' + res.status);
+  const pages = Object.values((await res.json()).query?.pages || {}).sort((a, b) => (a.index || 0) - (b.index || 0));
+  const words = nameWords(name.replace(/_/g, ' '));
+  const page = pages.find(pg => /football|soccer/i.test(pg.description || '') && nameWords(pg.title).some(w => words.includes(w)));
+  return page && page.thumbnail ? page.thumbnail.source : null;
+}
 let tsdbVia = 'server'; // switches to asking TheSportsDB straight from this phone if the server can't reach it
 async function tsdbSearch(name) {
   if (tsdbVia === 'server') {
@@ -1717,7 +1730,11 @@ async function runPhotos() {
   while (photoQueue.length) {
     const job = photoQueue.shift();
     let url = null, failed = false;
-    for (const q of job.queries) {
+    for (const q of job.queries) { // Wikipedia first
+      try { url = await wikiPhoto(q, job.team); } catch (e) { /* Wikipedia unreachable: TheSportsDB below */ }
+      if (url) break;
+    }
+    if (!url) for (const q of job.queries) {
       const t0 = Date.now();
       try {
         const json = await tsdbSearch(q);
@@ -1731,6 +1748,7 @@ async function runPhotos() {
     if (url || !failed) { store.set(job.k, { t: Date.now(), url }); if (url) photoChanged(); }
     else if (++job.tries < 3) setTimeout(() => { photoQueue.push(job); runPhotos(); }, 30000); // busy: try again in 30 seconds
     else photoQueued.delete(job.k);
+    await new Promise(r => setTimeout(r, 150)); // be gentle with Wikipedia
   }
   photoBusy = false;
 }
@@ -3020,6 +3038,7 @@ async function viewOptions() {
     <section class="form-card"><h2 class="fc-title">About</h2>
       <p class="help"><b>Culé Live</b> is an unofficial Barça fan app made for an MYP Personal Project. It isn't connected to FC Barcelona.</p>
       <p class="help">Fixtures, results, the table and the squad come from football-data.org. Match events, lineups, team and player stats and ratings come from Highlightly. Times are shown in your time zone (${esc(tzName())}).</p>
+      <p class="help">Player photos come from Wikipedia (Wikimedia Commons, free licences) and TheSportsDB. Videos come from official YouTube channels.</p>
     </section>`;
 }
 
