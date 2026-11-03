@@ -316,6 +316,18 @@ input[type="range"]{width:100%;accent-color:var(--blau);margin:0}
 .tl-row.goal b{font-weight:700}
 .tl-ev .sc{display:inline-block;margin-top:3px;font-family:var(--f-display);font-weight:800;font-size:16px;line-height:1.3;background:var(--ink);color:var(--bg);border-radius:6px;padding:0 6px;font-variant-numeric:tabular-nums}
 .tl-mark{display:flex;justify-content:center;padding:10px 0;position:relative}
+.tl-txt{display:block;min-width:0;text-align:inherit;cursor:pointer;border-radius:8px}
+.tl-txt b::after{content:" ›";color:var(--muted);font-weight:600}
+.tl-txt:hover b{color:var(--blau)}
+.tl-note{margin:0 0 12px}
+.gc-ico{background:var(--surface-2);border:1px solid var(--line)}
+.gc-ico .ico{width:26px;height:26px}
+.gc-score{display:flex;align-items:center;justify-content:center;gap:16px;padding:4px 0}
+.gc-num{display:flex;gap:8px;font-family:var(--f-display);font-weight:800;font-size:46px;line-height:1;font-variant-numeric:tabular-nums;color:var(--muted)}
+.gc-num .up{color:var(--ink)}
+.gc-who{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;padding:12px;background:var(--surface-2);border-radius:12px}
+.gc-who .sheet-name b{font-size:17px}
+.gc-who .sheet-name small{display:block}
 .tl-mark span{z-index:1;background:var(--surface-2);border:1px solid var(--line);border-radius:99px;padding:4px 12px;font-family:var(--f-label);font-weight:700;font-size:13px;letter-spacing:.06em;text-transform:uppercase;font-variant-numeric:tabular-nums}
 
 /* Lineups */
@@ -576,6 +588,10 @@ const store = {
 // After you set up your free Cloudflare data server, paste its address here
 // (for example 'https://cule-live.yourname.workers.dev') so everyone who opens the app gets real data.
 const DATA_SERVER = 'https://cule-live.yellowlion2023.workers.dev';
+// The push server (push-worker.js) sends notifications and keeps one shared copy of Highlightly's
+// answers for every phone, so the 100-a-day Highlightly limit isn't used up by each phone separately.
+const PUSH_SERVER = 'https://cule-push.yellowlion2023.workers.dev';
+const HL_LIMIT = { at: 0 }; // when Highlightly last said its daily limit was used up
 const settings = Object.assign({ mode: 'real', apiKey: '', server: DATA_SERVER, season: 2024, refresh: 15, alerts: true }, store.get('settings', {}));
 if (DATA_SERVER && !settings.server) settings.server = DATA_SERVER;
 const saveSettings = () => store.set('settings', settings);
@@ -706,6 +722,12 @@ const T_ROWS = [
   // Settings
   ['Your preferences on this device.', 'Tus preferencias en este dispositivo.', 'Tes préférences sur cet appareil.', 'تفضيلاتك على هذا الجهاز.'], ['Notifications', 'Notificaciones', 'Notifications', 'الإشعارات'],
   ['Goal alerts while the app is open', 'Avisos de gol con la app abierta', "Alertes but quand l'appli est ouverte", 'تنبيهات الأهداف أثناء فتح التطبيق'], ['Match data', 'Datos de partidos', 'Données des matchs', 'بيانات المباريات'],
+  // Goal card and paused match details
+  ['Scored by', 'Marca', 'Buteur', 'سجّله'], ['Own goal by', 'En propia puerta de', 'Contre son camp de', 'هدف عكسي من'], ['Assist', 'Asistencia', 'Passe décisive', 'تمريرة حاسمة'],
+  ['Player stats', 'Estadísticas', 'Stats du joueur', 'إحصائيات اللاعب'], ['This match', 'Este partido', 'Ce match', 'هذه المباراة'], ['Goal details', 'Detalles del gol', 'Détails du but', 'تفاصيل الهدف'],
+  ['Close goal details', 'Cerrar detalles del gol', 'Fermer les détails du but', 'إغلاق تفاصيل الهدف'], ["Stats aren't available for this match yet.", 'Aún no hay estadísticas de este partido.', 'Pas encore de stats pour ce match.', 'لا توجد إحصائيات لهذه المباراة بعد.'],
+  ["Scorers, lineups and stats are paused: today's free match-data limit is used up. The score still updates, and the rest comes back when the limit resets.", 'Goleadores, alineaciones y estadísticas en pausa: se ha agotado el límite gratuito de datos de hoy. El marcador sigue actualizándose y lo demás volverá cuando se reinicie el límite.', "Buteurs, compos et stats en pause : la limite gratuite de données du jour est atteinte. Le score continue de s'actualiser, le reste reviendra quand la limite sera réinitialisée.", 'الهدافون والتشكيلات والإحصائيات متوقفة: نفد الحد اليومي المجاني للبيانات. النتيجة ما زالت تتحدث، والباقي يعود عند تجديد الحد.'],
+  ["Scorers, lineups and stats can't be loaded right now. The score still updates.", 'Ahora no se pueden cargar goleadores, alineaciones ni estadísticas. El marcador sigue actualizándose.', "Impossible de charger buteurs, compos et stats pour le moment. Le score continue de s'actualiser.", 'تعذر تحميل الهدافين والتشكيلات والإحصائيات الآن. النتيجة ما زالت تتحدث.'],
   // Push notifications
   ['Get alerts on your phone even when the app is closed.', 'Recibe avisos en el móvil aunque la app esté cerrada.', "Reçois des alertes sur ton téléphone même quand l'appli est fermée.", 'استقبل التنبيهات على هاتفك حتى عندما يكون التطبيق مغلقًا.'],
   ['Turn on notifications', 'Activar notificaciones', 'Activer les notifications', 'تفعيل الإشعارات'], ['Send me alerts for:', 'Avísame de:', 'Me prévenir pour :', 'نبّهني عند:'],
@@ -1122,24 +1144,43 @@ const API_BASE = 'https://v3.football.api-sports.io';
 const BLOCKED_MSG = "Couldn't reach the match data. Inside the Claude preview, outside data is blocked, so open the app from its own web address (for example GitHub Pages). If you're already doing that, check your internet connection and the server address or key in Setup.";
 
 // ttl = how many seconds a saved answer can be reused (a number, or a function that looks at the saved answer)
-function apiUrl(path, params = {}) {
+// Highlightly questions go to the shared copy on the push server (normal mode only)
+const viaShared = path => path.startsWith('hl/') && !!PUSH_SERVER && (settings.server || '').trim().replace(/\/+$/, '') === DATA_SERVER;
+function apiUrl(path, params = {}, direct = false) {
+  const shared = !direct && viaShared(path);
+  if (!shared && 'final' in params) { params = { ...params }; delete params.final; } // only the push server understands "final"
   const qs = new URLSearchParams(params).toString();
   const server = (settings.server || '').trim().replace(/\/+$/, '');
-  return `${server || API_BASE}/${path}${qs ? '?' + qs : ''}`;
+  return `${shared ? PUSH_SERVER : server || API_BASE}/${path}${qs ? '?' + qs : ''}`;
 }
-const cachedData = (path, params, tag = '') => store.get('cache:' + apiUrl(path, params) + (tag ? '#' + tag : ''), null)?.data ?? null;
+// A saved answer, also looking under the old address (from before the shared copy) so nothing is downloaded again
+function savedAnswer(path, params, tag = '') {
+  const t = tag ? '#' + tag : '';
+  return store.get('cache:' + apiUrl(path, params) + t, null) || (viaShared(path) ? store.get('cache:' + apiUrl(path, params, true) + t, null) : null);
+}
+const cachedData = (path, params, tag = '') => savedAnswer(path, params, tag)?.data ?? null;
 async function api(path, params = {}, ttl = 600, force = false, tag = '') {
   const server = (settings.server || '').trim().replace(/\/+$/, '');
   const url = apiUrl(path, params);
   const cacheKey = 'cache:' + url + (tag ? '#' + tag : '');
-  const saved = store.get(cacheKey, null);
+  const saved = savedAnswer(path, params, tag);
   const ttlSec = saved ? (typeof ttl === 'function' ? ttl(saved.data) : ttl) : 0;
   if (!force && saved && Date.now() - saved.t < ttlSec * 1000) { if (path === 'fixtures' || path === 'fd/teams/81/matches') state.lastSync = saved.t; return saved.data; }
   if (!server && !settings.apiKey) throw new AppError('Add a data server address or API-Football key on the developer page, or press Back to normal.', 'nokey');
   let res;
   try { res = await fetch(url, server ? {} : { headers: { 'x-apisports-key': settings.apiKey } }); }
-  catch (e) { if (saved) return saved.data; throw new AppError(BLOCKED_MSG, 'network'); }
-  if (!res.ok) throw new AppError(`${server ? 'Your data server' : 'API-Football'} answered with error ${res.status}. Press Back to normal, or check the developer page.`, 'http');
+  catch (e) {
+    if (viaShared(path)) { try { res = await fetch(apiUrl(path, params, true)); } catch (e2) { /* both unreachable */ } } // push server unreachable: ask the data server
+    if (!res) { if (saved) return saved.data; throw new AppError(BLOCKED_MSG, 'network'); }
+  }
+  if (!res.ok && viaShared(path) && (res.status === 404 || res.status >= 500)) { // push server not set up or failing: ask the data server
+    try { res = await fetch(apiUrl(path, params, true)); } catch (e) { /* keep the first answer */ }
+  }
+  if (!res.ok) {
+    if (path.startsWith('hl/') && res.status === 429) HL_LIMIT.at = Date.now(); // Highlightly's daily limit is used up
+    if (saved && (res.status === 429 || res.status >= 500)) return saved.data; // keep showing the last copy
+    throw Object.assign(new AppError(`${server ? 'Your data server' : 'API-Football'} answered with error ${res.status}. Press Back to normal, or check the developer page.`, 'http'), { status: res.status });
+  }
   const json = await res.json();
   const errs = json.errors && (Array.isArray(json.errors) ? json.errors : Object.values(json.errors));
   if (errs && errs.length) throw new AppError('API-Football says: ' + String(errs[0]), 'api');
@@ -1572,11 +1613,12 @@ async function hlDetail(f) {
   const id = f.hlId, ft = f.status === 'FT', live = f.status === 'LIVE' || f.status === 'HT';
   const soon = f.status === 'NS' && f.ts - Date.now() < 2 * 3600e3;
   const tag = f.status; // keep live and finished copies apart
-  const get = (path, ttl) => api('hl/' + path, {}, ttl, false, tag).catch(() => null);
+  // The shared copy on the push server decides how often Highlightly itself is asked, so phones can check often
+  const get = (path, ttl) => api('hl/' + path, ft ? { final: 1 } : {}, ttl, false, tag).catch(() => null);
   const [det, lu, bs] = await Promise.all([
-    get(`matches/${id}`, ft ? 7 * 86400 : live ? 240 : 3600),
-    (ft || live || soon) ? get(`lineups/${id}`, ft ? 7 * 86400 : live ? 3600 : 900) : null,
-    (ft || live) ? get(`box-score/${id}`, ft ? 7 * 86400 : 480) : null
+    get(`matches/${id}`, ft ? 7 * 86400 : live ? 120 : 1800),
+    (ft || live || soon) ? get(`lineups/${id}`, ft ? 7 * 86400 : live ? 1800 : 300) : null,
+    (ft || live) ? get(`box-score/${id}`, ft ? 7 * 86400 : 300) : null
   ]);
   if (!det && !lu && !bs) return null;
   return hlMatch(f, unwrap(det), unwrap(lu), unwrap(bs));
@@ -1586,8 +1628,8 @@ async function hlSeason(loadAll) {
   const list = (state.fixtures || await Data.fixtures()).filter(f => f.hlId && f.status === 'FT');
   const agg = new Map(); let have = 0, missing = 0;
   for (const f of list) {
-    let bs = unwrap(cachedData(`hl/box-score/${f.hlId}`, {}, 'FT'));
-    if (!Array.isArray(bs) && loadAll) { try { bs = unwrap(await api(`hl/box-score/${f.hlId}`, {}, 7 * 86400, false, 'FT')); } catch (e) { bs = null; } }
+    let bs = unwrap(cachedData(`hl/box-score/${f.hlId}`, { final: 1 }, 'FT'));
+    if (!Array.isArray(bs) && loadAll) { try { bs = unwrap(await api(`hl/box-score/${f.hlId}`, { final: 1 }, 7 * 86400, false, 'FT')); } catch (e) { bs = null; } }
     if (!Array.isArray(bs)) { missing++; continue; }
     have++;
     const team = bs.find(t => t.team?.id === HL_BARCA);
@@ -2013,6 +2055,7 @@ const Data = {
       }
       const twin = f.fd ? f.srTwin : f;
       const m = srMatch(f, twin ? await SR.game(twin) : null);
+      if (f.hlId && f.status !== 'NS') m.hlDown = Date.now() - HL_LIMIT.at < 3 * 3600e3 ? 'limit' : 'down'; // Highlightly couldn't be reached
       noteLive(m);
       return m;
     }
@@ -2282,7 +2325,11 @@ function actualIdx(m) {
   if (m.status === 'FT') return T.length - 1;
   if (m.status === 'NS' || m.status === 'OFF') return 0;
   if (m.status === 'HT') return T.findIndex(t => t.ht);
-  if (m.elapsed == null) { let j = 0; T.forEach((t, x) => { if (!t.ft && !t.ht) j = x; }); return j; } // live but minute unknown: show everything so far
+  if (m.elapsed == null) { // live but the minute is unknown: estimate it from the kick-off time (15-minute break), never behind the latest event
+    const mins = (Date.now() - m.ts) / 60e3, est = mins <= 48 ? mins : mins < 63 ? 45 : Math.min(90, mins - 15);
+    const k = Math.max(Math.max(1, Math.floor(est)) * 100, ...prep(m).events.map(e => e.key));
+    let j = 0; T.forEach((t, x) => { if (!t.ft && !t.ht && t.key <= k) j = x; }); return j;
+  }
   const k = (m.elapsed || 0) * 100 + (m.extraNow || 0);
   let i = 0; T.forEach((t, j) => { if (!t.ft && !t.ht && t.key <= k) i = j; });
   return i;
@@ -2374,6 +2421,8 @@ function shortPlayer(name) {
 const pname = (m, id, fallback) => (id != null && prep(m).idx[id]?.p.name) || fallback || (id != null ? String(id) : '');
 const scoreLine = (m, s) => `${esc(m.home.name)} ${s.home}–${s.away} ${esc(m.away.name)}`;
 const empty = msg => `<div class="empty">${msg}</div>`;
+// Why scorers, lineups and stats are missing when Highlightly couldn't be reached
+const hlDownMsg = m => m.hlDown === 'limit' ? "Scorers, lineups and stats are paused: today's free match-data limit is used up. The score still updates, and the rest comes back when the limit resets." : "Scorers, lineups and stats can't be loaded right now. The score still updates.";
 
 function evText(m, e) {
   const n = (id, fb) => esc(pname(m, id, fb));
@@ -2680,9 +2729,12 @@ function tlRow(m, e, scoreTxt) {
     case 'pen_miss': main = n(e.player, e.playerName); sub = e.savedBy ? `Penalty saved by ${n(e.savedBy)}` : 'Penalty missed'; break;
   }
   const gv = e.scoreSide && m.source === 'real' ? goalVideo(m, e) : -1;
-  return `<li class="tl-row ${e.side} ${e.scoreSide ? 'goal' : ''}"><div class="tl-ev">${evIcon(e)}<div class="txt"><b>${main}</b><small>${sub}</small>${scoreTxt ? `<span class="sc">${scoreTxt}</span>` : ''}${gv >= 0 ? `<button class="tl-vid" data-act="play-goal" data-i="${gv}">${I.play} Watch goal</button>` : ''}</div></div><span class="tl-min">${evMinute(e)}</span></li>`;
+  const inner = `<b>${main}</b><small>${sub}</small>${scoreTxt ? `<span class="sc">${scoreTxt}</span>` : ''}`;
+  const body = e.scoreSide ? `<button class="tl-txt" data-act="goal" data-ev="${prep(m).events.indexOf(e)}" aria-label="Goal details">${inner}</button>` : inner; // tap a goal for its card
+  return `<li class="tl-row ${e.side} ${e.scoreSide ? 'goal' : ''}"><div class="tl-ev">${evIcon(e)}<div class="txt">${body}${gv >= 0 ? `<button class="tl-vid" data-act="play-goal" data-i="${gv}">${I.play} Watch goal</button>` : ''}</div></div><span class="tl-min">${evMinute(e)}</span></li>`;
 }
 function timelineHTML(m, st) {
+  if (!st.events.length && st.k <= 0 && m.hlDown) return empty(hlDownMsg(m));
   if (!st.events.length && st.k <= 0) return empty(m.status === 'NS' ? `Kick-off is on ${fmtDayLong(m.ts)}${m.tbc ? ". The time hasn't been announced yet" : ' at ' + fmtTime(m.ts)}. Goals, cards and subs will appear here during the match.` : 'Nothing has happened yet.');
   let h = 0, a = 0, hh = 0, ha = 0;
   const after = new Map();
@@ -2698,7 +2750,7 @@ function timelineHTML(m, st) {
   if (st.isFT) items.push({ key: 1e9, html: mark(`Full time · ${st.score.home}–${st.score.away}`) });
   st.events.forEach((e, i) => items.push({ key: e.key + i * 1e-4, html: tlRow(m, e, after.get(e)) }));
   items.sort((x, y) => y.key - x.key); // newest first, like a live feed
-  return `<ol class="tl">${items.map(x => x.html).join('')}</ol>`;
+  return `${m.hlDown ? `<p class="help tl-note">${hlDownMsg(m)}</p>` : ''}<ol class="tl">${items.map(x => x.html).join('')}</ol>`;
 }
 
 function withGrid(xi) {
@@ -2781,7 +2833,7 @@ function squadsHTML(m) {
 }
 function lineupsHTML(m, st) {
   if (!m.lineups && m.squads) return squadsHTML(m);
-  if (!m.lineups && m.source === 'real') return empty(m.status === 'NS' ? 'Lineups are usually announced about an hour before kick-off.' : "This match's lineups aren't in the saved data. The app saves the last five matches.");
+  if (!m.lineups && m.source === 'real') return empty(m.status === 'NS' ? 'Lineups are usually announced about an hour before kick-off.' : m.hlDown ? hlDownMsg(m) : "This match's lineups aren't in the saved data. The app saves the last five matches.");
   if (!m.lineups) return empty(m.status === 'NS' ? 'Lineups are usually announced about an hour before kick-off.' : settings.mode === 'demo' ? 'In demo mode only the live Clásico has full lineups. Real matches get them from API-Football.' : "Lineups aren't available for this match.");
   return `<div class="lu-head"><span>${badge(m.home, 'sm')}${esc(m.lineups.home.formation)}${avgBadge(teamAvg(m, st, 'home'))}</span><span>${avgBadge(teamAvg(m, st, 'away'))}${esc(m.lineups.away.formation)}${badge(m.away, 'sm')}</span></div>
     <div class="pitch" role="group" aria-label="Starting lineups on the pitch">
@@ -2796,7 +2848,7 @@ function lineupsHTML(m, st) {
     ${injuriesHTML(m)}`;
 }
 function statsHTML(m, st) {
-  if (!st.stats && m.source === 'real') return empty(m.status === 'NS' ? 'Stats appear once the match starts.' : "This match's stats aren't in the saved data. The app saves the last five matches.");
+  if ((!st.stats || m.hlDown) && m.source === 'real') return empty(m.status === 'NS' ? 'Stats appear once the match starts.' : m.hlDown ? hlDownMsg(m) : "This match's stats aren't in the saved data. The app saves the last five matches.");
   if (!st.stats) return empty(m.status === 'NS' ? 'Stats appear once the match starts.' : settings.mode === 'demo' ? 'In demo mode only the live Clásico has full stats. Real matches get them from API-Football.' : "Stats aren't available for this match.");
   const hB = m.home.id === BARCA_ID, aB = m.away.id === BARCA_ID;
   const rows = STAT_ROWS.filter(([k]) => st.stats.home[k] != null && st.stats.away[k] != null).map(([k, label, unit]) => {
@@ -2806,10 +2858,11 @@ function statsHTML(m, st) {
     return `<div class="st-row"><span class="st-v ${lead === 'h' ? 'lead' : ''}">${fmt(h)}</span><span class="st-l">${label}</span><span class="st-v a ${lead === 'a' ? 'lead' : ''}">${fmt(a)}</span>
       <div class="st-bars"><span class="st-bar h"><i class="${hB ? 'fill-fcb' : 'fill-opp'}" style="width:${(tot ? h / tot * 100 : 50).toFixed(1)}%"></i></span><span class="st-bar"><i class="${aB ? 'fill-fcb' : 'fill-opp'}" style="width:${(tot ? a / tot * 100 : 50).toFixed(1)}%"></i></span></div></div>`;
   });
+  if (!rows.length) return empty(m.status === 'NS' ? 'Stats appear once the match starts.' : "Stats aren't available for this match yet.");
   return `<div class="stats"><div class="st-head"><span>${esc(m.home.abbr || shortName(m.home.name))}</span><span>${esc(m.away.abbr || shortName(m.away.name))}</span></div>${rows.join('')}</div>`;
 }
 function ratingsHTML(m, st, clocked) {
-  if (m.source === 'real' && !m.lineups) return empty(m.status === 'NS' ? 'Ratings appear once the match starts.' : "Ratings for this match aren't available yet.");
+  if (m.source === 'real' && !m.lineups) return empty(m.status === 'NS' ? 'Ratings appear once the match starts.' : m.hlDown ? hlDownMsg(m) : "Ratings for this match aren't available yet.");
   if (!m.lineups) return empty(settings.mode === 'demo' && m.status !== 'NS' ? 'In demo mode only the live Clásico has player ratings.' : 'Ratings appear once the match has started and lineups are in.');
   const P = prep(m);
   const list = side => Object.keys(st.ratings).filter(id => P.idx[id]?.side === side && st.ratings[id] != null)
@@ -2954,6 +3007,48 @@ function openPlayer(pid, from) {
     root.querySelector('.sheet-close')?.focus();
   }).catch(() => {});
 }
+/* --- Goal card: tap a goal in Events to see who scored, the assist and the scorer's match ---
+   Uses only what the match data has: no shot positions (the free data doesn't include them). */
+function goalCardHTML(m, idx) {
+  const P = prep(m), e = P.events[idx];
+  if (!e || !e.scoreSide) return '';
+  let h = 0, a = 0; // the score straight after this goal
+  for (const x of P.events) { if (x.scoreSide) x.scoreSide === 'home' ? h++ : a++; if (x === e) break; }
+  const kind = e.type === 'pen' ? 'Penalty goal' : e.type === 'own' ? 'Own goal' : 'Goal';
+  const forTeam = m[e.scoreSide];
+  const person = (pid, fallbackName, label, side) => {
+    const info = pid != null ? P.idx[pid] : null, p = info?.p, team = m[info?.side || side];
+    const name = pname(m, pid, fallbackName) || '';
+    if (!name) return '';
+    const pic = p?.photo ? avatar(p, 'md') : `<span class="sheet-num ${team.id === BARCA_ID ? 't-fcb' : 't-opp'}"><span class="pl-no">${p?.number ?? ''}</span></span>`;
+    return `<div class="gc-who">${pic}<span class="sheet-name"><small>${label}</small><b>${esc(name)}</b><small>${esc(team.name)}${p?.number != null ? ' · #' + p.number : ''}</small></span>${info ? `<button class="btn btn-ghost btn-sm" data-act="player" data-pid="${esc(pid)}">Player stats</button>` : ''}</div>`;
+  };
+  const scorer = person(e.player, e.playerName, e.type === 'own' ? 'Own goal by' : 'Scored by', e.type === 'own' ? (e.scoreSide === 'home' ? 'away' : 'home') : e.scoreSide);
+  const assist = e.assist != null || e.assistName ? person(e.assist, e.assistName, 'Assist', e.scoreSide) : '';
+  // the scorer's whole match, from the player stats (not this one shot)
+  const off = e.type !== 'own' && e.player != null && m.pstats ? m.pstats[e.player] : null;
+  const goalsNow = e.player != null ? P.events.filter(x => x.player === e.player && (x.type === 'goal' || x.type === 'pen')).length : 0;
+  const row = (label, val) => `<li><span>${label}</span><b>${val}</b></li>`;
+  const match = off ? `<section><h3>This match</h3><ul class="kvlist">${row('Goals', goalsNow)}${row('Shots (on target)', `${Math.max(off.shots || 0, goalsNow)} (${Math.max(off.sot || 0, goalsNow)})`)}${off.xg != null ? row('Expected goals (xG)', Number(off.xg).toFixed(2)) : ''}</ul></section>` : '';
+  const gv = m.source === 'real' ? goalVideo(m, e) : -1;
+  return `<div class="sheet-top"><span class="sheet-num gc-ico">${evIcon(e)}</span><span class="sheet-name"><b id="sheet-title">${kind}</b><small>${esc(forTeam.name)} · ${evMinute(e)}</small></span><button class="sheet-close" data-act="sheet-close" aria-label="Close goal details">×</button></div>
+    <div class="gc-score">${badge(m.home)}<span class="gc-num"><span class="${e.scoreSide === 'home' ? 'up' : ''}">${h}</span><span class="sep">–</span><span class="${e.scoreSide === 'away' ? 'up' : ''}">${a}</span></span>${badge(m.away)}</div>
+    ${scorer}${assist}${match}
+    ${gv >= 0 ? `<button class="btn btn-primary wide" data-act="play-goal" data-i="${gv}">${I.play} Watch goal</button>` : ''}`;
+}
+function openGoal(idx, from) {
+  const r = route(); if (r.name !== 'match') return;
+  state.sheetPid = 'goal:' + idx; state.sheetReturn = from || null;
+  Data.match(r.id).then(m => {
+    if (state.sheetPid !== 'goal:' + idx) return;
+    const html = goalCardHTML(m, idx);
+    if (!html) { state.sheetPid = null; return; }
+    const root = $('#sheet-root');
+    root.innerHTML = `<div class="sheet-back" data-act="sheet-close"></div><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">${html}</div>`;
+    root.hidden = false; document.body.style.overflow = 'hidden';
+    root.querySelector('.sheet-close')?.focus();
+  }).catch(() => { state.sheetPid = null; });
+}
 function seasonSheetHTML(p) {
   const s = p.s, pct = (a, b) => b ? Math.round(a / b * 100) : 0, perGame = v => p.apps ? (v / p.apps).toFixed(1) : '0.0';
   const posName = { G: 'Goalkeeper', D: 'Defender', M: 'Midfielder', F: 'Forward' }[p.pos] || '';
@@ -2979,7 +3074,7 @@ function openSeasonPlayer(pid, from) {
   root.querySelector('.sheet-close')?.focus();
 }
 function refreshSheet() { // redraw an open match player card (e.g. once photos arrive)
-  if (state.sheetPid && !String(state.sheetPid).startsWith('season:') && $('#sheet-root') && !$('#sheet-root').hidden) openPlayer(state.sheetPid, state.sheetReturn);
+  if (state.sheetPid && !/^(season|goal):/.test(String(state.sheetPid)) && $('#sheet-root') && !$('#sheet-root').hidden) openPlayer(state.sheetPid, state.sheetReturn);
 }
 function closeSheet(restoreFocus = true) {
   if (!state.sheetPid) return;
@@ -3065,7 +3160,6 @@ function installHTML() {
    half-time and full time. The free Cloudflare push server (push-worker.js) checks Barça's
    matches every minute and sends them; this part asks the phone for permission and tells
    the server which alerts this device wants. Each device chooses its own alerts. */
-const PUSH_SERVER = 'https://cule-push.yellowlion2023.workers.dev';
 const PUSH_KINDS = [['goals', 'Goals'], ['kickoff', 'Kick-off'], ['halftime', 'Half-time'], ['fulltime', 'Full time'], ['lineups', 'Lineups announced']];
 const Push = Object.assign({ on: false, prefs: {}, synced: 0, lang: '' }, store.get('push', {}));
 PUSH_KINDS.forEach(([k]) => { if (Push.prefs[k] == null) Push.prefs[k] = true; });
@@ -3243,7 +3337,7 @@ async function render() {
   catch (e) { html = errorHTML(e); }
   if (seq !== renderSeq) return;
   view.innerHTML = html; view.dataset.route = routeKey(r);
-  if (r.name === 'match' && state.sheetPid && !String(state.sheetPid).startsWith('season:')) Data.match(r.id).then(m => { const c = $('#sheet-content'); if (c) c.innerHTML = sheetBodyHTML(m, mcStateOf(m), state.sheetPid); }).catch(() => {});
+  if (r.name === 'match' && state.sheetPid && !/^(season|goal):/.test(String(state.sheetPid))) Data.match(r.id).then(m => { const c = $('#sheet-content'); if (c) c.innerHTML = sheetBodyHTML(m, mcStateOf(m), state.sheetPid); }).catch(() => {});
 }
 function errorHTML(e) {
   const msg = e instanceof AppError ? e.message : 'Something went wrong while loading. Please try again.';
@@ -3331,6 +3425,7 @@ document.addEventListener('click', e => {
       break;
     }
     case 'player': openPlayer(b.dataset.pid, b); break;
+    case 'goal': openGoal(+b.dataset.ev, b); break;
     case 'season-player': openSeasonPlayer(b.dataset.pid, b); break;
     case 'sheet-close': closeSheet(); break;
     case 'load-season':
@@ -3385,6 +3480,7 @@ document.addEventListener('click', e => {
     case 'lang': if (b.dataset.lang !== LANG) { settings.lang = b.dataset.lang; saveSettings(); location.reload(); } break;
     case 'play': playVideo(+b.dataset.i); break;
     case 'play-goal': {
+      closeSheet(false);
       state.mcTab = 'videos';
       document.querySelectorAll('[data-act="mc-tab"]').forEach(t => t.setAttribute('aria-selected', String(t.dataset.tab === 'videos')));
       const r = route(); if (r.name !== 'match') break;
