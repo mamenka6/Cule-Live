@@ -18,8 +18,11 @@
    Free plan limits this is built around: 50 outside requests and about 10 ms of work per run,
    so each minute it sends up to MAX_SENDS alerts (default 20) and the rest the next minute.
    Goals go first. On the paid plan you can add a variable MAX_SENDS = 200 in Settings → Variables.
-   Highlightly allows 100 requests a day, so it only asks Highlightly for lineups (every
-   5 minutes before kick-off) and for the scorer's name when a goal goes in. */
+   Shared copies: Highlightly allows only 100 requests a day for everyone together, so the app
+   asks this server for Highlightly data (/hl/...) instead of asking Highlightly itself. The
+   server keeps one saved copy of each answer in KV, shared by every phone, and only asks
+   Highlightly again when the copy is old (a live match every 4 minutes, a finished one never).
+   If Highlightly refuses (daily limit), phones get the last saved copy. */
 
 const DATA_SERVER = 'https://cule-live.yellowlion2023.workers.dev'; // used if the DATA binding is missing
 const APP_URL = 'https://mamenka6.github.io/Cule-Live/';
@@ -38,6 +41,7 @@ export default {
       if (!env.KV) throw httpErr(500, 'Add the KV binding (variable name KV) in Settings → Bindings.');
       if (path === '/' || path === '/status') return json(await status(env));
       if (path === '/vapid') return json({ key: (await vapid(env)).pub });
+      if (path.startsWith('/hl/') && req.method === 'GET') return await hlResponse(env, new URL(req.url));
       if (req.method !== 'POST') throw httpErr(405, 'Use POST');
       const b = await readBody(req);
       if (path === '/subscribe') return json(await subscribe(env, b));
@@ -127,7 +131,7 @@ async function follow(env, st, m, x, now, io) {
     tr.luAt = now;
     const hl = await hlMatchId(env, tr, m, home, io);
     if (hl) {
-      const lu = unwrap(await dataGet(env, `hl/lineups/${hl}`, {}, io).catch(() => null));
+      const lu = unwrap(await hlGet(env, `hl/lineups/${hl}`, {}, io).catch(() => null));
       const xi = lineupText(lu, home);
       if (xi) { tr.sent.l = 1; queue(st, 'l', { t: 'lineups', m, xi }, now); }
     }
@@ -172,7 +176,7 @@ async function hlMatchId(env, tr, m, home, io) {
   if (tr.hl || (tr.hlTries || 0) >= 3) return tr.hl || null;
   tr.hlTries = (tr.hlTries || 0) + 1;
   const params = home ? { homeTeamId: HL_BARCA, season: season(new Date(m.ts)) } : { awayTeamId: HL_BARCA, season: season(new Date(m.ts)) };
-  const list = unwrap(await dataGet(env, 'hl/matches', params, io).catch(() => null));
+  const list = unwrap(await hlGet(env, 'hl/matches', params, io).catch(() => null));
   let best = null;
   (Array.isArray(list) ? list : []).forEach(y => {
     const d = Math.abs(Date.parse(y.date) - m.ts);
@@ -194,12 +198,72 @@ function lineupText(lu, home) {
 // Who scored the latest goal, if Highlightly already has it
 async function lastScorer(env, tr, total, io) {
   if (!tr.hl) return null;
-  const d = unwrap(await dataGet(env, `hl/matches/${tr.hl}`, {}, io).catch(() => null));
+  const d = unwrap(await hlGet(env, `hl/matches/${tr.hl}`, {}, io, { maxAge: 60e3 }).catch(() => null)); // a copy at most a minute old
   const det = Array.isArray(d) ? d[0] : d;
   const goals = (det?.events || []).filter(e => /^(goal|penalty|own goal)$/i.test(String(e.type || '').trim()));
   if (goals.length !== total) return null;
   const e = goals[goals.length - 1];
   return { n: e.player || '', min: String(e.time || ''), og: /own/i.test(e.type), pen: /^penalty$/i.test(String(e.type).trim()) };
+}
+
+/* ---------- Shared copies of Highlightly answers ----------
+   One saved copy of each answer, shared by every phone and by the alerts above, so the
+   100-a-day Highlightly limit is spent once per update instead of once per phone. */
+const DAY = 24 * HOUR;
+// How long a new answer can be reused before Highlightly is asked again
+function freshFor(path, text, final, now) {
+  if (final) return 7 * DAY; // finished matches don't change
+  if (/^hl\/matches\?/.test(path)) return 6 * HOUR; // the list of Barça's matches
+  if (/^hl\/head-2-head/.test(path)) return DAY;
+  let j = null; try { j = JSON.parse(text); } catch (e) { /* not JSON */ }
+  const d0 = unwrap(j), d = Array.isArray(d0) ? d0[0] : d0;
+  if (/^hl\/matches\/\d+/.test(path)) {
+    const s = String(d?.state?.description || '').toLowerCase();
+    if (s.startsWith('finished')) return 7 * DAY;
+    if (s.includes('not started') || s.includes('scheduled') || s === 'tbd') return Date.parse(d?.date) - now > 3 * HOUR ? 6 * HOUR : 30 * MIN;
+    if (/postpon|cancel|abandon/.test(s)) return 6 * HOUR;
+    return 4 * MIN; // live or half-time
+  }
+  if (/^hl\/lineups\//.test(path)) {
+    const ok = T => Array.isArray(T?.initialLineup) && T.initialLineup.flat().length >= 11;
+    return ok(d0?.homeTeam) && ok(d0?.awayTeam) ? 12 * HOUR : 10 * MIN; // not announced yet: look again in 10 minutes
+  }
+  if (/^hl\/box-score\//.test(path)) return 12 * MIN; // player stats during a match
+  return HOUR;
+}
+// final: the match is over (the app knows), so a copy saved during the match is replaced once and then kept
+async function hlCached(env, path, io, { final = false, maxAge = null } = {}) {
+  const key = 'c:' + path, now = Date.now();
+  const saved = await env.KV.get(key, 'json');
+  if (saved && (!final || saved.final) && now - saved.t < (maxAge ?? saved.ttl)) return { status: 200, text: saved.body, cache: 'hit', at: saved.t };
+  let res = null, text = '';
+  try { if (io) io.calls++; res = await dataFetch(env, path); text = await res.text(); }
+  catch (e) { text = JSON.stringify({ message: 'Data server unreachable' }); }
+  if (res && res.ok) {
+    let isJson = true; try { JSON.parse(text); } catch (e) { isJson = false; }
+    if (isJson) {
+      await env.KV.put(key, JSON.stringify({ t: now, ttl: freshFor(path, text, final, now), final, body: text }), { expirationTtl: 30 * 86400 }).catch(e => console.log('Save failed:', e.message));
+      return { status: 200, text, cache: 'miss', at: now };
+    }
+  }
+  if (saved) return { status: 200, text: saved.body, cache: 'stale', at: saved.t }; // Highlightly said no: hand out the last copy
+  return { status: res?.status || 502, text: text || JSON.stringify({ message: 'No data' }), cache: 'none' };
+}
+async function hlResponse(env, url) {
+  const q = new URLSearchParams(url.search), final = q.get('final') === '1';
+  q.delete('final');
+  const qs = q.toString(), path = url.pathname.slice(1) + (qs ? '?' + qs : '');
+  if (path.length > 300 || !/^hl\/[A-Za-z0-9\-\/]+(\?[A-Za-z0-9=&%\-_.]*)?$/.test(path)) throw httpErr(400, 'Bad path');
+  const r = await hlCached(env, path, null, { final });
+  const headers = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Cache': r.cache, ...CORS };
+  if (r.at) headers['X-Saved-At'] = new Date(r.at).toISOString();
+  return new Response(r.text, { status: r.status, headers });
+}
+async function hlGet(env, path, params, io, opt) {
+  const qs = new URLSearchParams(params || {}).toString();
+  const r = await hlCached(env, path + (qs ? '?' + qs : ''), io, opt);
+  if (r.status !== 200) throw new Error(`Highlightly answered ${r.status} for ${path}`);
+  return JSON.parse(r.text);
 }
 
 /* ---------- Sending ---------- */
@@ -393,7 +457,7 @@ async function encrypt(s, text) {
 
 /* ---------- Small helpers ---------- */
 const te = new TextEncoder();
-const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type', 'Access-Control-Max-Age': '86400' };
+const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type', 'Access-Control-Expose-Headers': 'X-Cache, X-Saved-At', 'Access-Control-Max-Age': '86400' };
 const json = (o, status = 200) => new Response(JSON.stringify(o, null, 2), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...CORS } });
 const httpErr = (status, msg) => Object.assign(new Error(msg), { status });
 async function readBody(req) {
@@ -401,12 +465,15 @@ async function readBody(req) {
   if (t.length > 8000) throw httpErr(413, 'Too big');
   try { return JSON.parse(t || '{}'); } catch (e) { throw httpErr(400, 'Send JSON'); }
 }
+function dataFetch(env, path) {
+  const url = `${DATA_SERVER}/${path}`;
+  const init = { headers: { Accept: 'application/json', Origin: new URL(APP_URL).origin } };
+  return env.DATA ? env.DATA.fetch(url, init) : fetch(url, init);
+}
 async function dataGet(env, path, params, io) {
   const qs = new URLSearchParams(params).toString();
-  const url = `${DATA_SERVER}/${path}${qs ? '?' + qs : ''}`;
   io.calls++;
-  const init = { headers: { Accept: 'application/json', Origin: new URL(APP_URL).origin } };
-  const res = env.DATA ? await env.DATA.fetch(url, init) : await fetch(url, init);
+  const res = await dataFetch(env, path + (qs ? '?' + qs : ''));
   if (!res.ok) throw new Error(`Data server answered ${res.status} for ${path}`);
   return res.json();
 }
