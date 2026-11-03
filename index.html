@@ -509,6 +509,8 @@ const LALIGA_ID = 140; // La Liga's league number in API-Football
 const LOCALE = 'en-GB';
 const fmtDay = ts => new Date(ts).toLocaleDateString(LOCALE, { weekday: 'short', day: 'numeric', month: 'short' });
 const fmtDayLong = ts => new Date(ts).toLocaleDateString(LOCALE, { weekday: 'long', day: 'numeric', month: 'long' });
+const tzName = () => { try { return (Intl.DateTimeFormat().resolvedOptions().timeZone || 'local').replace(/_/g, ' ').split('/').pop(); } catch (e) { return 'local'; } };
+const koTime = f => f.tbc ? 'TBC' : fmtTime(f.ts);
 const fmtTime = ts => new Date(ts).toLocaleTimeString(LOCALE, { hour: '2-digit', minute: '2-digit' });
 const fmtMonth = ts => new Date(ts).toLocaleDateString(LOCALE, { month: 'long', year: 'numeric' });
 const seasonLabel = y => `${y}–${String(y + 1).slice(2)}`;
@@ -1031,6 +1033,9 @@ function srSquad() {
    minutes behind on the free plan. Match stats come from the built-in data where saved. */
 const FD_COMP = { PD: COMPS[140], CL: COMPS[2] };
 const FD = { downUntil: 0, error: '' };
+const barcaHome = f => f.home.id === BARCA_ID;
+function sameMatch(f, ts, home) { return barcaHome(f) === home && Math.abs(f.ts - ts) < 36 * 3600e3; }
+function closest(list, ts, home) { let best = null; list.forEach(f => { if (sameMatch(f, ts, home) && (!best || Math.abs(f.ts - ts) < Math.abs(best.ts - ts))) best = f; }); return best; }
 const fdReady = () => !!(settings.server || '').trim() && Date.now() > FD.downUntil;
 async function fdGet(path, params, ttl, force = false) {
   const gen = state.gen;
@@ -1049,7 +1054,7 @@ function fdFixture(x) {
   const status = fdStatus(x.status), ft = x.score?.fullTime || {};
   const minute = parseInt(x.minute, 10);
   return {
-    id: x.id, fd: true, source: 'real', ts: Date.parse(x.utcDate), status, short: status === 'OFF' ? String(x.status) : status,
+    id: x.id, fd: true, source: 'real', ts: Date.parse(x.utcDate), tbc: x.status === 'SCHEDULED', status, short: status === 'OFF' ? String(x.status) : status,
     elapsed: Number.isFinite(minute) ? minute : null, extraNow: x.injuryTime || null,
     venue: x.venue || '', city: '', referee: (x.referees || []).find(r => /^referee$/i.test(r.type || 'REFEREE'))?.name || '',
     comp: FD_COMP[x.competition?.code] || compOf(x.competition?.id, x.competition?.name), round: x.matchday ? `Matchday ${x.matchday}` : '',
@@ -1064,7 +1069,7 @@ async function fdFixtures(force) {
   const sr = srFixtures();
   const list = (json.matches || []).map(fdFixture);
   // borrow win chances and match stats from the built-in data for the same match
-  list.forEach(f => { const twin = sr.find(t => Math.abs(t.ts - f.ts) < 12 * 3600e3); if (twin) { f.srTwin = twin; if (!f.prob) f.prob = twin.prob; } });
+  list.forEach(f => { const twin = closest(sr, f.ts, barcaHome(f)); if (twin) { f.srTwin = twin; if (!f.prob) f.prob = twin.prob; } });
   return list.sort((a, b) => a.ts - b.ts);
 }
 
@@ -1099,7 +1104,10 @@ async function hlAttach(list) {
   const [h, a] = await Promise.all([api('hl/matches', { homeTeamId: HL_BARCA, season: 2026 }, ttl), api('hl/matches', { awayTeamId: HL_BARCA, season: 2026 }, ttl)]);
   const hl = [...(unwrap(h) || []), ...(unwrap(a) || [])].filter(x => !/friendl/i.test(x.league?.name || ''));
   const used = new Set();
-  list.forEach(f => { const x = hl.find(y => Math.abs(Date.parse(y.date) - f.ts) < 12 * 3600e3); if (x) { f.hlId = x.id; used.add(x.id); } });
+  hl.forEach(x => { // pair each Highlightly match with the same match from football-data
+    const home = x.homeTeam?.id === HL_BARCA, f = closest(list.filter(y => !y.hlId), Date.parse(x.date), home);
+    if (f) { f.hlId = x.id; used.add(x.id); }
+  });
   hl.filter(x => !used.has(x.id)).forEach(x => list.push(hlFixture(x)));
   return list.sort((p, q) => p.ts - q.ts);
 }
@@ -1738,10 +1746,10 @@ function nextCardHTML(f) {
   return `<section aria-labelledby="next-h">
     <div class="sec-head"><h2 class="sec-title" id="next-h">Next match</h2><a class="sec-link" href="#match-${f.id}">Details</a></div>
     <article class="card next">
-      <div class="next-meta"><span class="tag ${compClass(f.comp)}">${esc(f.comp.short)}</span><span>${esc(f.comp.name)} · ${fmtDay(f.ts)} · ${fmtTime(f.ts)}</span></div>
+      <div class="next-meta"><span class="tag ${compClass(f.comp)}">${esc(f.comp.short)}</span><span>${esc(f.comp.name)} · ${fmtDay(f.ts)} · ${f.tbc ? 'time TBC' : fmtTime(f.ts)}</span></div>
       <div class="next-teams">
         <div class="nt">${badge(f.home)}<span class="nm">${esc(f.home.name)}</span></div>
-        <div class="next-count"><small>Kick-off in</small><strong data-count="${f.ts}">${countdown(f.ts)}</strong></div>
+        <div class="next-count">${f.tbc ? `<small>Kick-off</small><strong>${fmtDay(f.ts)}</strong><small>Time TBC</small>` : `<small>Kick-off in</small><strong data-count="${f.ts}">${countdown(f.ts)}</strong>`}</div>
         <div class="nt">${badge(f.away)}<span class="nm">${esc(f.away.name)}</span></div>
       </div>
       ${f.prob ? probHTML(f) : ''}
@@ -1811,7 +1819,7 @@ function fxRowHTML(f) {
     end = `<b class="fx-score">${v.score[bs]}–${v.score[os]}</b><span class="res ${r}" aria-label="${RES_NAME[r]}">${r}</span>`;
   } else if (live) end = `<span class="pill live sm"><span class="dot"></span>${(f.source === 'api' || f.source === 'real') && v.status === 'LIVE' ? `<span data-clock="${f.id}">${esc(clockText(f.id) || v.minute)}</span>` : esc(v.minute)}</span><b class="fx-score">${v.score[bs]}–${v.score[os]}</b>`;
   else if (v.status === 'OFF') end = `<span class="pill sm">${esc(f.short)}</span>`;
-  else end = `<b class="fx-time">${fmtTime(f.ts)}</b>`;
+  else end = `<b class="fx-time">${koTime(f)}</b>`;
   const pred = store.get('pred:' + f.id, null);
   let predTxt = '';
   if (pred && v.status === 'FT') {
@@ -1835,7 +1843,7 @@ async function viewMatches() {
     : list.filter(f => fstat(f) === 'FT' && pass(f)).sort((a, b) => b.ts - a.ts);
   const groups = [];
   items.forEach(f => { const label = fmtMonth(f.ts); const g = groups[groups.length - 1]; if (g && g.label === label) g.items.push(f); else groups.push({ label, items: [f] }); });
-  return `<div><h1 class="page-title">Matches</h1><p class="page-sub">${settings.mode === 'demo' ? 'Demo fixtures' : settings.mode === 'real' ? 'Season 2026–27 · La Liga and Champions League' : 'Season ' + seasonLabel(settings.season)}</p></div>
+  return `<div><h1 class="page-title">Matches</h1><p class="page-sub">${settings.mode === 'demo' ? 'Demo fixtures' : settings.mode === 'real' ? `Season 2026–27 · times in your time zone (${esc(tzName())}). TBC = time not announced yet.` : 'Season ' + seasonLabel(settings.season)}</p></div>
     <div class="seg" role="tablist" aria-label="Show">
       <button role="tab" data-act="mtab" data-tab="upcoming" aria-selected="${state.matchTab === 'upcoming'}">Upcoming</button>
       <button role="tab" data-act="mtab" data-tab="results" aria-selected="${state.matchTab === 'results'}">Results</button>
@@ -1859,7 +1867,7 @@ function statusPill(m, st, clocked) {
     if (st.isHT) return '<span class="pill">Half-time</span>';
     return `<span class="pill live"><span class="dot"></span>${Clock.mode === 'replay' ? 'Replay ' : ''}${minuteLabel(st.tick)}</span>`;
   }
-  if (m.status === 'NS') return `<span class="pill">In ${countdown(m.ts)}</span>`;
+  if (m.status === 'NS') return m.tbc ? '<span class="pill">Time TBC</span>' : `<span class="pill">In ${countdown(m.ts)}</span>`;
   if (m.status === 'HT') return '<span class="pill">Half-time</span>';
   if (m.status === 'LIVE') return `<span class="pill live"><span class="dot"></span><span data-clock="${m.id}">${esc(clockText(m.id) || fxView(m).minute)}</span></span>`;
   if (m.status === 'FT') return `<span class="pill">${m.short === 'AET' ? 'After extra time' : m.short === 'PEN' ? 'Penalties' : 'Full time'}</span>`;
@@ -1881,7 +1889,7 @@ function mcHeadInner(m, st, clocked, flash = false) {
   return `<div class="mc-meta"><span class="tag ${compClass(m.comp)}">${esc(m.comp.short)}</span><span>${esc(m.comp.name)}${m.round ? ' · ' + esc(m.round) : ''}</span></div>
     <div class="mc-score">
       <div class="mc-team">${badge(m.home, 'lg')}<span class="nm">${esc(m.home.name)}</span></div>
-      <div class="mc-mid">${notStarted ? `<div class="mc-ko">${fmtTime(m.ts)}</div>` : `<div class="mc-num ${flash ? 'flash' : ''}"><span>${st.score.home}</span><span class="sep">–</span><span>${st.score.away}</span></div>`}
+      <div class="mc-mid">${notStarted ? `<div class="mc-ko">${koTime(m)}</div>` : `<div class="mc-num ${flash ? 'flash' : ''}"><span>${st.score.home}</span><span class="sep">–</span><span>${st.score.away}</span></div>`}
         ${statusPill(m, st, clocked)}${m.pen && !clocked ? `<span class="mc-pens">${m.pen.home}–${m.pen.away} on penalties</span>` : ''}</div>
       <div class="mc-team">${badge(m.away, 'lg')}<span class="nm">${esc(m.away.name)}</span></div>
     </div>
@@ -1906,7 +1914,7 @@ function tlRow(m, e, scoreTxt) {
   return `<li class="tl-row ${e.side} ${e.scoreSide ? 'goal' : ''}"><div class="tl-ev">${evIcon(e)}<div class="txt"><b>${main}</b><small>${sub}</small>${scoreTxt ? `<span class="sc">${scoreTxt}</span>` : ''}</div></div><span class="tl-min">${evMinute(e)}</span></li>`;
 }
 function timelineHTML(m, st) {
-  if (!st.events.length && st.k <= 0) return empty(m.status === 'NS' ? `Kick-off is on ${fmtDayLong(m.ts)} at ${fmtTime(m.ts)}. Goals, cards and subs will appear here during the match.` : 'Nothing has happened yet.');
+  if (!st.events.length && st.k <= 0) return empty(m.status === 'NS' ? `Kick-off is on ${fmtDayLong(m.ts)}${m.tbc ? ". The time hasn't been announced yet" : ' at ' + fmtTime(m.ts)}. Goals, cards and subs will appear here during the match.` : 'Nothing has happened yet.');
   let h = 0, a = 0, hh = 0, ha = 0;
   const after = new Map();
   st.events.forEach(e => {
