@@ -748,6 +748,12 @@ const T_ROWS = [
   ["If Highlightly isn't available, goals and cards come from ESPN's public scoreboard as a backup.", 'Si Highlightly no está disponible, los goles y las tarjetas llegan del marcador público de ESPN como respaldo.', "Si Highlightly n'est pas disponible, les buts et les cartons viennent du tableau des scores public d'ESPN en secours.", 'إذا لم يتوفر Highlightly، تأتي الأهداف والبطاقات من لوحة نتائج ESPN العامة كبديل.'],
   ["Goals and cards come from a backup source (ESPN). Lineups and stats are paused: today's free match-data limit is used up.", 'Goles y tarjetas de una fuente de respaldo (ESPN). Alineaciones y estadísticas en pausa: se ha agotado el límite gratuito de datos de hoy.', "Buts et cartons d'une source de secours (ESPN). Compos et stats en pause : la limite gratuite de données du jour est atteinte.", 'الأهداف والبطاقات من مصدر بديل (ESPN). التشكيلات والإحصائيات متوقفة: نفد الحد اليومي المجاني للبيانات.'],
   ["Goals and cards come from a backup source (ESPN). Lineups and stats can't be loaded right now.", 'Goles y tarjetas de una fuente de respaldo (ESPN). Ahora no se pueden cargar alineaciones ni estadísticas.', "Buts et cartons d'une source de secours (ESPN). Impossible de charger compos et stats pour le moment.", 'الأهداف والبطاقات من مصدر بديل (ESPN). تعذر تحميل التشكيلات والإحصائيات الآن.'],
+  // Backup lineups and stats
+  ["Goals, cards, lineups and stats come from a backup source (ESPN). Player ratings are paused: today's free match-data limit is used up.", "Goles, tarjetas, alineaciones y estadísticas de una fuente de respaldo (ESPN). Las notas de los jugadores están en pausa: se ha agotado el límite gratuito de datos de hoy.", "Buts, cartons, compos et stats d'une source de secours (ESPN). Les notes des joueurs sont en pause : la limite gratuite de données du jour est atteinte.", "الأهداف والبطاقات والتشكيلات والإحصائيات من مصدر بديل (ESPN). تقييمات اللاعبين متوقفة: نفد الحد اليومي المجاني للبيانات."],
+  ["Goals, cards, lineups and stats come from a backup source (ESPN). Player ratings can't be loaded right now.", "Goles, tarjetas, alineaciones y estadísticas de una fuente de respaldo (ESPN). Ahora no se pueden cargar las notas.", "Buts, cartons, compos et stats d'une source de secours (ESPN). Impossible de charger les notes pour le moment.", "الأهداف والبطاقات والتشكيلات والإحصائيات من مصدر بديل (ESPN). تعذر تحميل التقييمات الآن."],
+  ["Player ratings come from Highlightly, which is paused: today's free match-data limit is used up.", "Las notas de los jugadores vienen de Highlightly, que está en pausa: se ha agotado el límite gratuito de datos de hoy.", "Les notes des joueurs viennent de Highlightly, en pause : la limite gratuite de données du jour est atteinte.", "تقييمات اللاعبين من Highlightly، وهي متوقفة: نفد الحد اليومي المجاني للبيانات."],
+  ["Player ratings aren't available for this match yet.", "Aún no hay notas de los jugadores para este partido.", "Pas encore de notes des joueurs pour ce match.", "لا توجد تقييمات للاعبين في هذه المباراة بعد."],
+  ["Stats from ESPN (backup source). Player ratings come from Highlightly.", "Estadísticas de ESPN (fuente de respaldo). Las notas vienen de Highlightly.", "Stats d'ESPN (source de secours). Les notes viennent de Highlightly.", "الإحصائيات من ESPN (مصدر بديل). التقييمات من Highlightly."],
   // Goal replay
   ["Loading replay…", "Cargando repetición…", "Chargement du replay…", "جارٍ تحميل الإعادة…"],
   ["Replay", "Repetir", "Revoir", "إعادة"],
@@ -1605,11 +1611,34 @@ async function espnEvents(f) {
   if (out) store.set(key, { t: Date.now(), data: out });
   return out;
 }
-// Where each goal was shot from and where it went in, for the goal replay (ESPN's match summary)
-async function espnShots(f) {
+// ESPN's match summary: where each goal was shot from (for the goal replay), and as a backup the
+// lineups, substitutions and team and player stats
+const espnPos = ab => /^G/.test(ab) ? 'G' : /^(LB|RB|CD|CB|SW|LWB|RWB)/.test(ab) ? 'D' : /M/.test(ab) ? 'M' : ab && ab !== 'SUB' ? 'F' : 'M';
+function espnGrid(formation, xi) { // rows from the formation (e.g. 4-2-3-1), left to right in each row
+  const depth = ab => /^G/.test(ab) ? 0 : /WB/.test(ab) ? 1.4 : /^(LB|RB|CD|CB|SW)/.test(ab) ? 1 : /^DM/.test(ab) ? 2 : /^AM/.test(ab) ? 3.5 : /^(LW|RW)/.test(ab) ? 4 : /^(F|CF|ST)/.test(ab) ? 4.5 : /M/.test(ab) ? 2.5 : 3;
+  const lat = ab => /^L/.test(ab) ? 0 : /-L$/.test(ab) ? 1 : /^R/.test(ab) ? 4 : /-R$/.test(ab) ? 3 : 2; // wide left … centre … wide right
+  const gk = xi.find(q => /^G/.test(q.ab)) || [...xi].sort((a, b) => a.place - b.place)[0];
+  const out = xi.filter(q => q !== gk).sort((a, b) => depth(a.ab) - depth(b.ab) || a.place - b.place);
+  let counts = String(formation || '').split('-').map(Number).filter(n => n > 0);
+  if (counts.reduce((a, b) => a + b, 0) !== out.length) counts = ['D', 'M', 'F'].map(k => out.filter(q => espnPos(q.ab) === k).length).filter(Boolean);
+  const rows = [[gk]]; let i = 0;
+  counts.forEach(n => { rows.push(out.slice(i, i + n)); i += n; });
+  rows.forEach((row, r) => row.sort((a, b) => lat(a.ab) - lat(b.ab) || a.place - b.place).forEach((q, c) => { q.grid = `${r + 1}:${c + 1}`; }));
+}
+function espnTeamStats(t) {
+  const v = n => { const x = (t?.statistics || []).find(z => z.name === n); const f = x ? parseFloat(x.displayValue ?? x.value) : NaN; return Number.isFinite(f) ? f : null; };
+  const o = { possession: v('possessionPct') != null ? Math.round(v('possessionPct')) : null, shots: v('totalShots'), sot: v('shotsOnTarget'), blocked: v('blockedShots'), corners: v('wonCorners'), passes: v('totalPasses'),
+    tackles: v('totalTackles'), interceptions: v('interceptions'), clearances: v('totalClearance'), fouls: v('foulsCommitted'), offsides: v('offsides'), yellow: v('yellowCards'), red: v('redCards'), saves: v('saves') };
+  if (o.shots != null && o.sot != null) o.shotsOff = Math.max(0, o.shots - o.sot - (o.blocked || 0));
+  const acc = v('accuratePasses'); if (acc != null && o.passes) o.passAcc = Math.round(acc / o.passes * 100);
+  for (const k in o) if (o[k] == null) delete o[k];
+  return Object.keys(o).length ? o : null;
+}
+const espnClock = c => { const mt = String(c || '').match(/(\d+)'?(?:\s*\+\s*(\d+))?/); return mt ? { min: +mt[1], extra: +(mt[2] || 0) } : null; };
+async function espnSummary(f) {
   const lg = ESPN_LEAGUE[f.comp?.id];
   if (!lg || f.status === 'NS' || f.source !== 'real') return null;
-  const key = 'cache:espnshots:' + f.id, saved = store.get(key, null), ttl = f.status === 'FT' ? 7 * 86400e3 : 60e3;
+  const key = 'cache:espnsum:' + f.id, saved = store.get(key, null), ttl = f.status === 'FT' ? 7 * 86400e3 : 60e3;
   if (saved && Date.now() - saved.t < ttl) return saved.data;
   try {
     let id = store.get('cache:espnid:' + f.id, null);
@@ -1621,27 +1650,76 @@ async function espnShots(f) {
     if (!id) return null;
     const sm = await (await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${lg}/summary?event=${id}`)).json();
     const shots = (sm.keyEvents || []).filter(k => k.scoringPlay && k.fieldPositionX != null && k.fieldPositionY != null).map(k => {
-      const mt = String(k.clock?.displayValue || '').match(/(\d+)'?(?:\s*\+\s*(\d+))?/);
-      return { min: mt ? +mt[1] : null, extra: mt ? +(mt[2] || 0) : 0, name: k.participants?.[0]?.athlete?.displayName || '', assist: k.participants?.[1]?.athlete?.displayName || '',
+      const c = espnClock(k.clock?.displayValue);
+      return { min: c ? c.min : null, extra: c ? c.extra : 0, name: k.participants?.[0]?.athlete?.displayName || '', assist: k.participants?.[1]?.athlete?.displayName || '',
         x: +k.fieldPositionX, y: +k.fieldPositionY, gy: +(k.goalPositionY ?? k.fieldPosition2Y ?? 50), text: String(k.text || '') };
     });
-    const data = { shots };
+    // lineups, substitutions and player stats from the rosters
+    const lineups = {}, subs = [], pstats = {}, sideOfTeam = {};
+    (sm.rosters || []).forEach(r => {
+      const side = r.homeAway === 'away' ? 'away' : 'home';
+      sideOfTeam[String(r.team?.id)] = side;
+      const ps = (r.roster || []).map(q => {
+        const sp = (q.plays || []).filter(x => x.substitution).map(x => espnClock(x.clock?.displayValue)).filter(Boolean);
+        const st = {}; (q.stats || []).forEach(z => { st[z.abbreviation] = z.value; });
+        const pl = { id: 'e' + (q.athlete?.id || side + q.jersey), name: q.athlete?.displayName || '?', number: q.jersey != null && q.jersey !== '' ? +q.jersey : null, ab: String(q.position?.abbreviation || ''), place: +q.formationPlace || 0,
+          starter: !!q.starter, inAt: q.subbedIn ? sp[0] : null, outAt: q.subbedOut ? sp[sp.length - 1] : null };
+        pstats[pl.id] = { shots: st.SHOT ?? null, sot: st.SOG ?? null, fouls: st.FC ?? null, fouled: st.FA ?? null, offsides: st.OFF ?? null, saves: st.SV ?? null };
+        return pl;
+      });
+      const xi = ps.filter(q => q.starter);
+      if (xi.length !== 11) return;
+      espnGrid(r.formation, xi);
+      const clean = q => ({ id: q.id, name: q.name, number: q.number, pos: espnPos(q.ab), grid: q.grid || null });
+      lineups[side] = { formation: r.formation || '', xi: xi.map(clean), bench: ps.filter(q => !q.starter).map(q => ({ ...clean(q), grid: null })), leftFirst: true };
+      const ins = ps.filter(q => q.inAt).sort((a, b) => a.inAt.min - b.inAt.min), outs = ps.filter(q => q.outAt);
+      const used = new Set();
+      ins.forEach(q => {
+        const o = outs.find(x => !used.has(x) && x.outAt.min === q.inAt.min && x.outAt.extra === q.inAt.extra) || outs.find(x => !used.has(x) && Math.abs(x.outAt.min - q.inAt.min) <= 1);
+        if (o) used.add(o);
+        subs.push({ type: 'sub', side, min: q.inAt.min, extra: q.inAt.extra, player: null, assist: null, in: q.id, inName: q.name, out: o ? o.id : null, outName: o ? o.name : null });
+      });
+    });
+    const teams = sm.boxscore?.teams || [], stats = {};
+    teams.forEach(t => { const sd = sideOfTeam[String(t.team?.id)]; if (sd) stats[sd] = espnTeamStats(t); });
+    const data = { shots, lineups: lineups.home && lineups.away ? lineups : null, subs, pstats, stats: stats.home && stats.away ? stats : null };
     store.set(key, { t: Date.now(), data });
     return data;
   } catch (e) { return saved?.data || null; }
 }
 // Fills in goals and cards (and the live minute) from ESPN when the match has no events
 async function withEspn(m, f) {
-  if (m.source !== 'real' || m.status === 'NS' || (m.events && m.events.length)) return m;
-  const es = await espnEvents(f).catch(() => null);
-  if (!es) return m;
-  if (es.minute != null && m.elapsed == null && m.status === 'LIVE') m.elapsed = es.minute;
-  if (!es.events.length) return m;
-  const evs = es.events.map(e => ({ ...e }));
-  const count = () => { const c = { home: 0, away: 0 }; evs.forEach(e => { const s = e.type === 'own' ? other(e.side) : (e.type === 'goal' || e.type === 'pen') ? e.side : null; if (s) c[s]++; }); return c; };
-  const c = count();
-  if (m.goals?.home != null && (c.home !== m.goals.home || c.away !== m.goals.away)) evs.forEach(e => { if (e.type === 'own') e.side = other(e.side); }); // own goal listed under the other team
-  m.events = evs; m.espn = true; m._prep = undefined;
+  if (m.source !== 'real' || m.status === 'NS') return m;
+  const needEv = !(m.events && m.events.length), needLu = !m.lineups, needSt = !m.stats;
+  if (!needEv && !needLu && !needSt) return m;
+  if (needEv) {
+    const es = await espnEvents(f).catch(() => null);
+    if (es && es.minute != null && m.elapsed == null && m.status === 'LIVE') m.elapsed = es.minute;
+    if (es && es.events.length) {
+      const evs = es.events.map(e => ({ ...e }));
+      const c = { home: 0, away: 0 }; evs.forEach(e => { const sd = e.type === 'own' ? other(e.side) : (e.type === 'goal' || e.type === 'pen') ? e.side : null; if (sd) c[sd]++; });
+      if (m.goals?.home != null && (c.home !== m.goals.home || c.away !== m.goals.away)) evs.forEach(e => { if (e.type === 'own') e.side = other(e.side); }); // own goal listed under the other team
+      m.events = evs; m.espn = true;
+    }
+  }
+  if (needLu || needSt || m.espn) {
+    const sum = await espnSummary(f).catch(() => null);
+    if (sum && needLu && sum.lineups) {
+      m.lineups = sum.lineups; m.espnLineups = true; m.noRatings = true; m.espnPstats = sum.pstats;
+      const ids = {}; [...sum.lineups.home.xi, ...sum.lineups.home.bench, ...sum.lineups.away.xi, ...sum.lineups.away.bench].forEach(q => { ids[normName(q.name)] = q.id; });
+      const idOf = n => (n && ids[normName(n)]) || null;
+      if (m.espn) {
+        m.events.forEach(e => { if (e.player == null) e.player = idOf(e.playerName); });
+        m.events.push(...sum.subs.map(x => ({ ...x })));
+      }
+      (sum.shots || []).forEach(sh => { // assists for the backup goals
+        const e = m.events.find(x => (x.type === 'goal' || x.type === 'pen') && x.min === sh.min && normName(x.playerName || '') === normName(sh.name));
+        if (e && sh.assist && !e.assistName) { e.assistName = sh.assist; e.assist = idOf(sh.assist); }
+      });
+    }
+    if (sum && needSt && sum.stats) { m.stats = sum.stats; m.espnStats = true; }
+  }
+  m._prep = undefined;
   return m;
 }
 
@@ -2378,7 +2456,7 @@ function stateAt(m, i, opt = {}) {
     const s = spans[id];
     minutes[id] = minutesBetween(P, s.inKey, Math.min(s.outKey, k));
     const off = opt.official && m.official && m.official[id] != null;
-    ratings[id] = off ? m.official[id] : rateByFormula(P, id, s, minutes[id], events);
+    ratings[id] = off ? m.official[id] : m.noRatings ? null : rateByFormula(P, id, s, minutes[id], events); // backup lineups come without ratings
   }
   const progress = shareAt(P, k);
   const stats = statsAt(m, i, events, score, progress, opt.actual);
@@ -2551,7 +2629,7 @@ const pname = (m, id, fallback) => (id != null && prep(m).idx[id]?.p.name) || fa
 const scoreLine = (m, s) => `${esc(m.home.name)} ${s.home}–${s.away} ${esc(m.away.name)}`;
 const empty = msg => `<div class="empty">${msg}</div>`;
 // Why scorers, lineups and stats are missing when Highlightly couldn't be reached
-const hlDownMsg = m => m.espn ? (m.hlDown === 'limit' ? "Goals and cards come from a backup source (ESPN). Lineups and stats are paused: today's free match-data limit is used up." : "Goals and cards come from a backup source (ESPN). Lineups and stats can't be loaded right now.") : m.hlDown === 'limit' ? "Scorers, lineups and stats are paused: today's free match-data limit is used up. The score still updates, and the rest comes back when the limit resets." : "Scorers, lineups and stats can't be loaded right now. The score still updates.";
+const hlDownMsg = m => (m.espnLineups || m.espnStats) ? (m.hlDown === 'limit' ? "Goals, cards, lineups and stats come from a backup source (ESPN). Player ratings are paused: today's free match-data limit is used up." : "Goals, cards, lineups and stats come from a backup source (ESPN). Player ratings can't be loaded right now.") : m.espn ? (m.hlDown === 'limit' ? "Goals and cards come from a backup source (ESPN). Lineups and stats are paused: today's free match-data limit is used up." : "Goals and cards come from a backup source (ESPN). Lineups and stats can't be loaded right now.") : m.hlDown === 'limit' ? "Scorers, lineups and stats are paused: today's free match-data limit is used up. The score still updates, and the rest comes back when the limit resets." : "Scorers, lineups and stats can't be loaded right now. The score still updates.";
 
 function evText(m, e) {
   const n = (id, fb) => esc(pname(m, id, fb));
@@ -2979,7 +3057,7 @@ function lineupsHTML(m, st) {
     ${injuriesHTML(m)}`;
 }
 function statsHTML(m, st) {
-  if ((!st.stats || m.hlDown) && m.source === 'real') return empty(m.status === 'NS' ? 'Stats appear once the match starts.' : m.hlDown ? hlDownMsg(m) : "This match's stats aren't in the saved data. The app saves the last five matches.");
+  if ((!st.stats || (m.hlDown && !m.espnStats)) && m.source === 'real') return empty(m.status === 'NS' ? 'Stats appear once the match starts.' : m.hlDown ? hlDownMsg(m) : "This match's stats aren't in the saved data. The app saves the last five matches.");
   if (!st.stats) return empty(m.status === 'NS' ? 'Stats appear once the match starts.' : settings.mode === 'demo' ? 'In demo mode only the live Clásico has full stats. Real matches get them from API-Football.' : "Stats aren't available for this match.");
   const hB = m.home.id === BARCA_ID, aB = m.away.id === BARCA_ID;
   const rows = STAT_ROWS.filter(([k]) => st.stats.home[k] != null && st.stats.away[k] != null).map(([k, label, unit]) => {
@@ -2994,6 +3072,7 @@ function statsHTML(m, st) {
 }
 function ratingsHTML(m, st, clocked) {
   if (m.source === 'real' && !m.lineups) return empty(m.status === 'NS' ? 'Ratings appear once the match starts.' : m.hlDown ? hlDownMsg(m) : "Ratings for this match aren't available yet.");
+  if (m.noRatings) return empty(m.hlDown === 'limit' ? "Player ratings come from Highlightly, which is paused: today's free match-data limit is used up." : "Player ratings aren't available for this match yet.");
   if (!m.lineups) return empty(settings.mode === 'demo' && m.status !== 'NS' ? 'In demo mode only the live Clásico has player ratings.' : 'Ratings appear once the match has started and lineups are in.');
   const P = prep(m);
   const list = side => Object.keys(st.ratings).filter(id => P.idx[id]?.side === side && st.ratings[id] != null)
@@ -3113,6 +3192,14 @@ function sheetBodyHTML(m, st, pid) {
   const info = prep(m).idx[pid];
   if (!info) return '<p class="help">Player not found.</p>';
   if (!st.spans[pid] || st.minutes[pid] < 1) return `<p class="help">${st.spans[pid] ? 'Stats appear after the first minute on the pitch.' : "Hasn't played in this match."}</p>`;
+  if (m.espnLineups) { // backup lineups: only the stats ESPN gives, no rating
+    const x = (m.espnPstats || {})[pid] || {}, mins = minsOf(m, st, pid, false), n = v => v ?? 0;
+    const goals = st.events.filter(e => e.player === pid && (e.type === 'goal' || e.type === 'pen')).length, assists = st.events.filter(e => e.assist === pid && e.scoreSide).length;
+    const r1 = (label, val) => `<li><span>${label}</span><b>${val}</b></li>`;
+    const rows = [r1('Shots (on target)', `${Math.max(n(x.shots), goals)} (${Math.max(n(x.sot), goals)})`), r1('Fouls won', n(x.fouled)), r1('Fouls committed', n(x.fouls)), r1('Offsides', n(x.offsides)), r1('Yellow cards', st.events.filter(e => e.player === pid && e.type === 'yellow').length), r1('Red cards', st.events.filter(e => e.player === pid && e.type === 'red').length)];
+    if (info.p.pos === 'G' && x.saves != null) rows.unshift(r1('Saves', x.saves));
+    return `<div class="sheet-sum"><div class="kv"><b>–</b><small>Rating</small></div><div class="kv"><b>${Math.min(90, mins)}'</b><small>Minutes</small></div><div class="kv"><b>${goals}</b><small>Goals</small></div><div class="kv"><b>${assists}</b><small>Assists</small></div></div><section><h3>This match</h3><ul class="kvlist">${rows.join('')}</ul></section><p class="help">Stats from ESPN (backup source). Player ratings come from Highlightly.</p>`;
+  }
   const { s, source } = playerStatsAt(m, st, pid), r = st.ratings[pid], mins = minsOf(m, st, pid, isClocked(m));
   const pct = (a, b) => b ? Math.round(a / b * 100) : 0;
   const passTxt = s.accurate > s.passes ? `${s.accurate}% of ${s.passes}` : `${s.accurate}/${s.passes} (${pct(s.accurate, s.passes)}%)`;
@@ -3214,7 +3301,7 @@ function replayHTML(m, e, s, info, animate) {
 async function loadReplay(m, idx) {
   const box = $('#gc-replay');
   if (!box) return;
-  const data = await espnShots(m).catch(() => null);
+  const data = await espnSummary(m).catch(() => null);
   if (state.sheetPid !== 'goal:' + idx || !document.contains(box)) return;
   const e = prep(m).events[idx], s = e && shotFor(m, e, data);
   if (!s) { box.remove(); return; } // ESPN has no position for this goal
