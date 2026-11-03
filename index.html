@@ -728,6 +728,9 @@ const T_ROWS = [
   ['Close goal details', 'Cerrar detalles del gol', 'Fermer les détails du but', 'إغلاق تفاصيل الهدف'], ["Stats aren't available for this match yet.", 'Aún no hay estadísticas de este partido.', 'Pas encore de stats pour ce match.', 'لا توجد إحصائيات لهذه المباراة بعد.'],
   ["Scorers, lineups and stats are paused: today's free match-data limit is used up. The score still updates, and the rest comes back when the limit resets.", 'Goleadores, alineaciones y estadísticas en pausa: se ha agotado el límite gratuito de datos de hoy. El marcador sigue actualizándose y lo demás volverá cuando se reinicie el límite.', "Buteurs, compos et stats en pause : la limite gratuite de données du jour est atteinte. Le score continue de s'actualiser, le reste reviendra quand la limite sera réinitialisée.", 'الهدافون والتشكيلات والإحصائيات متوقفة: نفد الحد اليومي المجاني للبيانات. النتيجة ما زالت تتحدث، والباقي يعود عند تجديد الحد.'],
   ["Scorers, lineups and stats can't be loaded right now. The score still updates.", 'Ahora no se pueden cargar goleadores, alineaciones ni estadísticas. El marcador sigue actualizándose.', "Impossible de charger buteurs, compos et stats pour le moment. Le score continue de s'actualiser.", 'تعذر تحميل الهدافين والتشكيلات والإحصائيات الآن. النتيجة ما زالت تتحدث.'],
+  ["If Highlightly isn't available, goals and cards come from ESPN's public scoreboard as a backup.", 'Si Highlightly no está disponible, los goles y las tarjetas llegan del marcador público de ESPN como respaldo.', "Si Highlightly n'est pas disponible, les buts et les cartons viennent du tableau des scores public d'ESPN en secours.", 'إذا لم يتوفر Highlightly، تأتي الأهداف والبطاقات من لوحة نتائج ESPN العامة كبديل.'],
+  ["Goals and cards come from a backup source (ESPN). Lineups and stats are paused: today's free match-data limit is used up.", 'Goles y tarjetas de una fuente de respaldo (ESPN). Alineaciones y estadísticas en pausa: se ha agotado el límite gratuito de datos de hoy.', "Buts et cartons d'une source de secours (ESPN). Compos et stats en pause : la limite gratuite de données du jour est atteinte.", 'الأهداف والبطاقات من مصدر بديل (ESPN). التشكيلات والإحصائيات متوقفة: نفد الحد اليومي المجاني للبيانات.'],
+  ["Goals and cards come from a backup source (ESPN). Lineups and stats can't be loaded right now.", 'Goles y tarjetas de una fuente de respaldo (ESPN). Ahora no se pueden cargar alineaciones ni estadísticas.', "Buts et cartons d'une source de secours (ESPN). Impossible de charger compos et stats pour le moment.", 'الأهداف والبطاقات من مصدر بديل (ESPN). تعذر تحميل التشكيلات والإحصائيات الآن.'],
   // Push notifications
   ['Get alerts on your phone even when the app is closed.', 'Recibe avisos en el móvil aunque la app esté cerrada.', "Reçois des alertes sur ton téléphone même quand l'appli est fermée.", 'استقبل التنبيهات على هاتفك حتى عندما يكون التطبيق مغلقًا.'],
   ['Turn on notifications', 'Activar notificaciones', 'Activer les notifications', 'تفعيل الإشعارات'], ['Send me alerts for:', 'Avísame de:', 'Me prévenir pour :', 'نبّهني عند:'],
@@ -1519,6 +1522,58 @@ function hlFixture(x) {
     venue: '', city: '', referee: '', comp: HL_COMP[String(x.league?.name || '').toLowerCase()] || compOf(x.league?.id, x.league?.name), round: '',
     home: hlTeam(x.homeTeam || {}), away: hlTeam(x.awayTeam || {}), goals: status === 'NS' ? { home: null, away: null } : (parseScore(x.state?.score?.current) || { home: 0, away: 0 }), prob: null };
 }
+/* ---------- 3d-2. ESPN backup for goals and cards ----------
+   When Highlightly can't give a match's events (for example its daily limit is used up), goals
+   and cards come from ESPN's public scoreboard feed instead, straight from the phone. It's not an
+   official API and could change, so it is only ever a backup. */
+const ESPN_LEAGUE = { 140: 'esp.1', 2: 'uefa.champions', 143: 'esp.copa_del_rey', 556: 'esp.super_cup' };
+const ESPN_BARCA = '83'; // Barça's team number at ESPN
+const espnDay = ts => new Date(ts).toISOString().slice(0, 10).replace(/-/g, '');
+async function espnEvents(f) {
+  const lg = ESPN_LEAGUE[f.comp?.id];
+  if (!lg || f.status === 'NS') return null;
+  const key = 'cache:espn:' + f.id, saved = store.get(key, null), ttl = f.status === 'FT' ? 7 * 86400e3 : 45e3;
+  if (saved && Date.now() - saved.t < ttl) return saved.data;
+  let out = null;
+  try {
+    const j = await (await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${lg}/scoreboard?dates=${espnDay(f.ts)}`)).json();
+    const ev = (j.events || []).find(e => (e.competitions?.[0]?.competitors || []).some(c => String(c.team?.id) === ESPN_BARCA));
+    const c = ev?.competitions?.[0];
+    if (c) {
+      const sideOf = id => c.competitors.find(x => String(x.team?.id) === String(id))?.homeAway === 'away' ? 'away' : 'home';
+      const events = [];
+      (c.details || []).forEach(d => {
+        const t = String(d.type?.text || ''), mt = String(d.clock?.displayValue || '').match(/(\d+)'?(?:\s*\+\s*(\d+))?/);
+        if (!mt) return;
+        const base = { min: +mt[1], extra: +(mt[2] || 0), side: sideOf(d.team?.id), player: null, playerName: (d.athletesInvolved || [])[0]?.displayName || null, assist: null, assistName: null };
+        if (d.ownGoal || /own goal/i.test(t)) events.push({ ...base, type: 'own' }); // which team it's listed under is checked against the score
+        else if (d.scoringPlay && (d.penaltyKick || /penalty/i.test(t))) events.push({ ...base, type: 'pen' });
+        else if (d.scoringPlay || /^goal/i.test(t)) events.push({ ...base, type: 'goal' });
+        else if (/red card/i.test(t)) events.push({ ...base, type: 'red' });
+        else if (/yellow card/i.test(t)) events.push({ ...base, type: 'yellow' });
+      });
+      const clock = parseInt(ev.status?.displayClock, 10);
+      out = { events, minute: ev.status?.type?.state === 'in' && Number.isFinite(clock) ? clock : null };
+    }
+  } catch (e) { return saved?.data || null; }
+  if (out) store.set(key, { t: Date.now(), data: out });
+  return out;
+}
+// Fills in goals and cards (and the live minute) from ESPN when the match has no events
+async function withEspn(m, f) {
+  if (m.source !== 'real' || m.status === 'NS' || (m.events && m.events.length)) return m;
+  const es = await espnEvents(f).catch(() => null);
+  if (!es) return m;
+  if (es.minute != null && m.elapsed == null && m.status === 'LIVE') m.elapsed = es.minute;
+  if (!es.events.length) return m;
+  const evs = es.events.map(e => ({ ...e }));
+  const count = () => { const c = { home: 0, away: 0 }; evs.forEach(e => { const s = e.type === 'own' ? other(e.side) : (e.type === 'goal' || e.type === 'pen') ? e.side : null; if (s) c[s]++; }); return c; };
+  const c = count();
+  if (m.goals?.home != null && (c.home !== m.goals.home || c.away !== m.goals.away)) evs.forEach(e => { if (e.type === 'own') e.side = other(e.side); }); // own goal listed under the other team
+  m.events = evs; m.espn = true; m._prep = undefined;
+  return m;
+}
+
 // Gives each match its Highlightly number (and adds cup matches football-data doesn't have)
 async function hlAttach(list) {
   const ttl = 6 * 3600;
@@ -2049,6 +2104,7 @@ const Data = {
         if (hm) {
           // fill in team stats from the built-in data if Highlightly has none
           if (!hm.stats && f.srTwin) { const sm = srMatch(f, await SR.game(f.srTwin)); hm.stats = sm.stats; }
+          await withEspn(hm, f); // Highlightly had no events: goals and cards from ESPN
           attachPhotos(hm);
           noteLive(hm);
           return hm;
@@ -2057,6 +2113,7 @@ const Data = {
       const twin = f.fd ? f.srTwin : f;
       const m = srMatch(f, twin ? await SR.game(twin) : null);
       if (f.hlId && f.status !== 'NS') m.hlDown = Date.now() - HL_LIMIT.at < 3 * 3600e3 ? 'limit' : 'down'; // Highlightly couldn't be reached
+      await withEspn(m, f);
       noteLive(m);
       return m;
     }
@@ -2423,7 +2480,7 @@ const pname = (m, id, fallback) => (id != null && prep(m).idx[id]?.p.name) || fa
 const scoreLine = (m, s) => `${esc(m.home.name)} ${s.home}–${s.away} ${esc(m.away.name)}`;
 const empty = msg => `<div class="empty">${msg}</div>`;
 // Why scorers, lineups and stats are missing when Highlightly couldn't be reached
-const hlDownMsg = m => m.hlDown === 'limit' ? "Scorers, lineups and stats are paused: today's free match-data limit is used up. The score still updates, and the rest comes back when the limit resets." : "Scorers, lineups and stats can't be loaded right now. The score still updates.";
+const hlDownMsg = m => m.espn ? (m.hlDown === 'limit' ? "Goals and cards come from a backup source (ESPN). Lineups and stats are paused: today's free match-data limit is used up." : "Goals and cards come from a backup source (ESPN). Lineups and stats can't be loaded right now.") : m.hlDown === 'limit' ? "Scorers, lineups and stats are paused: today's free match-data limit is used up. The score still updates, and the rest comes back when the limit resets." : "Scorers, lineups and stats can't be loaded right now. The score still updates.";
 
 function evText(m, e) {
   const n = (id, fb) => esc(pname(m, id, fb));
@@ -3030,7 +3087,7 @@ function goalCardHTML(m, idx) {
   const assist = e.assist != null || e.assistName ? person(e.assist, e.assistName, 'Assist', e.scoreSide) : '';
   // the scorer's whole match, from the player stats (not this one shot)
   const off = e.type !== 'own' && e.player != null && m.pstats ? m.pstats[e.player] : null;
-  const goalsNow = e.player != null ? P.events.filter(x => x.player === e.player && (x.type === 'goal' || x.type === 'pen')).length : 0;
+  const goalsNow = P.events.filter(x => (x.type === 'goal' || x.type === 'pen') && (e.player != null ? x.player === e.player : x.playerName && x.playerName === e.playerName)).length;
   const row = (label, val) => `<li><span>${label}</span><b>${val}</b></li>`;
   const match = off ? `<section><h3>This match</h3><ul class="kvlist">${row('Goals', goalsNow)}${row('Shots (on target)', `${Math.max(off.shots || 0, goalsNow)} (${Math.max(off.sot || 0, goalsNow)})`)}${off.xg != null ? row('Expected goals (xG)', Number(off.xg).toFixed(2)) : ''}</ul></section>` : '';
   const gv = m.source === 'real' ? goalVideo(m, e) : -1;
@@ -3272,6 +3329,7 @@ async function viewOptions() {
     <section class="form-card"><h2 class="fc-title">About</h2>
       <p class="help"><b>Culé Live</b> is an unofficial Barça fan app made for an MYP Personal Project. It isn't connected to FC Barcelona.</p>
       <p class="help">Fixtures, results, the table and the squad come from football-data.org. Match events, lineups, team and player stats and ratings come from Highlightly. Times are shown in your time zone (${esc(tzName())}).</p>
+      <p class="help">If Highlightly isn't available, goals and cards come from ESPN's public scoreboard as a backup.</p>
       <p class="help">Player photos come from Wikipedia (Wikimedia Commons, free licences) and TheSportsDB. Videos come from official YouTube channels.</p>
     </section>`;
 }

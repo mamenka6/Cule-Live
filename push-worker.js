@@ -102,7 +102,7 @@ async function tick(env) {
 }
 
 const team = t => ({ id: t?.id ?? null, n: t?.id === FD_BARCA ? 'Barça' : (t?.shortName || t?.name || '?') });
-const small = x => ({ id: x.id, ts: Date.parse(x.utcDate), h: team(x.homeTeam), a: team(x.awayTeam) });
+const small = x => ({ id: x.id, ts: Date.parse(x.utcDate), h: team(x.homeTeam), a: team(x.awayTeam), c: x.competition?.code || '' });
 
 function fdState(s) {
   if (s === 'SCHEDULED' || s === 'TIMED') return 'NS';
@@ -151,7 +151,7 @@ async function follow(env, st, m, x, now, io) {
     const dh = sc.h - prev.h, da = sc.a - prev.a;
     if (dh > 0 || da > 0) {
       const one = dh + da === 1;
-      const who = one ? await lastScorer(env, tr, sc.h + sc.a, io) : null;
+      const who = one ? (await lastScorer(env, tr, sc.h + sc.a, io) || await espnScorer(m, sc.h + sc.a, io).catch(() => null)) : null;
       const min = who?.min || (x.minute ? String(x.minute) : '');
       queue(st, 'g', { t: 'goal', m, sc, side: one ? (dh ? 'h' : 'a') : null, who, min }, now);
     } else if (dh < 0 || da < 0) {
@@ -264,6 +264,21 @@ async function hlGet(env, path, params, io, opt) {
   const r = await hlCached(env, path + (qs ? '?' + qs : ''), io, opt);
   if (r.status !== 200) throw new Error(`Highlightly answered ${r.status} for ${path}`);
   return JSON.parse(r.text);
+}
+
+// Backup for the scorer's name: ESPN's public scoreboard (not an official API, so only a backup)
+const ESPN_LEAGUE = { PD: 'esp.1', CL: 'uefa.champions' };
+async function espnScorer(m, total, io) {
+  const lg = ESPN_LEAGUE[m.c];
+  if (!lg) return null;
+  io.calls++;
+  const day = new Date(m.ts).toISOString().slice(0, 10).replace(/-/g, '');
+  const j = await (await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${lg}/scoreboard?dates=${day}`)).json();
+  const c = (j.events || []).map(e => e.competitions?.[0]).find(x => (x?.competitors || []).some(t => String(t.team?.id) === '83'));
+  const goals = (c?.details || []).filter(d => d.scoringPlay);
+  if (goals.length !== total) return null; // ESPN hasn't got this goal yet
+  const d = goals[goals.length - 1], mt = String(d.clock?.displayValue || '').match(/(\d+)'?(?:\s*\+\s*(\d+))?/);
+  return { n: d.athletesInvolved?.[0]?.displayName || '', min: mt ? mt[1] + (mt[2] ? '+' + mt[2] : '') : '', og: !!d.ownGoal, pen: !!d.penaltyKick };
 }
 
 /* ---------- Sending ---------- */
