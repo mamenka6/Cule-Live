@@ -3,6 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0F3C8F">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Culé Live">
+<meta name="mobile-web-app-capable" content="yes">
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}</style>
 <title>Culé Live</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -739,6 +746,10 @@ const T_ROWS = [
   ['Player photos come from Wikipedia (Wikimedia Commons, free licences) and TheSportsDB. Videos come from official YouTube channels.', 'Las fotos de jugadores vienen de Wikipedia (Wikimedia Commons, licencias libres) y TheSportsDB. Los vídeos, de canales oficiales de YouTube.', 'Les photos des joueurs viennent de Wikipédia (Wikimedia Commons, licences libres) et de TheSportsDB. Les vidéos viennent de chaînes YouTube officielles.', 'صور اللاعبين من ويكيبيديا (ويكيميديا كومنز، تراخيص حرة) وTheSportsDB. والفيديوهات من قنوات YouTube الرسمية.'],
   ['Videos from official YouTube channels.', 'Vídeos de canales oficiales de YouTube.', 'Vidéos des chaînes YouTube officielles.', 'فيديوهات من قنوات YouTube الرسمية.'],
   ['Videos are found by Highlightly and come from YouTube and other sites.', 'Los vídeos los encuentra Highlightly y vienen de YouTube y otras webs.', 'Les vidéos sont trouvées par Highlightly et viennent de YouTube et d\'autres sites.', 'تعثر Highlightly على الفيديوهات من YouTube ومواقع أخرى.'],
+  ['Get the app', 'Descarga la app', "Installe l'appli", 'احصل على التطبيق'], ['Install Culé Live', 'Instalar Culé Live', 'Installer Culé Live', 'تثبيت Culé Live'], ['Culé Live is installed', 'Culé Live instalada', 'Culé Live est installée', 'تم تثبيت Culé Live'],
+  ['Install Culé Live on your phone: it gets its own icon, opens full-screen and loads instantly.', 'Instala Culé Live en tu móvil: tendrá su propio icono, se abrirá a pantalla completa y cargará al instante.', "Installe Culé Live sur ton téléphone : elle aura sa propre icône, s'ouvrira en plein écran et se chargera tout de suite.", 'ثبّت Culé Live على هاتفك: سيكون له أيقونة خاصة ويفتح بملء الشاشة ويُحمّل فورًا.'],
+  ['On iPhone: tap the Share button, then', 'En iPhone: pulsa Compartir y luego', 'Sur iPhone : touche Partager, puis', 'على iPhone: اضغط زر المشاركة ثم'], ['Add to Home Screen', 'Añadir a pantalla de inicio', "Sur l'écran d'accueil", 'إضافة إلى الشاشة الرئيسية'],
+  ['Open your browser menu (⋮) and choose', 'Abre el menú del navegador (⋮) y elige', 'Ouvre le menu du navigateur (⋮) et choisis', 'افتح قائمة المتصفح (⋮) واختر'], ['Install app', 'Instalar app', "Installer l'appli", 'تثبيت التطبيق'], ['Add to Home screen', 'Añadir a pantalla de inicio', "Ajouter à l'écran d'accueil", 'إضافة إلى الشاشة الرئيسية'],
   ['Replay this match', 'Repetir este partido', 'Revoir ce match', 'إعادة هذه المباراة'], ['Exit replay', 'Salir de la repetición', 'Quitter la rediffusion', 'الخروج من الإعادة'], ['Replay', 'Repetición', 'Rediffusion', 'إعادة']
 ];
 
@@ -3020,11 +3031,26 @@ function topScorersHTML() {
   return `<section><h2 class="month">Top scorers this season</h2><ol class="rlist tsc">${list.map((p, i) => `<li><div class="rrow"><span class="tsc-n">${i + 1}</span><span class="bn">${{ G: 'GK', D: 'DEF', M: 'MID', F: 'FWD' }[p.pos]}</span><span class="nmw"><b>${esc(p.name)}</b><small>${p.apps} game${p.apps === 1 ? '' : 's'} · ${p.assists} assist${p.assists === 1 ? '' : 's'}</small></span><span class="tsc-g">${p.goals}<small> G</small></span></div></li>`).join('')}</ol><p class="help demo-note">La Liga and Champions League combined.</p></section>`;
 }
 
+/* --- Installing the app --- */
+let installPrompt = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installPrompt = e; if (route().name === 'options') render(); });
+window.addEventListener('appinstalled', () => { installPrompt = null; toast('Culé Live is installed'); if (route().name === 'options') render(); });
+const isInstalled = () => { try { return matchMedia('(display-mode: standalone)').matches || navigator.standalone === true; } catch (e) { return false; } };
+const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent);
+function installHTML() {
+  if (isInstalled() || !/github\.io$/.test(location.hostname)) return ''; // only offered on the app's website
+  const how = installPrompt ? '<button class="btn btn-primary" data-act="install">Install Culé Live</button>'
+    : isIOS() ? '<p class="help">On iPhone: tap the Share button, then <b>Add to Home Screen</b>.</p>'
+    : '<p class="help">Open your browser menu (⋮) and choose <b>Install app</b> or <b>Add to Home screen</b>.</p>';
+  return `<section class="form-card"><h2 class="fc-title">Get the app</h2><p class="help">Install Culé Live on your phone: it gets its own icon, opens full-screen and loads instantly.</p>${how}</section>`;
+}
+
 /* --- Settings (what everyone sees) --- */
 async function viewOptions() {
   if (Acct.user && !state.fixtures) { try { await Data.fixtures(); } catch (e) { /* points need fixtures; show 0 if they can't load */ } }
   return `<div><h1 class="page-title">Settings</h1><p class="page-sub">Your account and preferences.</p></div>
     ${accountHTML()}
+    ${installHTML()}
     <section class="form-card"><h2 class="fc-title">Language</h2>
       <div class="seg lang-seg" role="group" aria-label="Language">${Object.entries(LANG_NAMES).map(([k, n]) => `<button data-act="lang" data-lang="${k}" lang="${k}" data-notr aria-pressed="${LANG === k}">${n}</button>`).join('')}</div>
     </section>
@@ -3254,6 +3280,7 @@ document.addEventListener('click', e => {
       Data.match(r.id).then(m => { const p = $('#mc-panel'); if (!p) return; p.innerHTML = panelHTML(m, mcStateOf(m), isClocked(m)); playVideo(+b.dataset.i); $('#vid-' + b.dataset.i)?.scrollIntoView({ block: 'center' }); }).catch(() => {});
       break;
     }
+    case 'install': if (installPrompt) { installPrompt.prompt(); installPrompt.userChoice.finally(() => { installPrompt = null; render(); }); } break;
     case 'acct-google': acctGoogle(); break;
     case 'acct-mode': Acct.mode = Acct.mode === 'up' ? 'in' : 'up'; Acct.error = ''; render(); break;
     case 'acct-forgot': acctForgot(); break;
@@ -3298,6 +3325,7 @@ async function checkPlan() {
 }
 (function init() {
   startTranslating();
+  if ('serviceWorker' in navigator && /github\.io$/.test(location.hostname)) navigator.serviceWorker.register('sw.js').catch(() => { /* works without it, just not offline */ });
   acctStart(); acctButton();
   $('#tabbar').innerHTML = NAV.map(([k, label]) => `<a class="tab" href="#${k}" data-tab="${k}">${I[k]}<span>${label}</span></a>`).join('');
   updateModeChip();
