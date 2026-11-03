@@ -258,6 +258,9 @@ h1,h2,h3,p{margin:0}
 .sq-name b{display:block;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sq-name small{color:var(--muted);font-size:12.5px}
 .sq-ga{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.sq-btn{display:grid;grid-template-columns:36px minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:10px 14px;width:100%;text-align:left;border-top:1px solid var(--line)}
+.sq-btn:first-child{border-top:0}
+.sq-btn:hover{background:var(--surface-2)}
 .sq-detail{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;padding:10px 14px 14px 60px;background:var(--surface-2)}
 .kv{display:flex;flex-direction:column}
 .kv b{font-family:var(--f-display);font-weight:800;font-size:24px;line-height:1.1;font-variant-numeric:tabular-nums}
@@ -1200,9 +1203,20 @@ async function hlSeason(loadAll) {
     const team = bs.find(t => t.team?.id === HL_BARCA);
     (team?.players || []).forEach(pl => {
       const id = String(pl.id), st = pl.statistics || {};
-      const x = agg.get(id) || { id, name: pl.name, number: pl.shirtNumber ?? null, pos: posLetter(pl.position), apps: 0, minutes: 0, goals: 0, assists: 0, rSum: 0, rN: 0, xg: 0 };
-      if ((pl.minutesPlayed || 0) > 0) x.apps++;
-      x.minutes += pl.minutesPlayed || 0; x.goals += st.goalsScored || 0; x.assists += st.assists || 0; x.xg += st.expectedGoals || 0;
+      const x = agg.get(id) || { id, name: pl.name, number: pl.shirtNumber ?? null, pos: posLetter(pl.position), apps: 0, starts: 0, minutes: 0, goals: 0, assists: 0, rSum: 0, rN: 0, xg: 0,
+        s: { shots: 0, sot: 0, passes: 0, passOk: 0, keyPasses: 0, tackles: 0, interceptions: 0, duels: 0, duelsWon: 0, dribbles: 0, dribblesWon: 0, fouls: 0, fouled: 0, offsides: 0, yellow: 0, red: 0, saves: 0, conceded: 0, cleanSheets: 0, xg: 0, xa: 0, penScored: 0, penMissed: 0 } };
+      const mins = pl.minutesPlayed || 0, n = v => Number(v) || 0;
+      if (mins > 0) {
+        x.apps++; if (!pl.isSubstitute) x.starts++;
+        const t = x.s; // add this match to the season totals
+        t.shots += n(st.shotsTotal); t.sot += n(st.shotsOnTarget); t.passes += n(st.passesTotal); t.passOk += n(st.passesSuccessful); t.keyPasses += n(st.passesKey);
+        t.tackles += n(st.tacklesTotal); t.interceptions += n(st.interceptionsTotal); t.duels += n(st.duelsTotal); t.duelsWon += n(st.duelsWon);
+        t.dribbles += n(st.dribblesTotal); t.dribblesWon += n(st.dribblesSuccessful); t.fouls += n(st.fouledOthers); t.fouled += n(st.fouledByOthers); t.offsides += n(pl.offsides);
+        t.yellow += n(st.cardsYellow); t.red += n(st.cardsRed) + n(st.cardsSecondYellow); t.xg += n(st.expectedGoals); t.xa += n(st.expectedAssists);
+        t.penScored += n(st.penaltiesScored); t.penMissed += n(st.penaltiesMissed);
+        if (posLetter(pl.position) === 'G') { t.saves += n(st.goalsSaved); t.conceded += n(st.goalsConceded); if (mins >= 60 && n(st.goalsConceded) === 0) t.cleanSheets++; }
+      }
+      x.minutes += mins; x.goals += st.goalsScored || 0; x.assists += st.assists || 0; x.xg += st.expectedGoals || 0;
       const r = parseFloat(pl.matchRating); if (Number.isFinite(r)) { x.rSum += r; x.rN++; }
       if (pl.shirtNumber != null) x.number = pl.shirtNumber;
       agg.set(id, x);
@@ -1318,7 +1332,7 @@ const Data = {
                 const target = fdp || (a.minutes > 0 ? (list.push({ id: 'hl' + a.id, name: a.name, number: null, pos: a.pos, age: null }), list[list.length - 1]) : null);
                 if (!target) return;
                 used.add(target.id);
-                Object.assign(target, { number: target.number ?? a.number, apps: a.apps, minutes: a.minutes, goals: a.goals, assists: a.assists, rating: a.rating, xg: Math.round(a.xg * 100) / 100 });
+                Object.assign(target, { number: target.number ?? a.number, apps: a.apps, starts: a.starts, minutes: a.minutes, goals: a.goals, assists: a.assists, rating: a.rating, rN: a.rN, xg: Math.round(a.xg * 100) / 100, s: a.s, pos: target.pos || a.pos });
               });
               state.seasonFull = true;
             } else state.seasonFull = false;
@@ -2140,6 +2154,30 @@ function openPlayer(pid, from) {
     root.querySelector('.sheet-close')?.focus();
   }).catch(() => {});
 }
+function seasonSheetHTML(p) {
+  const s = p.s, pct = (a, b) => b ? Math.round(a / b * 100) : 0, perGame = v => p.apps ? (v / p.apps).toFixed(1) : '0.0';
+  const posName = { G: 'Goalkeeper', D: 'Defender', M: 'Midfielder', F: 'Forward' }[p.pos] || '';
+  const row = (label, val) => `<li><span>${label}</span><b>${val}</b></li>`;
+  const sec = (title, rows) => `<section><h3>${title}</h3><ul class="kvlist">${rows.join('')}</ul></section>`;
+  const parts = [sec('Playing time', [row('Games (started)', `${p.apps} (${p.starts ?? '–'})`), row('Minutes', p.minutes), row('Minutes per game', p.apps ? Math.round(p.minutes / p.apps) : 0)])];
+  if (p.pos === 'G') parts.push(sec('Goalkeeping', [row('Saves', s.saves), row('Saves per game', perGame(s.saves)), row('Goals conceded', s.conceded), row('Clean sheets', s.cleanSheets)]));
+  parts.push(sec('Attacking', [row('Goals', p.goals), row('Expected goals (xG)', s.xg.toFixed(2)), row('Shots (on target)', `${s.shots} (${s.sot})`), row('Penalties scored', s.penMissed ? `${s.penScored} of ${s.penScored + s.penMissed}` : s.penScored), row('Dribbles won', `${s.dribblesWon}/${s.dribbles} (${pct(s.dribblesWon, s.dribbles)}%)`), row('Fouls won', s.fouled), row('Offsides', s.offsides)]));
+  parts.push(sec('Passing', [row('Assists', p.assists), row('Expected assists (xA)', s.xa.toFixed(2)), row('Accurate passes', `${s.passOk}/${s.passes} (${pct(s.passOk, s.passes)}%)`), row('Passes per game', perGame(s.passes)), row('Key passes', s.keyPasses)]));
+  parts.push(sec('Defending', [row('Tackles', s.tackles), row('Interceptions', s.interceptions), row('Duels won', `${s.duelsWon}/${s.duels} (${pct(s.duelsWon, s.duels)}%)`)]));
+  parts.push(sec('Discipline', [row('Fouls committed', s.fouls), row('Yellow cards', s.yellow), row('Red cards', s.red)]));
+  return `<div class="sheet-top"><span class="sheet-num t-fcb">${p.number ?? ''}</span><span class="sheet-name"><b id="sheet-title">${esc(p.name)}</b><small>Barcelona${posName ? ' · ' + posName : ''}${p.age ? ' · ' + p.age : ''}</small></span><button class="sheet-close" data-act="sheet-close" aria-label="Close player stats">×</button></div>
+    <div id="sheet-content"><div class="sheet-sum"><div class="kv">${p.rating != null ? rtBadge(p.rating, 'big') : '<b>–</b>'}<small>Avg rating</small></div><div class="kv"><b>${p.apps}</b><small>Games</small></div><div class="kv"><b>${p.goals}</b><small>Goals</small></div><div class="kv"><b>${p.assists}</b><small>Assists</small></div></div>
+    ${parts.join('')}<p class="help">This season, all competitions except friendlies, from ${state.seasonHave} match${state.seasonHave === 1 ? '' : 'es'}. Stats from Highlightly.</p></div>`;
+}
+function openSeasonPlayer(pid, from) {
+  const p = (state.squadList || []).find(x => String(x.id) === String(pid));
+  if (!p || !p.s) return;
+  state.sheetPid = 'season:' + pid; state.sheetReturn = from || null;
+  const root = $('#sheet-root');
+  root.innerHTML = `<div class="sheet-back" data-act="sheet-close"></div><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">${seasonSheetHTML(p)}</div>`;
+  root.hidden = false; document.body.style.overflow = 'hidden';
+  root.querySelector('.sheet-close')?.focus();
+}
 function closeSheet(restoreFocus = true) {
   if (!state.sheetPid) return;
   state.sheetPid = null;
@@ -2183,15 +2221,18 @@ async function viewSquad() {
   const html = groups.map(([k, title, one]) => {
     const players = sq.filter(p => p.pos === k).sort((a, b) => (a.number ?? 99) - (b.number ?? 99));
     if (!players.length) return '';
-    return `<section><h2 class="month">${title}</h2><div class="sq">${players.map(p => `<details class="sq-row"><summary>
+    return `<section><h2 class="month">${title}</h2><div class="sq">${players.map(p => p.s ? `<button class="sq-row sq-btn" data-act="season-player" data-pid="${esc(p.id)}" aria-label="${esc(p.name)}: season stats">
+        <span class="sq-num">${p.number ?? `<small class="pos-ab">${{ G: 'GK', D: 'DEF', M: 'MID', F: 'FWD' }[p.pos] || '–'}</small>`}</span><span class="sq-name"><b>${esc(p.name)}</b><small>${one}${p.age ? ' · ' + p.age : ''} · ${p.apps} game${p.apps === 1 ? '' : 's'}</small></span>
+        <span class="sq-ga">${p.pos === 'G' ? `${p.s.saves} saves` : `${p.goals} G · ${p.assists} A`}</span>${p.rating != null ? rtBadge(p.rating) : '<span></span>'}</button>` : `<details class="sq-row"><summary>
         <span class="sq-num">${p.number ?? `<small class="pos-ab">${{ G: 'GK', D: 'DEF', M: 'MID', F: 'FWD' }[p.pos] || '–'}</small>`}</span><span class="sq-name"><b>${esc(p.name)}</b><small>${one}${p.age ? ' · ' + p.age : ''}</small></span>
         <span class="sq-ga">${p.goals == null ? (p.apps == null ? '' : `${p.apps} game${p.apps === 1 ? '' : 's'}`) : `${p.goals} G · ${p.assists} A`}</span>${p.rating != null ? rtBadge(p.rating) : '<span></span>'}</summary>
         <div class="sq-detail"><div class="kv"><b>${p.apps ?? '–'}</b><small>Games</small></div><div class="kv"><b>${p.goals ?? '–'}</b><small>Goals</small></div><div class="kv"><b>${p.assists ?? '–'}</b><small>Assists</small></div><div class="kv"><b>${p.minutes != null ? p.minutes : p.rating != null ? p.rating.toFixed(1) : '–'}</b><small>${p.minutes != null ? 'Minutes' : 'Avg rating'}</small></div></div>
       </details>`).join('')}</div></section>`;
   }).join('');
+  state.squadList = sq;
   const loadBtn = settings.mode === 'real' && state.squadSource === 'fd' && state.seasonMissing > 0
-    ? `<section class="form-card"><b>Load full season stats</b><p class="help">Adds games, minutes, goals, assists and average rating for every player from this season's ${state.seasonMissing + state.seasonHave} matches. Uses about ${state.seasonMissing} of your 100 free daily requests the first time, then it's saved.</p><button class="btn btn-primary" data-act="load-season">Load season stats</button></section>` : '';
-  return `<div><h1 class="page-title">Squad</h1><p class="page-sub">${settings.mode === 'demo' ? 'Season stats are made up for the demo.' : settings.mode === 'real' ? (state.squadSource === 'fd' ? (state.seasonFull ? `This season's stats from ${state.seasonHave} match${state.seasonHave === 1 ? '' : 'es'}: games, goals, assists and average rating.` : 'Current first-team squad, with goals and assists for this season\'s scorers.') : `Players used in the last ${state.squadGames || 0} matches. Goals, assists and ratings come with API-Football.`) : 'Season ' + seasonLabel(settings.season) + ' · all competitions'}</p></div>${loadBtn}${topScorersHTML()}${html || empty('No players found for this season.')}`;
+    ? `<section class="form-card"><b>Load full season stats</b><p class="help">Adds every player's season stats from this season's ${state.seasonMissing + state.seasonHave} matches: rating, goals, assists, xG, shots, passes, tackles, duels, saves, clean sheets and more. Uses about ${state.seasonMissing} of your 100 free daily requests the first time, then it's saved.</p><button class="btn btn-primary" data-act="load-season">Load season stats</button></section>` : '';
+  return `<div><h1 class="page-title">Squad</h1><p class="page-sub">${settings.mode === 'demo' ? 'Season stats are made up for the demo.' : settings.mode === 'real' ? (state.squadSource === 'fd' ? (state.seasonFull ? `This season's stats from ${state.seasonHave} match${state.seasonHave === 1 ? '' : 'es'}. Tap a player to see all of them.` : 'Current first-team squad, with goals and assists for this season\'s scorers.') : `Players used in the last ${state.squadGames || 0} matches. Goals, assists and ratings come with API-Football.`) : 'Season ' + seasonLabel(settings.season) + ' · all competitions'}</p></div>${loadBtn}${topScorersHTML()}${html || empty('No players found for this season.')}`;
 }
 
 function topScorersHTML() {
@@ -2262,7 +2303,7 @@ async function render() {
   catch (e) { html = errorHTML(e); }
   if (seq !== renderSeq) return;
   view.innerHTML = html; view.dataset.route = routeKey(r);
-  if (r.name === 'match' && state.sheetPid) Data.match(r.id).then(m => { const c = $('#sheet-content'); if (c) c.innerHTML = sheetBodyHTML(m, mcStateOf(m), state.sheetPid); }).catch(() => {});
+  if (r.name === 'match' && state.sheetPid && !String(state.sheetPid).startsWith('season:')) Data.match(r.id).then(m => { const c = $('#sheet-content'); if (c) c.innerHTML = sheetBodyHTML(m, mcStateOf(m), state.sheetPid); }).catch(() => {});
 }
 function errorHTML(e) {
   const msg = e instanceof AppError ? e.message : 'Something went wrong while loading. Please try again.';
@@ -2350,6 +2391,7 @@ document.addEventListener('click', e => {
       break;
     }
     case 'player': openPlayer(b.dataset.pid, b); break;
+    case 'season-player': openSeasonPlayer(b.dataset.pid, b); break;
     case 'sheet-close': closeSheet(); break;
     case 'load-season':
       b.disabled = true; b.textContent = 'Loading…';
