@@ -9,7 +9,7 @@
 <meta name="description" content="Unofficial Barça fan app: live scores, lineups, stats and player ratings.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&family=Big+Shoulders+Display:wght@700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&family=Big+Shoulders+Display:wght@700;800&family=Cairo:wght@500;600;700;800&display=swap">
 <style>
 /* Layout: one phone-width column, sticky top bar, fixed bottom tabs.
    The live scoreboard in shirt stripes is the one loud element; everything else stays quiet. */
@@ -78,6 +78,8 @@ h1,h2,h3,p{margin:0}
 .tabbar-in{max-width:540px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr)}
 .tab{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 0 10px;font-family:var(--f-label);font-weight:600;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .tab svg{width:22px;height:22px}
+.tab span{max-width:100%;padding:0 2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+:root:not([lang="en"]) .tab{letter-spacing:.02em;font-size:11.5px}
 .tab[aria-current="page"]{color:var(--blau)}
 .tab[aria-current="page"]::before{content:"";position:absolute;top:-1px;left:28%;right:28%;height:3px;border-radius:0 0 3px 3px;background:var(--blau)}
 
@@ -98,6 +100,9 @@ h1,h2,h3,p{margin:0}
 .row{display:flex;gap:8px;flex-wrap:wrap}
 
 .badge{display:inline-grid;place-items:center;width:44px;height:44px;border-radius:50%;flex:none;font-family:var(--f-label);font-weight:700;font-size:14px;letter-spacing:.03em;color:#fff;background:hsl(var(--h,220) 30% 38%);box-shadow:inset 0 0 0 2px rgba(255,255,255,.22);text-shadow:0 1px 2px rgba(0,0,0,.35)}
+.badge.crest{background:none;box-shadow:none;border-radius:0}
+.badge.crest img{width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 1px 1px rgba(0,0,0,.18))}
+.badge.crest .bt{display:none}
 .badge-fcb{background:repeating-linear-gradient(90deg,var(--stripe-a) 0 7.3px,var(--stripe-b) 7.3px 14.6px)}
 .badge.sm{width:26px;height:26px;font-size:10px}
 .badge.lg{width:56px;height:56px;font-size:16px}
@@ -447,6 +452,16 @@ button.rrow:hover,button.brow:hover{background:var(--surface-2)}
 .kvlist b{font-weight:600;font-variant-numeric:tabular-nums}
 @keyframes fade{from{opacity:0}to{opacity:1}}
 @keyframes rise{from{transform:translateY(24px);opacity:0}to{transform:none;opacity:1}}
+/* Arabic: its own font, no letter spacing (it breaks joined letters), mirrored arrows and bars */
+:root[lang="ar"]{--f-display:"Cairo","Noto Sans Arabic",system-ui,sans-serif;--f-body:"Cairo","Noto Sans Arabic",system-ui,sans-serif;--f-label:"Cairo","Noto Sans Arabic",system-ui,sans-serif}
+:root[lang="ar"] body *{letter-spacing:0!important}
+[dir="rtl"] .back svg{transform:scaleX(-1)}
+[dir="rtl"] .mc-scorers li{direction:ltr}
+[dir="rtl"] .bar{transform:scaleX(-1)}
+[dir="rtl"] .tbl td.rank::before{left:auto;right:0;border-radius:2px 0 0 2px}
+[dir="rtl"] .sq-detail{padding:10px 60px 14px 14px}
+[dir="rtl"] .toast.goal{border-left:0;border-right:8px solid var(--gold)}
+.lang-seg button{text-transform:none;letter-spacing:0;font-family:var(--f-body);font-weight:600}
 @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.75)}}
 @keyframes flash{0%{transform:scale(1)}25%{transform:scale(1.22)}100%{transform:scale(1)}}
 @keyframes drop{from{opacity:0;transform:translate(-50%,-10px)}to{opacity:1;transform:translate(-50%,0)}}
@@ -511,7 +526,250 @@ const devChange = () => { settings.dev = true; };
 const BARCA_ID = 529;  // FC Barcelona's team number in API-Football
 const LALIGA_ID = 140; // La Liga's league number in API-Football
 
-const LOCALE = 'en-GB';
+/* ---------- 3f. Languages ----------
+   The app is written in English. In another language, every piece of text on screen is looked
+   up in the table below and swapped for its translation as it appears. Names of teams and
+   players stay as they are. Arabic is shown right to left. */
+const LANG_NAMES = { en: 'English', es: 'Español', fr: 'Français', ar: 'العربية' };
+const LOCALES = { en: 'en-GB', es: 'es-ES', fr: 'fr-FR', ar: 'ar-MA' };
+const LANG = (() => { const l = settings.lang || String(navigator.language || 'en').slice(0, 2).toLowerCase(); return LANG_NAMES[l] ? l : 'en'; })();
+const LOCALE = LOCALES[LANG];
+
+// [English, Español, Français, العربية]
+const T_ROWS = [
+  // Top bar and tabs
+  ['Home', 'Inicio', 'Accueil', 'الرئيسية'], ['Matches', 'Partidos', 'Matchs', 'المباريات'], ['Table', 'Tabla', 'Classement', 'الترتيب'],
+  ['Squad', 'Plantilla', 'Effectif', 'اللاعبون'], ['Settings', 'Ajustes', 'Réglages', 'الإعدادات'],
+  ['Real data', 'Datos reales', 'Données réelles', 'بيانات حقيقية'], ['Real · live', 'Real · en directo', 'Réel · en direct', 'حقيقي · مباشر'], ['Demo data', 'Datos de prueba', 'Données de démo', 'بيانات تجريبية'],
+  ['Main', 'Principal', 'Principal', 'القائمة الرئيسية'], ['Culé Live, home', 'Culé Live, inicio', 'Culé Live, accueil', 'Culé Live، الرئيسية'],
+  // Home
+  ['Next match', 'Próximo partido', 'Prochain match', 'المباراة القادمة'], ['Details', 'Detalles', 'Détails', 'التفاصيل'],
+  ['Kick-off in', 'Empieza en', "Coup d'envoi dans", 'تنطلق بعد'], ['Kick-off', 'Inicio', "Coup d'envoi", 'الانطلاق'],
+  ['Time TBC', 'Hora por confirmar', 'Heure à confirmer', 'الوقت غير محدد'], ['time TBC', 'hora por confirmar', 'heure à confirmer', 'الوقت غير محدد'], ['TBC', 'Por conf.', 'À conf.', 'غير محدد'],
+  ['Who will win', '¿Quién ganará?', 'Qui va gagner ?', 'من سيفوز؟'], ['Draw', 'Empate', 'Nul', 'تعادل'],
+  ['Your prediction', 'Tu pronóstico', 'Ton pronostic', 'توقعك'], ['Save', 'Guardar', 'Enregistrer', 'حفظ'],
+  ['Exact score earns 3 points, the right result earns 1.', 'El marcador exacto vale 3 puntos; acertar el resultado, 1.', 'Le score exact rapporte 3 points, le bon résultat 1.', 'النتيجة الدقيقة تمنحك 3 نقاط، والفائز الصحيح نقطة واحدة.'],
+  ['Prediction saved', 'Pronóstico guardado', 'Pronostic enregistré', 'تم حفظ توقعك'],
+  ['Form', 'Forma', 'Forme', 'المستوى'], ['Results', 'Resultados', 'Résultats', 'النتائج'],
+  ['La Liga table', 'Clasificación', 'Classement Liga', 'ترتيب الدوري'], ['Full table', 'Ver todo', 'Tout voir', 'الترتيب الكامل'],
+  ["This season's real data, updating by itself. During matches the score can be a few minutes behind.", 'Datos reales de esta temporada, que se actualizan solos. Durante los partidos, el marcador puede ir unos minutos por detrás.', 'Données réelles de cette saison, mises à jour automatiquement. Pendant les matchs, le score peut avoir quelques minutes de retard.', 'بيانات حقيقية لهذا الموسم تتحدث تلقائيًا. أثناء المباريات قد تتأخر النتيجة بضع دقائق.'],
+  ['Real data, refreshing every 30 seconds.', 'Datos reales, se actualizan cada 30 segundos.', 'Données réelles, actualisées toutes les 30 secondes.', 'بيانات حقيقية تتحدث كل 30 ثانية.'],
+  ['Match centre', 'Centro del partido', 'Centre du match', 'مركز المباراة'], ['LIVE', 'EN DIRECTO', 'EN DIRECT', 'مباشر'],
+  ['Full time', 'Final', 'Terminé', 'نهاية المباراة'], ['Half-time', 'Descanso', 'Mi-temps', 'الاستراحة'], ['After extra time', 'Tras la prórroga', 'Après prolongation', 'بعد الوقت الإضافي'], ['Penalties', 'Penaltis', 'Tirs au but', 'ركلات الترجيح'],
+  ['Demo match', 'Partido de prueba', 'Match de démo', 'مباراة تجريبية'],
+  ['Demo match with made-up events, so the app works without an API key. Pause it, speed it up or restart it with the controls.', 'Partido de prueba con hechos inventados, para que la app funcione sin clave. Puedes pausarlo, acelerarlo o reiniciarlo.', "Match de démo avec des actions inventées, pour que l'appli marche sans clé. Tu peux le mettre en pause, l'accélérer ou le relancer.", 'مباراة تجريبية بأحداث مختلقة كي يعمل التطبيق دون مفتاح. يمكنك إيقافها مؤقتًا أو تسريعها أو إعادتها.'],
+  ['Gooool!', '¡Goooool!', 'Buuuut !', 'جوووول!'], ['Goal', 'Gol', 'But', 'هدف'], ['Soon', 'Pronto', 'Bientôt', 'قريبًا'],
+  ['Pause', 'Pausa', 'Pause', 'إيقاف مؤقت'], ['Play', 'Reproducir', 'Lecture', 'تشغيل'], ['Speed', 'Velocidad', 'Vitesse', 'السرعة'], ['Restart from kick-off', 'Reiniciar desde el inicio', 'Recommencer au coup d\'envoi', 'إعادة من البداية'],
+  ['Live match', 'Partido en directo', 'Match en direct', 'مباراة مباشرة'],
+  // Matches
+  ['Upcoming', 'Próximos', 'À venir', 'القادمة'], ['All', 'Todos', 'Tous', 'الكل'], ['Live now', 'En directo', 'En direct', 'مباشر الآن'], ['Show', 'Mostrar', 'Afficher', 'عرض'], ['Competition', 'Competición', 'Compétition', 'البطولة'],
+  ['No upcoming matches here.', 'No hay próximos partidos.', 'Aucun match à venir.', 'لا توجد مباريات قادمة.'], ['No results here yet.', 'Todavía no hay resultados.', "Pas encore de résultats.", 'لا توجد نتائج بعد.'],
+  ['La Liga', 'LaLiga', 'Liga', 'الدوري الإسباني'], ['Champions League', 'Champions League', 'Ligue des champions', 'دوري أبطال أوروبا'], ['Copa del Rey', 'Copa del Rey', 'Coupe du Roi', 'كأس ملك إسبانيا'],
+  ['Supercopa', 'Supercopa', "Supercoupe d'Espagne", 'كأس السوبر الإسباني'], ['Club friendly', 'Amistoso', 'Match amical', 'مباراة ودية'],
+  ['Europa League', 'Europa League', 'Ligue Europa', 'الدوري الأوروبي'], ['Conference League', 'Conference League', 'Ligue Conférence', 'دوري المؤتمر الأوروبي'], ['Relegation', 'Descenso', 'Relégation', 'الهبوط'],
+  ['Demo fixtures', 'Calendario de prueba', 'Calendrier de démo', 'مباريات تجريبية'],
+  // Match centre
+  ['Back', 'Volver', 'Retour', 'رجوع'], ['Events', 'Eventos', 'Faits', 'الأحداث'], ['Lineups', 'Alineaciones', 'Compos', 'التشكيلات'], ['Stats', 'Estadísticas', 'Stats', 'الإحصائيات'],
+  ['Ratings', 'Notas', 'Notes', 'التقييمات'], ['H2H', 'H2H', 'Face-à-face', 'المواجهات'], ['Match details', 'Detalles del partido', 'Détails du match', 'تفاصيل المباراة'], ['Score', 'Marcador', 'Score', 'النتيجة'],
+  ['Match clock', 'Reloj del partido', 'Chrono du match', 'ساعة المباراة'], ['Jump to a minute', 'Ir a un minuto', 'Aller à une minute', 'الانتقال إلى دقيقة'],
+  ['Penalty goal', 'Gol de penalti', 'But sur penalty', 'هدف من ركلة جزاء'], ['Own goal', 'Gol en propia puerta', 'But contre son camp', 'هدف عكسي'],
+  ['Yellow card', 'Tarjeta amarilla', 'Carton jaune', 'بطاقة صفراء'], ['Red card', 'Tarjeta roja', 'Carton rouge', 'بطاقة حمراء'], ['Second yellow card', 'Segunda amarilla', 'Deuxième jaune', 'إنذار ثانٍ'],
+  ['Substitution', 'Cambio', 'Remplacement', 'تبديل'], ['VAR', 'VAR', 'VAR', 'الفار'], ['Check', 'Revisión', 'Vérification', 'مراجعة'],
+  ['Goal Confirmed', 'Gol confirmado', 'But confirmé', 'تأكيد الهدف'], ['Goal Disallowed', 'Gol anulado', 'But refusé', 'إلغاء الهدف'], ['Goal cancelled', 'Gol anulado', 'But annulé', 'إلغاء الهدف'],
+  ['Penalty Confirmed', 'Penalti confirmado', 'Penalty confirmé', 'تأكيد ركلة الجزاء'], ['Penalty Cancelled', 'Penalti anulado', 'Penalty annulé', 'إلغاء ركلة الجزاء'], ['Card Upgrade', 'Cambio de tarjeta', 'Carton modifié', 'تعديل البطاقة'],
+  ['Goal disallowed for offside', 'Gol anulado por fuera de juego', 'But refusé pour hors-jeu', 'إلغاء الهدف بداعي التسلل'],
+  ['Penalty missed', 'Penalti fallado', 'Penalty manqué', 'ركلة جزاء ضائعة'], ['Nothing has happened yet.', 'Todavía no ha pasado nada.', "Il ne s'est encore rien passé.", 'لم يحدث شيء بعد.'],
+  ['Tap any player to see their match stats.', 'Toca un jugador para ver sus estadísticas del partido.', 'Touche un joueur pour voir ses stats du match.', 'اضغط على أي لاعب لرؤية إحصائياته في المباراة.'],
+  ['Lineups are usually announced about an hour before kick-off.', 'Las alineaciones se suelen anunciar una hora antes del inicio.', "Les compos sont annoncées environ une heure avant le coup d'envoi.", 'تُعلن التشكيلات عادةً قبل الانطلاق بساعة تقريبًا.'],
+  ['Injuries and suspensions', 'Lesiones y sanciones', 'Blessures et suspensions', 'الإصابات والإيقافات'], ['Out', 'Baja', 'Absent', 'غائب'], ['Doubtful', 'Duda', 'Incertain', 'مشكوك فيه'],
+  ['Team average rating', 'Nota media del equipo', "Note moyenne de l'équipe", 'متوسط تقييم الفريق'], ['Starting lineups on the pitch', 'Alineaciones en el campo', 'Compos sur le terrain', 'التشكيلات الأساسية على الملعب'],
+  ['Players who played in this match. Pitch positions and ratings aren\'t available for this match.', 'Jugadores que jugaron este partido. Las posiciones y notas no están disponibles.', 'Joueurs ayant joué ce match. Les positions et les notes ne sont pas disponibles.', 'اللاعبون الذين شاركوا في هذه المباراة. المراكز والتقييمات غير متوفرة.'],
+  ["This match's lineups aren't in the saved data. The app saves the last five matches.", 'Las alineaciones de este partido no están guardadas.', 'Les compos de ce match ne sont pas enregistrées.', 'تشكيلات هذه المباراة غير محفوظة.'],
+  ["This match's stats aren't in the saved data. The app saves the last five matches.", 'Las estadísticas de este partido no están guardadas.', 'Les stats de ce match ne sont pas enregistrées.', 'إحصائيات هذه المباراة غير محفوظة.'],
+  ['Stats appear once the match starts.', 'Las estadísticas aparecen cuando empieza el partido.', 'Les stats apparaissent au début du match.', 'تظهر الإحصائيات عند بداية المباراة.'],
+  ['Ratings appear once the match starts.', 'Las notas aparecen cuando empieza el partido.', 'Les notes apparaissent au début du match.', 'تظهر التقييمات عند بداية المباراة.'],
+  ["Ratings for this match aren't available yet.", 'Las notas de este partido aún no están disponibles.', 'Les notes de ce match ne sont pas encore disponibles.', 'تقييمات هذه المباراة غير متوفرة بعد.'],
+  ['Ratings appear after the first minutes of play.', 'Las notas aparecen tras los primeros minutos.', 'Les notes apparaissent après les premières minutes.', 'تظهر التقييمات بعد الدقائق الأولى.'],
+  // Stats
+  ['Possession', 'Posesión', 'Possession', 'الاستحواذ'], ['Expected goals (xG)', 'Goles esperados (xG)', 'Buts attendus (xG)', 'الأهداف المتوقعة (xG)'], ['Big chances', 'Ocasiones claras', 'Grosses occasions', 'فرص محققة'],
+  ['Total shots', 'Tiros totales', 'Tirs', 'مجموع التسديدات'], ['Shots on target', 'Tiros a puerta', 'Tirs cadrés', 'تسديدات على المرمى'], ['Shots off target', 'Tiros fuera', 'Tirs non cadrés', 'تسديدات خارج المرمى'],
+  ['Shots inside the box', 'Tiros dentro del área', 'Tirs dans la surface', 'تسديدات من داخل المنطقة'], ['Shots outside the box', 'Tiros fuera del área', 'Tirs hors de la surface', 'تسديدات من خارج المنطقة'],
+  ['Blocked shots', 'Tiros bloqueados', 'Tirs contrés', 'تسديدات مصدودة'], ['Corners', 'Córners', 'Corners', 'الركنيات'], ['Key passes', 'Pases clave', 'Passes clés', 'تمريرات مفتاحية'],
+  ['Passes', 'Pases', 'Passes', 'التمريرات'], ['Pass accuracy', 'Precisión de pase', 'Précision des passes', 'دقة التمرير'], ['Tackles', 'Entradas', 'Tacles', 'التدخلات'], ['Interceptions', 'Intercepciones', 'Interceptions', 'قطع الكرات'],
+  ['Clearances', 'Despejes', 'Dégagements', 'الإبعادات'], ['Fouls', 'Faltas', 'Fautes', 'الأخطاء'], ['Offsides', 'Fueras de juego', 'Hors-jeu', 'التسلل'], ['Yellow cards', 'Tarjetas amarillas', 'Cartons jaunes', 'البطاقات الصفراء'],
+  ['Red cards', 'Tarjetas rojas', 'Cartons rouges', 'البطاقات الحمراء'], ['Goalkeeper saves', 'Paradas', 'Arrêts', 'تصديات الحارس'], ['Free kicks', 'Tiros libres', 'Coups francs', 'الركلات الحرة'], ['Throw-ins', 'Saques de banda', 'Touches', 'رميات التماس'],
+  // Ratings and player cards
+  ['Player of the match', 'Jugador del partido', 'Homme du match', 'رجل المباراة'], ['Top rated so far', 'Mejor nota hasta ahora', "Meilleure note pour l'instant", 'الأعلى تقييمًا حتى الآن'],
+  ['Ratings from API-Football.', 'Notas de API-Football.', 'Notes de API-Football.', 'التقييمات من API-Football.'],
+  ['How these ratings are worked out', 'Cómo se calculan estas notas', 'Comment ces notes sont calculées', 'كيف تُحسب هذه التقييمات'],
+  ['Every player starts at 6.0 and gains up to 0.6 for time on the pitch, plus a little up or down for general form.', 'Cada jugador empieza con 6.0 y suma hasta 0.6 por minutos jugados, más un poco arriba o abajo según su forma.', 'Chaque joueur part de 6.0 et gagne jusqu\'à 0.6 selon son temps de jeu, plus un peu en plus ou en moins selon sa forme.', 'يبدأ كل لاعب من 6.0 ويكسب حتى 0.6 حسب وقت اللعب، مع زيادة أو نقص بسيط حسب مستواه.'],
+  ['Goal +1.0 (penalty +0.8), assist +0.6, penalty save +0.8.', 'Gol +1.0 (penalti +0.8), asistencia +0.6, penalti parado +0.8.', 'But +1.0 (penalty +0.8), passe décisive +0.6, penalty arrêté +0.8.', 'هدف ‎+1.0 (ركلة جزاء ‎+0.8)، تمريرة حاسمة ‎+0.6، تصدي لركلة جزاء ‎+0.8.'],
+  ['Yellow card −0.3, red card −1.5, missed penalty −0.6, own goal −1.0.', 'Amarilla −0.3, roja −1.5, penalti fallado −0.6, gol en propia −1.0.', 'Carton jaune −0.3, rouge −1.5, penalty manqué −0.6, but csc −1.0.', 'بطاقة صفراء ‎−0.3، حمراء ‎−1.5، ركلة جزاء ضائعة ‎−0.6، هدف عكسي ‎−1.0.'],
+  ["Team scores while you're on: +0.1. Team concedes: −0.25 for goalkeepers and defenders, −0.1 for everyone else.", 'Si tu equipo marca mientras juegas: +0.1. Si encaja: −0.25 para porteros y defensas, −0.1 para el resto.', 'Ton équipe marque pendant que tu joues : +0.1. Elle encaisse : −0.25 pour gardiens et défenseurs, −0.1 pour les autres.', 'إذا سجل فريقك وأنت في الملعب: ‎+0.1. إذا استقبل هدفًا: ‎−0.25 للحراس والمدافعين و‎−0.1 للبقية.'],
+  ['Goalkeepers and defenders who play 60+ minutes without conceding get +0.3.', 'Porteros y defensas que juegan 60+ minutos sin encajar suman +0.3.', 'Gardiens et défenseurs qui jouent 60+ minutes sans encaisser gagnent +0.3.', 'الحراس والمدافعون الذين يلعبون 60 دقيقة أو أكثر دون استقبال أهداف يكسبون ‎+0.3.'],
+  ['Ratings stay between 3.0 and 10.0.', 'Las notas van de 3.0 a 10.0.', 'Les notes vont de 3.0 à 10.0.', 'تبقى التقييمات بين 3.0 و10.0.'],
+  ['Rating', 'Nota', 'Note', 'التقييم'], ['Minutes', 'Minutos', 'Minutes', 'الدقائق'], ['Goals', 'Goles', 'Buts', 'الأهداف'], ['Assists', 'Asistencias', 'Passes déc.', 'التمريرات الحاسمة'],
+  ['Attacking', 'Ataque', 'Attaque', 'الهجوم'], ['Passing', 'Pase', 'Passes', 'التمرير'], ['Defending', 'Defensa', 'Défense', 'الدفاع'], ['Discipline', 'Disciplina', 'Discipline', 'الانضباط'], ['Goalkeeping', 'Portería', 'Gardien de but', 'حراسة المرمى'],
+  ['Saves', 'Paradas', 'Arrêts', 'التصديات'], ['Goals conceded', 'Goles encajados', 'Buts encaissés', 'الأهداف المستقبلة'], ['Shots (on target)', 'Tiros (a puerta)', 'Tirs (cadrés)', 'التسديدات (على المرمى)'],
+  ['Dribbles won', 'Regates logrados', 'Dribbles réussis', 'المراوغات الناجحة'], ['Fouls won', 'Faltas recibidas', 'Fautes subies', 'الأخطاء المكتسبة'], ['Accurate passes', 'Pases precisos', 'Passes réussies', 'التمريرات الدقيقة'],
+  ['Duels won', 'Duelos ganados', 'Duels gagnés', 'الالتحامات الناجحة'], ['Dribbled past', 'Regateado', 'Dribblé', 'تعرض للمراوغة'], ['Fouls committed', 'Faltas cometidas', 'Fautes commises', 'الأخطاء المرتكبة'],
+  ['Expected assists (xA)', 'Asistencias esperadas (xA)', 'Passes déc. attendues (xA)', 'التمريرات الحاسمة المتوقعة (xA)'],
+  ['Stats from Highlightly.', 'Estadísticas de Highlightly.', 'Stats de Highlightly.', 'الإحصائيات من Highlightly.'], ['Stats from API-Football.', 'Estadísticas de API-Football.', 'Stats de API-Football.', 'الإحصائيات من API-Football.'],
+  ['Demo stats are made up.', 'Las estadísticas de prueba son inventadas.', 'Les stats de démo sont inventées.', 'الإحصائيات التجريبية مختلقة.'], ['Close player stats', 'Cerrar estadísticas', 'Fermer les stats', 'إغلاق الإحصائيات'],
+  ["Hasn't played in this match.", 'No ha jugado este partido.', "N'a pas joué ce match.", 'لم يشارك في هذه المباراة.'], ['Stats appear after the first minute on the pitch.', 'Las estadísticas aparecen tras su primer minuto en el campo.', 'Les stats apparaissent après sa première minute de jeu.', 'تظهر الإحصائيات بعد دقيقته الأولى في الملعب.'],
+  ['Replay: the totals grow with the match clock.', 'Repetición: los totales crecen con el reloj.', 'Rediffusion : les totaux suivent le chrono.', 'إعادة: الأرقام تزيد مع ساعة المباراة.'],
+  ['Goalkeeper', 'Portero', 'Gardien', 'حارس مرمى'], ['Defender', 'Defensa', 'Défenseur', 'مدافع'], ['Midfielder', 'Centrocampista', 'Milieu', 'لاعب وسط'], ['Forward', 'Delantero', 'Attaquant', 'مهاجم'],
+  ['Goalkeepers', 'Porteros', 'Gardiens', 'حراس المرمى'], ['Defenders', 'Defensas', 'Défenseurs', 'المدافعون'], ['Midfielders', 'Centrocampistas', 'Milieux', 'لاعبو الوسط'], ['Forwards', 'Delanteros', 'Attaquants', 'المهاجمون'],
+  ['GK', 'POR', 'GB', 'حارس'], ['DEF', 'DEF', 'DÉF', 'دفاع'], ['MID', 'MED', 'MIL', 'وسط'], ['FWD', 'DEL', 'ATT', 'هجوم'],
+  // Squad
+  ['Top scorers this season', 'Máximos goleadores de la temporada', 'Meilleurs buteurs de la saison', 'هدافو الموسم'], ['La Liga and Champions League combined.', 'LaLiga y Champions League juntas.', 'Liga et Ligue des champions réunies.', 'الدوري الإسباني ودوري الأبطال معًا.'],
+  ['Load full season stats', 'Cargar estadísticas de la temporada', 'Charger les stats de la saison', 'تحميل إحصائيات الموسم كاملة'], ['Load season stats', 'Cargar estadísticas', 'Charger les stats', 'تحميل إحصائيات الموسم'], ['Loading…', 'Cargando…', 'Chargement…', 'جارٍ التحميل…'],
+  ["Current first-team squad, with goals and assists for this season's scorers.", 'Plantilla actual, con goles y asistencias de los goleadores de esta temporada.', 'Effectif actuel, avec buts et passes décisives des buteurs de la saison.', 'التشكيلة الحالية مع أهداف وتمريرات هدافي هذا الموسم.'],
+  ['Playing time', 'Tiempo de juego', 'Temps de jeu', 'وقت اللعب'], ['Games (started)', 'Partidos (titular)', 'Matchs (titulaire)', 'المباريات (أساسي)'], ['Minutes per game', 'Minutos por partido', 'Minutes par match', 'الدقائق في المباراة'],
+  ['Saves per game', 'Paradas por partido', 'Arrêts par match', 'التصديات في المباراة'], ['Clean sheets', 'Porterías a cero', 'Clean sheets', 'شباك نظيفة'], ['Penalties scored', 'Penaltis marcados', 'Penaltys marqués', 'ركلات جزاء مسجلة'],
+  ['Passes per game', 'Pases por partido', 'Passes par match', 'التمريرات في المباراة'], ['Avg rating', 'Nota media', 'Note moy.', 'متوسط التقييم'], ['Games', 'Partidos', 'Matchs', 'المباريات'],
+  ['Season stats are made up for the demo.', 'Las estadísticas son inventadas para la demo.', 'Les stats sont inventées pour la démo.', 'إحصائيات الموسم مختلقة للتجربة.'], ['No players found for this season.', 'No hay jugadores para esta temporada.', 'Aucun joueur pour cette saison.', 'لا يوجد لاعبون لهذا الموسم.'],
+  // Table
+  ['updating live', 'actualizando en directo', 'mise à jour en direct', 'يتحدث مباشرة'], ['Club', 'Club', 'Club', 'النادي'],
+  ['P', 'PJ', 'J', 'لعب'], ['W', 'G', 'V', 'ف'], ['D', 'E', 'N', 'ت'], ['L', 'P', 'D', 'خ'], ['GD', 'DG', 'Diff', 'الفارق'], ['Pts', 'Pts', 'Pts', 'نقاط'], ['Last 5', 'Últimos 5', '5 derniers', 'آخر 5'],
+  ['G', 'G', 'B', 'هدف'], ['Win', 'Victoria', 'Victoire', 'فوز'],
+ ['Loss', 'Derrota', 'Défaite', 'خسارة'], ['Playing now', 'Jugando ahora', 'Joue en ce moment', 'يلعب الآن'],
+  ['Demo table with made-up numbers.', 'Clasificación de prueba con datos inventados.', 'Classement de démo avec des chiffres inventés.', 'ترتيب تجريبي بأرقام مختلقة.'], ['No table for this season yet.', 'Aún no hay clasificación.', 'Pas encore de classement.', 'لا يوجد ترتيب بعد.'],
+  // Head to head
+  ['Barça wins', 'Victorias del Barça', 'Victoires du Barça', 'انتصارات برشلونة'], ['Draws', 'Empates', 'Nuls', 'تعادلات'], ['Last meeting', 'Último duelo', 'Dernière confrontation', 'آخر مواجهة'],
+  ['All competitions, most recent first.', 'Todas las competiciones, de la más reciente a la más antigua.', 'Toutes compétitions, de la plus récente à la plus ancienne.', 'جميع البطولات، من الأحدث إلى الأقدم.'],
+  ['This season only.', 'Solo esta temporada.', 'Cette saison uniquement.', 'هذا الموسم فقط.'], ['No earlier meetings found.', 'No hay duelos anteriores.', 'Aucune confrontation précédente.', 'لا توجد مواجهات سابقة.'],
+  ['Made-up results for the demo.', 'Resultados inventados para la demo.', 'Résultats inventés pour la démo.', 'نتائج مختلقة للتجربة.'],
+  // Settings
+  ['Your preferences on this device.', 'Tus preferencias en este dispositivo.', 'Tes préférences sur cet appareil.', 'تفضيلاتك على هذا الجهاز.'], ['Notifications', 'Notificaciones', 'Notifications', 'الإشعارات'],
+  ['Goal alerts while the app is open', 'Avisos de gol con la app abierta', "Alertes but quand l'appli est ouverte", 'تنبيهات الأهداف أثناء فتح التطبيق'], ['Match data', 'Datos de partidos', 'Données des matchs', 'بيانات المباريات'],
+  ['The app saves match data so it opens fast. If something looks out of date, refresh it.', 'La app guarda los datos para abrir rápido. Si algo parece desactualizado, actualízalo.', "L'appli garde les données pour s'ouvrir vite. Si quelque chose semble dépassé, actualise.", 'يحفظ التطبيق بيانات المباريات ليفتح بسرعة. إذا بدا شيء قديمًا، حدّثه.'],
+  ['Refresh match data', 'Actualizar datos', 'Actualiser les données', 'تحديث البيانات'], ['Reset app', 'Restablecer app', "Réinitialiser l'appli", 'إعادة ضبط التطبيق'], ['About', 'Acerca de', 'À propos', 'حول التطبيق'],
+  ["is an unofficial Barça fan app made for an MYP Personal Project. It isn't connected to FC Barcelona.", 'es una app no oficial de aficionados del Barça, creada para un Proyecto Personal del PAI. No tiene relación con el FC Barcelona.', "est une appli non officielle de fans du Barça, créée pour un Projet personnel du PEI. Elle n'est pas liée au FC Barcelone.", 'تطبيق غير رسمي لمشجعي برشلونة، صُمم ضمن المشروع الشخصي لبرنامج السنوات المتوسطة. لا علاقة له بنادي برشلونة.'],
+  ['Language', 'Idioma', 'Langue', 'اللغة'], ['Match data refreshed', 'Datos actualizados', 'Données actualisées', 'تم تحديث البيانات'], ['App reset', 'App restablecida', 'Appli réinitialisée', 'تمت إعادة الضبط'],
+  // Errors and messages
+  ["Couldn't load this", 'No se pudo cargar', 'Impossible de charger', 'تعذر التحميل'], ['Try again', 'Reintentar', 'Réessayer', 'أعد المحاولة'], ['Back to normal', 'Volver a lo normal', 'Revenir à la normale', 'العودة للوضع العادي'],
+  ['Something went wrong while loading. Please try again.', 'Algo falló al cargar. Inténtalo de nuevo.', 'Un problème est survenu. Réessaie.', 'حدث خطأ أثناء التحميل. حاول مرة أخرى.'], ['This match could not be found.', 'No se encontró este partido.', 'Match introuvable.', 'لم يتم العثور على هذه المباراة.'],
+  ['Could not load season stats right now.', 'No se pudieron cargar las estadísticas ahora.', 'Impossible de charger les stats pour le moment.', 'تعذر تحميل إحصائيات الموسم الآن.'], ['Live data for this season is now on', 'Datos en directo de esta temporada activados', 'Données en direct de la saison activées', 'تم تفعيل البيانات المباشرة لهذا الموسم'],
+  ['Season', 'Temporada', 'Saison', 'الموسم'], ['Penalty saved', 'Penalti parado', 'Penalty arrêté', 'ركلة جزاء متصدى لها'],
+  ['Replay this match', 'Repetir este partido', 'Revoir ce match', 'إعادة هذه المباراة'], ['Exit replay', 'Salir de la repetición', 'Quitter la rediffusion', 'الخروج من الإعادة'], ['Replay', 'Repetición', 'Rediffusion', 'إعادة']
+];
+
+// Text with numbers or names inside. "f" means: translate this part too.
+const T_RX = [
+  [/^(\d+)'$/, { ar: '$1 د' }], [/^(\d+)\+(\d+)'$/, { ar: '$1+$2 د' }],
+  [/^(\d+) G · (\d+) A$/, { es: '$1 G · $2 A', fr: '$1 B · $2 PD', ar: '$1 هدف · $2 تمريرة حاسمة' }],
+  [/^(\d+) saves?$/, { es: '$1 paradas', fr: '$1 arrêts', ar: '$1 تصديات' }],
+  [/^(\d+) games?$/, { es: m => `${m[1]} partido${m[1] === '1' ? '' : 's'}`, fr: '$1 match(s)', ar: '$1 مباراة' }],
+  [/^(\d+) assists?$/, { es: m => `${m[1]} asistencia${m[1] === '1' ? '' : 's'}`, fr: '$1 passe(s) déc.', ar: '$1 تمريرة حاسمة' }],
+  [/^(\d+)' played$/, { es: "$1' jugados", fr: "$1' joués", ar: '$1 دقيقة' }],
+  [/^(\d+) seconds$/, { es: '$1 segundos', fr: '$1 secondes', ar: '$1 ثانية' }],
+  [/^(\d+)d (\d+)h$/, { es: '$1d $2h', fr: '$1 j $2 h', ar: '$1 ي $2 س' }],
+  [/^(\d+)h (\d+)m$/, { es: '$1h $2m', fr: '$1 h $2', ar: '$1 س $2 د' }],
+  [/^(\d+)m$/, { es: '$1m', fr: '$1 min', ar: '$1 د' }],
+  [/^In (.+)$/, { es: m => 'En ' + trCore(m[1]), fr: m => 'Dans ' + trCore(m[1]), ar: m => 'بعد ' + trCore(m[1]) }],
+  [/^LIVE (.+)$/, { es: 'EN DIRECTO $1', fr: 'EN DIRECT $1', ar: 'مباشر $1' }],
+  [/^Score (\d+) to (\d+)$/, { es: 'Marcador $1 a $2', fr: 'Score $1 à $2', ar: 'النتيجة $1 - $2' }],
+  [/^(.+) goals: one less$/, { es: 'Goles de $1: uno menos', fr: 'Buts de $1 : un de moins', ar: 'أهداف $1: ناقص واحد' }],
+  [/^(.+) goals: one more$/, { es: 'Goles de $1: uno más', fr: 'Buts de $1 : un de plus', ar: 'أهداف $1: زائد واحد' }],
+  [/^(.+) goals$/, { es: 'Goles de $1', fr: 'Buts de $1', ar: 'أهداف $1' }],
+  [/^(.+), rating ([\d.]+)$/, { es: '$1, nota $2', fr: '$1, note $2', ar: '$1، التقييم $2' }],
+  [/^(.+): season stats$/, { es: '$1: estadísticas de la temporada', fr: '$1 : stats de la saison', ar: '$1: إحصائيات الموسم' }],
+  [/^Win against (.+)$/, { es: 'Victoria ante $1', fr: 'Victoire contre $1', ar: 'فوز على $1' }],
+  [/^Draw against (.+)$/, { es: 'Empate ante $1', fr: 'Nul contre $1', ar: 'تعادل مع $1' }],
+  [/^Loss against (.+)$/, { es: 'Derrota ante $1', fr: 'Défaite contre $1', ar: 'خسارة أمام $1' }],
+  [/^Form ([WDL]+)$/, { es: 'Forma $1', fr: 'Forme $1', ar: 'المستوى $1' }],
+  [/^(.+) bench$/, { es: 'Suplentes: $1', fr: 'Remplaçants : $1', ar: 'بدلاء $1' }],
+  [/^(.+) wins$/, { es: 'Victorias: $1', fr: 'Victoires : $1', ar: 'انتصارات $1' }],
+  [/^Barça (\d+)%$/, { es: 'Barça $1%', fr: 'Barça $1%', ar: 'برشلونة $1%' }],
+  [/^Draw (\d+)%$/, { es: 'Empate $1%', fr: 'Nul $1%', ar: 'تعادل $1%' }],
+  [/^last (\d+)$/, { es: m => m[1] === '1' ? 'último' : `últimos ${m[1]}`, fr: m => m[1] === '1' ? 'dernier' : `${m[1]} derniers`, ar: 'آخر $1' }],
+  [/^Last (\d+) meetings$/, { es: 'Últimos $1 duelos', fr: '$1 dernières confrontations', ar: 'آخر $1 مواجهات' }],
+  [/^Matchday (\d+)$/, { es: 'Jornada $1', fr: 'Journée $1', ar: 'الجولة $1' }],
+  [/^Season (\S+)$/, { es: 'Temporada $1', fr: 'Saison $1', ar: 'موسم $1' }],
+  [/^La Liga (\d{4}–\d{2})$/, { es: 'LaLiga $1', fr: 'Liga $1', ar: 'الدوري الإسباني $1' }],
+  [/^times in your time zone \((.+)\)\. TBC = time not announced yet\.$/, { es: 'horas en tu zona horaria ($1). Por conf. = hora aún no anunciada.', fr: 'heures dans ton fuseau horaire ($1). À conf. = heure pas encore annoncée.', ar: 'الأوقات حسب منطقتك الزمنية ($1). غير محدد = لم يُعلن الوقت بعد.' }],
+  [/^vs (.+)$/, { es: 'vs $1', fr: 'contre $1', ar: 'ضد $1' }],
+  [/^at (.+)$/, { es: 'fuera ante $1', fr: 'chez $1', ar: 'في ضيافة $1' }],
+  [/^You said (\S+?)(?:: \+(\d))?$/, { es: m => `Dijiste ${m[1]}${m[2] != null ? ': +' + m[2] : ''}`, fr: m => `Tu as dit ${m[1]}${m[2] != null ? ' : +' + m[2] : ''}`, ar: m => `توقعت ${m[1]}${m[2] != null ? ': +' + m[2] : ''}` }],
+  [/^Saved: Barça (.+)$/, { es: 'Guardado: Barça $1', fr: 'Enregistré : Barça $1', ar: 'تم الحفظ: برشلونة $1' }],
+  [/^New data every (\d+) s$/, { es: 'Datos nuevos cada $1 s', fr: 'Nouvelles données toutes les $1 s', ar: 'بيانات جديدة كل $1 ث' }],
+  [/^updated (\d+) s ago$/, { es: 'actualizado hace $1 s', fr: 'mis à jour il y a $1 s', ar: 'حُدّث قبل $1 ث' }],
+  [/^Real data saved (.+) at (.+)\.$/, { es: 'Datos reales guardados el $1 a las $2.', fr: 'Données réelles enregistrées le $1 à $2.', ar: 'بيانات حقيقية محفوظة يوم $1 الساعة $2.' }],
+  [/^Assist: (.+)$/, { es: 'Asistencia: $1', fr: 'Passe déc. : $1', ar: 'تمريرة حاسمة: $1' }],
+  [/^On: (.+)$/, { es: 'Entra: $1', fr: 'Entre : $1', ar: 'دخول: $1' }],
+  [/^Off: (.+)$/, { es: 'Sale: $1', fr: 'Sort : $1', ar: 'خروج: $1' }],
+  [/^Penalty saved by (.+)$/, { es: 'Penalti parado por $1', fr: 'Penalty arrêté par $1', ar: 'ركلة جزاء تصدى لها $1' }],
+  [/^(.+) on for (.+)$/, { es: 'Entra $1 por $2', fr: '$1 remplace $2', ar: 'دخل $1 بدلًا من $2' }],
+  [/^Referee: (.+)$/, { es: 'Árbitro: $1', fr: 'Arbitre : $1', ar: 'الحكم: $1' }],
+  [/^Kick-off (\d{1,2}:\d{2})$/, { es: 'Inicio $1', fr: "Coup d'envoi $1", ar: 'الانطلاق $1' }],
+  [/^Kick-off is on (.+) at (.+)\. Goals, cards and subs will appear here during the match\.$/, { es: 'El partido es el $1 a las $2. Goles, tarjetas y cambios aparecerán aquí.', fr: 'Le match a lieu le $1 à $2. Buts, cartons et changements apparaîtront ici.', ar: 'تقام المباراة يوم $1 الساعة $2. ستظهر هنا الأهداف والبطاقات والتبديلات.' }],
+  [/^Kick-off is on (.+)\. The time hasn't been announced yet\. Goals, cards and subs will appear here during the match\.$/, { es: 'El partido es el $1. La hora aún no se ha anunciado.', fr: "Le match a lieu le $1. L'heure n'est pas encore annoncée.", ar: 'تقام المباراة يوم $1. لم يُعلن الوقت بعد.' }],
+  [/^(\d+) of (\d+)$/, { es: '$1 de $2', fr: '$1 sur $2', ar: '$1 من $2' }],
+  [/^This season's stats from (\d+) match(?:es)?\. Tap a player to see all of them\.$/, { es: 'Estadísticas de $1 partido(s) de esta temporada. Toca un jugador para verlas todas.', fr: 'Stats de $1 match(s) cette saison. Touche un joueur pour tout voir.', ar: 'إحصائيات $1 مباراة هذا الموسم. اضغط على لاعب لرؤيتها كلها.' }],
+  [/^This season, all competitions except friendlies, from (\d+) match(?:es)?\. Stats from Highlightly\.$/, { es: 'Esta temporada, todas las competiciones salvo amistosos, en $1 partido(s). Datos de Highlightly.', fr: 'Cette saison, toutes compétitions sauf amicaux, sur $1 match(s). Stats de Highlightly.', ar: 'هذا الموسم في جميع البطولات عدا الوديات، من $1 مباراة. الإحصائيات من Highlightly.' }],
+  [/^Adds every player's season stats from this season's (\d+) matches: .+ Uses about (\d+) of your 100 free daily requests the first time, then it's saved\.$/, { es: 'Añade las estadísticas de la temporada de cada jugador ($1 partidos). La primera vez usa unas $2 de tus 100 consultas diarias; después queda guardado.', fr: 'Ajoute les stats de la saison de chaque joueur ($1 matchs). La première fois, utilise environ $2 de tes 100 requêtes par jour, puis tout est gardé.', ar: 'يضيف إحصائيات الموسم لكل لاعب من $1 مباراة. يستهلك نحو $2 من طلباتك اليومية المجانية الـ100 في المرة الأولى، ثم تُحفظ.' }],
+  [/^Fixtures, results, the table and the squad come from football-data\.org\. Match events, lineups, team and player stats and ratings come from Highlightly\. Times are shown in your time zone \((.+)\)\.$/, { es: 'Calendario, resultados, clasificación y plantilla: football-data.org. Eventos, alineaciones, estadísticas y notas: Highlightly. Horas en tu zona horaria ($1).', fr: 'Calendrier, résultats, classement et effectif : football-data.org. Faits de match, compos, stats et notes : Highlightly. Heures dans ton fuseau horaire ($1).', ar: 'المباريات والنتائج والترتيب والتشكيلة من football-data.org. الأحداث والتشكيلات والإحصائيات والتقييمات من Highlightly. الأوقات حسب منطقتك الزمنية ($1).' }],
+  [/^(.+) goal$/, { es: 'Gol del $1', fr: 'But de $1', ar: 'هدف $1' }],
+  [/^Goal · (.+)$/, { es: m => 'Gol · ' + m[1], fr: m => 'But · ' + m[1], ar: m => 'هدف · ' + m[1] }]
+];
+
+const T_MAP = (() => { const i = { es: 1, fr: 2, ar: 3 }[LANG]; const m = new Map(); if (i) T_ROWS.forEach(r => m.set(r[0], r[i])); return m; })();
+function trCore(core) {
+  if (LANG === 'en') return core;
+  if (T_MAP.has(core)) return T_MAP.get(core);
+  for (const [rx, reps] of T_RX) {
+    const mt = core.match(rx);
+    if (mt) { const rep = reps[LANG]; if (rep == null) continue; return typeof rep === 'function' ? rep(mt) : rep.replace(/\$(\d)/g, (_, n) => mt[+n] ?? ''); }
+  }
+  if (core.endsWith(' ·')) { const t = trCore(core.slice(0, -2)); return t + ' ·'; } // "Kick-off 19:00 ·"
+  if (core.includes(' · ')) { // translate each part of "La Liga · Matchday 11"
+    const parts = core.split(' · '), out = parts.map(trCore);
+    if (out.some((x, i) => x !== parts[i])) return out.join(' · ');
+  }
+  return core;
+}
+function trText(str) {
+  const mt = String(str).match(/^(\s*)([\s\S]*?)(\s*)$/);
+  if (!mt[2]) return str;
+  const out = trCore(mt[2]);
+  return out === mt[2] ? str : mt[1] + out + mt[3];
+}
+const T_DONE = new WeakMap(); // nodes already translated, so "L" → "P" isn't translated again into "PJ"
+const T_ATTRS = ['aria-label', 'placeholder', 'title'];
+function trNode(n) {
+  const p = n.parentElement;
+  if (!p || p.closest('script,style,[data-notr]')) return;
+  const v = n.nodeValue;
+  if (T_DONE.get(n) === v) return;
+  const t = trText(v);
+  if (t !== v) n.nodeValue = t;
+  T_DONE.set(n, n.nodeValue);
+}
+function trAttrs(el) {
+  let done = T_DONE.get(el); if (!done) T_DONE.set(el, done = {});
+  T_ATTRS.forEach(a => { const v = el.getAttribute(a); if (!v || done[a] === v) return; const t = trText(v); if (t !== v) el.setAttribute(a, t); done[a] = el.getAttribute(a); });
+}
+function trTree(root) {
+  if (LANG === 'en' || !root) return;
+  if (root.nodeType === 3) return trNode(root);
+  if (root.nodeType !== 1 || root.closest('script,style')) return;
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  while (w.nextNode()) trNode(w.currentNode);
+  [root, ...root.querySelectorAll('[aria-label],[placeholder],[title]')].forEach(el => { if (el.hasAttribute && T_ATTRS.some(a => el.hasAttribute(a))) trAttrs(el); });
+}
+function startTranslating() {
+  document.documentElement.lang = LANG;
+  document.documentElement.dir = LANG === 'ar' ? 'rtl' : 'ltr';
+  if (LANG === 'en') return;
+  trTree(document.body);
+  new MutationObserver(muts => muts.forEach(m => {
+    if (m.type === 'characterData') trNode(m.target);
+    else if (m.type === 'attributes') trAttrs(m.target);
+    else m.addedNodes.forEach(trTree);
+  })).observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: T_ATTRS });
+}
+
 const fmtDay = ts => new Date(ts).toLocaleDateString(LOCALE, { weekday: 'short', day: 'numeric', month: 'short' });
 const fmtDayLong = ts => new Date(ts).toLocaleDateString(LOCALE, { weekday: 'long', day: 'numeric', month: 'long' });
 const tzName = () => { try { return (Intl.DateTimeFormat().resolvedOptions().timeZone || 'local').replace(/_/g, ' ').split('/').pop(); } catch (e) { return 'local'; } };
@@ -1054,7 +1312,7 @@ function fdStatus(st) {
   if (st === 'FINISHED' || st === 'AWARDED') return 'FT';
   return 'OFF';
 }
-const fdTeam = t => t.id === 81 ? { ...BARCA } : { id: 'fd-' + t.id, name: t.shortName || t.name || '?', abbr: t.tla || undefined };
+const fdTeam = t => { fdCrest(t); return t.id === 81 ? { ...BARCA } : { id: 'fd-' + t.id, name: t.shortName || t.name || '?', abbr: t.tla || undefined, logo: t.crest || undefined }; };
 function fdFixture(x) {
   const status = fdStatus(x.status), ft = x.score?.fullTime || {};
   const minute = parseInt(x.minute, 10);
@@ -1073,6 +1331,7 @@ async function fdFixtures(force) {
   const json = await fdGet('teams/81/matches', { season: 2026 }, data => busy(data) ? 30 : 600, force);
   const sr = srFixtures();
   const list = (json.matches || []).map(fdFixture);
+  saveCrests();
   // borrow win chances and match stats from the built-in data for the same match
   list.forEach(f => { const twin = closest(sr, f.ts, barcaHome(f)); if (twin) { f.srTwin = twin; if (!f.prob) f.prob = twin.prob; } });
   return list.sort((a, b) => a.ts - b.ts);
@@ -1096,7 +1355,7 @@ function hlStatus(desc) {
 }
 function parseScore(t) { const mt = String(t || '').match(/(\d+)\s*-\s*(\d+)/); return mt ? { home: +mt[1], away: +mt[2] } : null; }
 const HL_COMP = { 'la liga': COMPS[140], 'uefa champions league': COMPS[2], 'copa del rey': COMPS[143], 'super cup': COMPS[556] };
-const hlTeam = t => t.id === HL_BARCA ? { ...BARCA } : { id: 'hl-' + t.id, name: SR_NAMES[t.name] || t.name || '?' };
+const hlTeam = t => { hlCrest(t); return t.id === HL_BARCA ? { ...BARCA } : { id: 'hl-' + t.id, name: SR_NAMES[t.name] || t.name || '?', logo: t.logo || undefined }; };
 function hlFixture(x) {
   const status = hlStatus(x.state?.description);
   return { id: 'h' + x.id, hlId: x.id, source: 'real', ts: Date.parse(x.date), status, short: status, elapsed: Number.isFinite(x.state?.clock) ? x.state.clock : null, extraNow: null,
@@ -1114,6 +1373,7 @@ async function hlAttach(list) {
     if (f) { f.hlId = x.id; used.add(x.id); }
   });
   hl.filter(x => !used.has(x.id)).forEach(x => list.push(hlFixture(x)));
+  hl.forEach(x => { hlCrest(x.homeTeam); hlCrest(x.awayTeam); }); saveCrests();
   return list.sort((p, q) => p.ts - q.ts);
 }
 const HL_STAT = { 'Expected Goals': 'xg', 'Big Chances Created': 'bigChances', 'Shots on target': 'sot', 'Shots off target': 'shotsOff', 'Blocked shots': 'blocked', 'Shots within penalty area': 'shotsIn', 'Shots outside penalty area': 'shotsOut', 'Corners': 'corners', 'Fouls': 'fouls', 'Offsides': 'offsides', 'Yellow cards': 'yellow', 'Red cards': 'red', 'Goalkeeper saves': 'saves', 'Total passes': 'passes', 'Successful passes': '_passOk', 'Key Passes': 'keyPasses', 'Tackles': 'tackles', 'Interceptions': 'interceptions', 'Clearances': 'clearances', 'Free Kicks': 'freeKicks', 'Throw-Ins': 'throwIns', 'Possession': 'possession' };
@@ -1131,6 +1391,7 @@ function hlMatch(f, det, lu, bs) {
   const m = { ...f, events: [], lineups: null, stats: null, official: {}, pstats: {}, squads: null };
   const d = Array.isArray(det) ? det[0] : det;
   const homeId = d?.homeTeam?.id ?? lu?.homeTeam?.id ?? (f.home.id === BARCA_ID ? HL_BARCA : null);
+  [d?.homeTeam, d?.awayTeam, lu?.homeTeam, lu?.awayTeam].forEach(hlCrest);
   const sideOf = tid => tid === homeId ? 'home' : 'away';
   const awayId = d?.awayTeam?.id ?? lu?.awayTeam?.id ?? null;
   m.hlOppId = homeId === HL_BARCA ? awayId : homeId;
@@ -1237,6 +1498,65 @@ async function hlSeason(loadAll) {
   }
   return { players: [...agg.values()].map(x => ({ ...x, rating: x.rN ? Math.round(x.rSum / x.rN * 10) / 10 : null })), have, missing };
 }
+
+/* ---------- 3e. Club logos ----------
+   Logos come with the data (football-data.org and Highlightly). They are remembered by club
+   name, because each source spells names a little differently ("Atleti", "Atlético Madrid",
+   "Club Atlético de Madrid"). If a logo can't load, the coloured badge is shown instead. */
+const CREST_STOP = new Set(['fc', 'cf', 'club', 'rcd', 'de', 'del', 'la', 'el', 'rc', 'cd', 'ud', 'sd', 'ca', 'sc', 'ac', 'afc', 'fk', 'sk', 'cp', 'sl', 'kv', 'as', 'ss', 'bv', 'sv', 'ssc', 'tsg', 'balompie', 'sad']);
+const teamKey = n => normName(n).split(' ').filter(w => w && !CREST_STOP.has(w)).join(' ');
+const CRESTS = new Map(Object.entries(store.get('crests', {})));
+const CREST_BAD = new Set();
+let crestsChanged = false;
+function addCrest(names, url) {
+  if (!url || typeof url !== 'string') return;
+  names.forEach(n => { const k = n && (n.startsWith('tla:') ? n : teamKey(n)); if (k && !CRESTS.has(k)) { CRESTS.set(k, url); crestsChanged = true; } });
+}
+function saveCrests() { if (crestsChanged) { crestsChanged = false; store.set('crests', Object.fromEntries(CRESTS)); } }
+function crestFor(t) {
+  if (!t) return null;
+  let url = t.logo || null;
+  if (!url && t.id === BARCA_ID) url = CRESTS.get('barcelona');
+  if (!url) {
+    const k = teamKey(t.name || '');
+    url = CRESTS.get(k) || (t.abbr && CRESTS.get('tla:' + t.abbr)) || null;
+    if (!url && k) { // close match: the important words of one name are all in the other (best match wins)
+      const a = k.split(' ').filter(w => w.length > 3);
+      let best = 0;
+      for (const [key, u] of CRESTS) {
+        if (key.startsWith('tla:') || key === 'barcelona' || key === 'barca') continue; // "Espanyol Barcelona" is not Barça
+        const b = key.split(' ').filter(w => w.length > 3);
+        if (!a.length || !b.length) continue;
+        const score = a.every(w => b.includes(w)) ? 100 - b.length : b.every(w => a.includes(w)) ? b.length : 0;
+        if (score > best) { best = score; url = u; }
+      }
+    }
+  }
+  return url && !CREST_BAD.has(url) ? url : null;
+}
+const fdCrest = t => { if (t && t.crest) addCrest([t.name, t.shortName, t.tla && 'tla:' + t.tla, t.id === 81 && 'barcelona'].filter(Boolean), t.crest); };
+const hlCrest = t => { if (t && t.logo) addCrest([t.name, t.id === HL_BARCA && 'barcelona'].filter(Boolean), t.logo); };
+// Logos for every La Liga and Champions League club, from the two league tables (saved for a day)
+async function loadCrests() {
+  if (settings.mode !== 'real' || !settings.server) return;
+  const before = CRESTS.size;
+  for (const code of ['PD', 'CL']) {
+    try {
+      const json = await api(`fd/competitions/${code}/standings`, {}, 86400);
+      (json.standings || []).forEach(t => (t.table || []).forEach(r => fdCrest(r.team)));
+    } catch (e) { /* no logos from this table: badges stay as they are */ }
+  }
+  saveCrests();
+  if (CRESTS.size > before) { $('#view').dataset.route = ''; render(); }
+}
+// A logo that fails to load (offline, or blocked) turns back into the coloured badge
+document.addEventListener('error', e => {
+  const img = e.target;
+  if (!(img instanceof HTMLImageElement) || !img.closest('.badge')) return;
+  CREST_BAD.add(img.getAttribute('src'));
+  const b = img.closest('.badge'); img.remove(); b.classList.remove('crest');
+  if (b.dataset.fcb) b.classList.add('badge-fcb'); else b.style.setProperty('--h', b.dataset.h);
+}, true);
 
 /* ---------- 4. Data layer ----------
    Screens ask Data for things; Data decides whether to use demo or API data. */
@@ -1627,7 +1947,9 @@ const isLiveF = f => ['LIVE', 'HT'].includes(fstat(f));
 function badge(team, size = '') {
   const isB = team.id === BARCA_ID;
   const hue = Math.round(seedOf(team.name) * 360);
-  return `<span class="badge ${size} ${isB ? 'badge-fcb' : ''}" ${isB ? '' : `style="--h:${hue}"`} aria-hidden="true">${esc(team.abbr || shortName(team.name))}</span>`;
+  const text = esc(team.abbr || shortName(team.name)), url = crestFor(team);
+  if (url) return `<span class="badge ${size} crest" data-h="${hue}" ${isB ? 'data-fcb="1"' : ''} aria-hidden="true"><img src="${esc(url)}" alt="" loading="lazy" decoding="async"><span class="bt">${text}</span></span>`;
+  return `<span class="badge ${size} ${isB ? 'badge-fcb' : ''}" ${isB ? '' : `style="--h:${hue}"`} aria-hidden="true">${text}</span>`;
 }
 const rtClass = r => r >= 8 ? 'r-elite' : r >= 7 ? 'r-good' : r >= 6 ? 'r-ok' : 'r-poor';
 const rtBadge = (r, cls = '') => `<span class="rt ${rtClass(r)} ${cls}">${r.toFixed(1)}</span>`;
@@ -2257,6 +2579,9 @@ function topScorersHTML() {
 /* --- Settings (what everyone sees) --- */
 function viewOptions() {
   return `<div><h1 class="page-title">Settings</h1><p class="page-sub">Your preferences on this device.</p></div>
+    <section class="form-card"><h2 class="fc-title">Language</h2>
+      <div class="seg lang-seg" role="group" aria-label="Language">${Object.entries(LANG_NAMES).map(([k, n]) => `<button data-act="lang" data-lang="${k}" lang="${k}" data-notr aria-pressed="${LANG === k}">${n}</button>`).join('')}</div>
+    </section>
     <section class="form-card"><h2 class="fc-title">Notifications</h2>
       <label class="switch" for="alerts"><input type="checkbox" id="alerts" ${settings.alerts ? 'checked' : ''}><span>Goal alerts while the app is open</span></label>
     </section>
@@ -2381,7 +2706,7 @@ function startDemo() {
 function resetApp() {
   Clock.unload(); state.gen++; state.fixtures = null; state.cache = {}; state.source = null; FD.downUntil = 0; demoList = null;
   if (settings.mode === 'demo') startDemo();
-  if (settings.mode === 'real') SR.connect();
+  if (settings.mode === 'real') { SR.connect(); loadCrests(); }
   updateModeChip(); schedulePoll();
   $('#view').dataset.route = ''; render();
 }
@@ -2470,6 +2795,7 @@ document.addEventListener('click', e => {
     case 'dev-reset': // back to the normal app
       settings.dev = false; Object.assign(settings, DEFAULTS); saveSettings(); store.clear('cache:'); store.clear('planCheck');
       toast('App reset'); resetApp(); break;
+    case 'lang': if (b.dataset.lang !== LANG) { settings.lang = b.dataset.lang; saveSettings(); location.reload(); } break;
     case 'refresh-data': store.clear('cache:'); state.fixtures = null; state.cache = {}; toast('Match data refreshed'); $('#view').dataset.route = ''; render(); break;
     case 'retry': $('#view').dataset.route = ''; render(); break;
   }
@@ -2506,10 +2832,11 @@ async function checkPlan() {
   } catch (e) { /* not reachable here: keep the built-in data */ }
 }
 (function init() {
+  startTranslating();
   $('#tabbar').innerHTML = NAV.map(([k, label]) => `<a class="tab" href="#${k}" data-tab="${k}">${I[k]}<span>${label}</span></a>`).join('');
   updateModeChip();
   if (settings.mode === 'demo') startDemo();
-  if (settings.mode === 'real') SR.connect();
+  if (settings.mode === 'real') { SR.connect(); setTimeout(loadCrests, 1500); }
   schedulePoll();
   render();
   checkPlan();
