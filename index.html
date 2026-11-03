@@ -1705,7 +1705,7 @@ const espnClock = c => { const mt = String(c || '').match(/(\d+)'?(?:\s*\+\s*(\d
 async function espnSummary(f) {
   const lg = ESPN_LEAGUE[f.comp?.id];
   if (!lg || f.status === 'NS' || f.source !== 'real') return null;
-  const key = 'cache:espnsum2:' + f.id, saved = store.get(key, null), ttl = f.status === 'FT' ? 7 * 86400e3 : 60e3; // "2": copies saved before the shot map are ignored
+  const key = 'cache:espnsum3:' + f.id, saved = store.get(key, null), ttl = f.status === 'FT' ? 7 * 86400e3 : 60e3; // "2": copies saved before the shot map are ignored
   if (saved && Date.now() - saved.t < ttl) return saved.data;
   try {
     let id = store.get('cache:espnid:' + f.id, null);
@@ -1747,10 +1747,12 @@ async function espnSummary(f) {
         subs.push({ type: 'sub', side, min: q.inAt.min, extra: q.inAt.extra, player: null, assist: null, in: q.id, inName: q.name, out: o ? o.id : null, outName: o ? o.name : null });
       });
     });
-    (sm.header?.competitions?.[0]?.competitors || []).forEach(c => { if (!sideOfTeam[String(c.id)]) sideOfTeam[String(c.id)] = c.homeAway === 'away' ? 'away' : 'home'; });
+    const sideOfName = {}; // the commentary names teams but doesn't number them
+    (sm.rosters || []).forEach(r => { if (r.team?.displayName) sideOfName[normName(r.team.displayName)] = r.homeAway === 'away' ? 'away' : 'home'; });
+    (sm.header?.competitions?.[0]?.competitors || []).forEach(c => { const sd = c.homeAway === 'away' ? 'away' : 'home'; if (!sideOfTeam[String(c.id)]) sideOfTeam[String(c.id)] = sd; if (c.team?.displayName && !sideOfName[normName(c.team.displayName)]) sideOfName[normName(c.team.displayName)] = sd; });
     const kindOf = t => /^goal/i.test(t) ? 'goal' : /on target/i.test(t) ? 'saved' : /woodwork|post|bar\b/i.test(t) ? 'post' : /blocked/i.test(t) ? 'blocked' : /off target|missed/i.test(t) ? 'missed' : null;
     const shotsAll = (sm.commentary || []).map(c => c.play).filter(q => q && q.fieldPositionX != null && q.fieldPositionY != null && q.period?.number !== 5).map(q => {
-      const k = kindOf(String(q.type?.text || '')), c = espnClock(q.clock?.displayValue), side = sideOfTeam[String(q.team?.id)];
+      const k = kindOf(String(q.type?.text || '')), c = espnClock(q.clock?.displayValue), side = sideOfTeam[String(q.team?.id)] || sideOfName[normName(q.team?.displayName || '')];
       return k && side ? { k, side, min: c ? c.min : null, extra: c ? c.extra : 0, name: q.participants?.[0]?.athlete?.displayName || '', x: +q.fieldPositionX, y: +q.fieldPositionY, text: String(q.text || '') } : null;
     }).filter(Boolean);
     const teams = sm.boxscore?.teams || [], stats = {};
