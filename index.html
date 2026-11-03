@@ -1116,6 +1116,8 @@ function hlMatch(f, det, lu, bs) {
   const d = Array.isArray(det) ? det[0] : det;
   const homeId = d?.homeTeam?.id ?? lu?.homeTeam?.id ?? (f.home.id === BARCA_ID ? HL_BARCA : null);
   const sideOf = tid => tid === homeId ? 'home' : 'away';
+  const awayId = d?.awayTeam?.id ?? lu?.awayTeam?.id ?? null;
+  m.hlOppId = homeId === HL_BARCA ? awayId : homeId;
   if (d) {
     if (d.referee?.name) m.referee = d.referee.name.includes(',') ? d.referee.name.split(',').map(x => x.trim()).reverse().join(' ') : d.referee.name;
     if (d.venue?.name) { m.venue = d.venue.name; m.city = d.venue.city || ''; }
@@ -1349,6 +1351,13 @@ const Data = {
   async h2h(m) {
     const opp = m[other(barcaSide(m))];
     if (settings.mode === 'demo') return demoH2H(opp);
+    if (settings.mode === 'real' && m.hlOppId) {
+      try {
+        const json = await api('hl/head-2-head', { teamIdOne: HL_BARCA, teamIdTwo: m.hlOppId }, 86400);
+        const list = (unwrap(json) || []).map(hlFixture).filter(f => f.status === 'FT').sort((a, b) => b.ts - a.ts);
+        if (list.length) { list.full = true; return list; }
+      } catch (e) { /* fall back to this season's matches */ }
+    }
     if (settings.mode === 'real') return (state.fixtures || srFixtures()).filter(f => f.status === 'FT' && (f.home.id === opp.id || f.away.id === opp.id)).sort((a, b) => b.ts - a.ts);
     const json = await api('fixtures/headtohead', { h2h: `${BARCA_ID}-${opp.id}`, last: 10 }, 86400);
     return (json.response || []).map(normFixture).filter(f => f.status === 'FT').sort((a, b) => b.ts - a.ts);
@@ -2043,14 +2052,14 @@ function h2hHTML(m) {
   if (v === 'loading') return '<div class="loading">Loading…</div>';
   if (v.error) return empty(esc(v.error));
   const list = v.data;
-  if (!list.length) return empty(m.source === 'real' ? 'No meetings with this team so far this season. Full history comes with API-Football.' : 'No earlier meetings found.');
+  if (!list.length) return empty('No earlier meetings found.');
   let w = 0, d = 0, l = 0;
   list.forEach(f => { const r = resultOf(f, f.goals); if (r === 'W') w++; else if (r === 'D') d++; else l++; });
   const n = list.length, opp = m[other(barcaSide(m))];
   return `<div class="h2h-sum"><div class="w"><b>${w}</b><small>Barça wins</small></div><div><b>${d}</b><small>Draws</small></div><div><b>${l}</b><small>${esc(opp.name)} wins</small></div>
       <div class="h2h-bar" aria-hidden="true"><i class="fill-fcb" style="width:${(w / n * 100).toFixed(1)}%"></i><i class="d" style="width:${(d / n * 100).toFixed(1)}%"></i><i class="fill-opp" style="width:${(l / n * 100).toFixed(1)}%"></i></div></div>
     <h2 class="month">${n === 1 ? 'Last meeting' : `Last ${n} meetings`}</h2><div class="fxlist">${list.map(h2hRow).join('')}</div>
-    ${m.source === 'demo' ? '<p class="help demo-note">Made-up results for the demo.</p>' : m.source === 'real' ? '<p class="help demo-note">This season only. Full history comes with API-Football.</p>' : ''}`;
+    ${m.source === 'demo' ? '<p class="help demo-note">Made-up results for the demo.</p>' : m.source === 'real' && !list.full ? '<p class="help demo-note">This season only.</p>' : list.full ? '<p class="help demo-note">All competitions, most recent first.</p>' : ''}`;
 }
 function panelHTML(m, st, clocked) {
   switch (state.mcTab) {
