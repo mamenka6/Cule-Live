@@ -347,6 +347,32 @@ input[type="range"]{width:100%;accent-color:var(--blau);margin:0}
 .gc-ground{stroke:var(--muted);stroke-width:.6}
 .gc-goaltxt{font-family:var(--f-display);font-weight:800;font-size:4.6px;fill:var(--ink);text-anchor:middle}
 .gc-replay .ctl-foot .help{font-size:12px}
+.share-row{margin-top:-10px}
+.sm-card,.potm-card{padding:14px;display:flex;flex-direction:column;gap:10px;margin-bottom:14px}
+.sm-head{display:flex;justify-content:space-between;gap:10px}
+.sm-head>span{display:flex;flex-direction:column;min-width:0}.sm-head .r{text-align:right}
+.sm-head small{color:var(--muted);font-size:12.5px}
+.sm-pitch{display:block;width:100%;height:auto;border-radius:12px}
+.sm-pitch .pa{fill:var(--pitch-a)} .sm-pitch .pb{fill:var(--pitch-b)} .sm-pitch .ln2{fill:none;stroke:var(--pitch-line);stroke-width:.35}
+.sm-lbl{font-family:var(--f-label);font-weight:700;font-size:2.6px;fill:rgba(255,255,255,.85)} .sm-lbl.end{text-anchor:end}
+.sm-dot{cursor:pointer;stroke-width:.45}
+.sm-goal{fill:var(--gold);stroke:#111}.sm-saved{fill:#fff;stroke:#16203A}.sm-missed{fill:none;stroke:#fff}.sm-blocked{fill:none;stroke:rgba(255,255,255,.75);stroke-dasharray:.6 .5}.sm-post{fill:none;stroke:var(--gold);stroke-width:.6}
+.sm-dot.sel{stroke:var(--grana);stroke-width:.9}
+.sm-legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;color:var(--muted)}
+.sm-legend span{display:inline-flex;align-items:center;gap:6px}
+.sm-key{width:14px;height:14px;background:var(--pitch-a);border-radius:3px}
+.sm-src{font-size:12px;margin-top:-6px}
+.potm-top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.potm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:8px}
+.potm-btn{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 6px;border-radius:12px;background:var(--surface-2);border:1px solid var(--line);font-size:13px;font-weight:600;text-align:center}
+.potm-btn.mine{border-color:var(--blau);box-shadow:inset 0 0 0 1px var(--blau)}
+.potm-btn span:last-child{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.potm-res{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.potm-res li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px}
+.potm-n{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.potm-n small{color:var(--muted);font-weight:500}
+.potm-pc{font-family:var(--f-display);font-weight:800;font-size:20px;font-variant-numeric:tabular-nums}
+.potm-bar{grid-column:1/-1;height:8px;border-radius:8px;background:var(--surface-2);overflow:hidden}.potm-bar i{display:block;height:100%;background:var(--opp);border-radius:8px}
+.potm-res li.top .potm-bar i{background:var(--blau)}.potm-res li.mine .potm-n{color:var(--blau)}
 .tl-mark span{z-index:1;background:var(--surface-2);border:1px solid var(--line);border-radius:99px;padding:4px 12px;font-family:var(--f-label);font-weight:700;font-size:13px;letter-spacing:.06em;text-transform:uppercase;font-variant-numeric:tabular-nums}
 
 /* Lineups */
@@ -756,6 +782,39 @@ const T_ROWS = [
   ["Player ratings come from Highlightly, which is paused: today's free match-data limit is used up.", "Las notas de los jugadores vienen de Highlightly, que está en pausa: se ha agotado el límite gratuito de datos de hoy.", "Les notes des joueurs viennent de Highlightly, en pause : la limite gratuite de données du jour est atteinte.", "تقييمات اللاعبين من Highlightly، وهي متوقفة: نفد الحد اليومي المجاني للبيانات."],
   ["Player ratings aren't available for this match yet.", "Aún no hay notas de los jugadores para este partido.", "Pas encore de notes des joueurs pour ce match.", "لا توجد تقييمات للاعبين في هذه المباراة بعد."],
   ["Stats from ESPN (backup source). Player ratings come from Highlightly.", "Estadísticas de ESPN (fuente de respaldo). Las notas vienen de Highlightly.", "Stats d'ESPN (source de secours). Les notes viennent de Highlightly.", "الإحصائيات من ESPN (مصدر بديل). التقييمات من Highlightly."],
+  // Shot map, fan vote, share cards
+  ["Shot map", "Mapa de disparos", "Carte des tirs", "خريطة التسديدات"],
+  ["on target", "a puerta", "cadrés", "على المرمى"],
+  ["Saved", "Parado", "Arrêté", "تصدى لها"],
+  ["Off target", "Fuera", "Non cadré", "خارج المرمى"],
+  ["Blocked", "Bloqueado", "Contré", "مُعترض"],
+  ["Hit the woodwork", "Al palo", "Sur le poteau", "في القائم"],
+  ["Tap a shot to see who took it.", "Toca un disparo para ver quién lo hizo.", "Touche un tir pour voir qui l'a pris.", "اضغط على تسديدة لترى من سددها."],
+  ["Shot positions from ESPN.", "Posiciones de los disparos: ESPN.", "Positions des tirs : ESPN.", "مواقع التسديدات من ESPN."],
+  ["Player of the match · fan vote", "Jugador del partido · voto de la afición", "Homme du match · vote des fans", "أفضل لاعب · تصويت الجماهير"],
+  ["Voting open", "Votación abierta", "Vote ouvert", "التصويت مفتوح"],
+  ["Final result", "Resultado final", "Résultat final", "النتيجة النهائية"],
+  ["Who was the best Barça player? Tap to vote.", "¿Quién fue el mejor del Barça? Toca para votar.", "Qui a été le meilleur du Barça ? Touche pour voter.", "من كان أفضل لاعب في برشلونة؟ اضغط للتصويت."],
+  ["Loading votes…", "Cargando votos…", "Chargement des votes…", "جارٍ تحميل الأصوات…"],
+  ["vote", "voto", "vote", "صوت"],
+  ["votes", "votos", "votes", "أصوات"],
+  ["No votes yet. Be the first!", "Aún no hay votos. ¡Sé el primero!", "Pas encore de votes. Sois le premier !", "لا أصوات بعد. كن الأول!"],
+  ["Sign in to vote", "Inicia sesión para votar", "Connecte-toi pour voter", "سجّل الدخول للتصويت"],
+  ["Change my vote", "Cambiar mi voto", "Changer mon vote", "تغيير صوتي"],
+  ["· your vote", "· tu voto", "· ton vote", "· صوتك"],
+  ["Vote saved", "Voto guardado", "Vote enregistré", "تم حفظ صوتك"],
+  ["Voting isn't set up yet.", "La votación aún no está lista.", "Le vote n'est pas encore prêt.", "التصويت غير جاهز بعد."],
+  ["Votes can't be loaded right now.", "Ahora no se pueden cargar los votos.", "Impossible de charger les votes pour le moment.", "تعذر تحميل الأصوات الآن."],
+  ["Voting isn't open for this match.", "La votación no está abierta para este partido.", "Le vote n'est pas ouvert pour ce match.", "التصويت غير مفتوح لهذه المباراة."],
+  ["Couldn't save your vote. Try again.", "No se pudo guardar tu voto. Inténtalo de nuevo.", "Impossible d'enregistrer ton vote. Réessaie.", "تعذر حفظ صوتك. حاول مجددًا."],
+  ["Share score", "Compartir resultado", "Partager le score", "مشاركة النتيجة"],
+  ["Share my prediction", "Compartir mi pronóstico", "Partager mon pronostic", "مشاركة توقعي"],
+  ["Share this goal", "Compartir este gol", "Partager ce but", "مشاركة هذا الهدف"],
+  ["Image saved", "Imagen guardada", "Image enregistrée", "تم حفظ الصورة"],
+  ["Couldn't make the image. Try again.", "No se pudo crear la imagen. Inténtalo de nuevo.", "Impossible de créer l'image. Réessaie.", "تعذر إنشاء الصورة. حاول مجددًا."],
+  ["Exact score!", "¡Resultado exacto!", "Score exact !", "نتيجة دقيقة!"],
+  ["Right result", "Resultado acertado", "Bon résultat", "نتيجة صحيحة"],
+  ["No points this time", "Sin puntos esta vez", "Pas de points cette fois", "لا نقاط هذه المرة"],
   // Goal replay
   ["Assist type", "Tipo de asistencia", "Type de passe", "نوع التمريرة"],
   ["Through ball", "Pase al hueco", "Passe en profondeur", "تمريرة بينية"],
@@ -995,6 +1054,7 @@ class AppError extends Error { constructor(msg, kind = 'api') { super(msg); this
 
 // Small drawings used around the app
 const I = {
+  share: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 8 5-5 5 5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg>',
   home: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h5v-6h4v6h5V9.5"/></svg>',
   matches: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
   table: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h12M9 12h12M9 18h12"/><path d="M4 6h1M4 12h1M4 18h1"/></svg>',
@@ -1687,9 +1747,15 @@ async function espnSummary(f) {
         subs.push({ type: 'sub', side, min: q.inAt.min, extra: q.inAt.extra, player: null, assist: null, in: q.id, inName: q.name, out: o ? o.id : null, outName: o ? o.name : null });
       });
     });
+    (sm.header?.competitions?.[0]?.competitors || []).forEach(c => { if (!sideOfTeam[String(c.id)]) sideOfTeam[String(c.id)] = c.homeAway === 'away' ? 'away' : 'home'; });
+    const kindOf = t => /^goal/i.test(t) ? 'goal' : /on target/i.test(t) ? 'saved' : /woodwork|post|bar\b/i.test(t) ? 'post' : /blocked/i.test(t) ? 'blocked' : /off target|missed/i.test(t) ? 'missed' : null;
+    const shotsAll = (sm.commentary || []).map(c => c.play).filter(q => q && q.fieldPositionX != null && q.fieldPositionY != null && q.period?.number !== 5).map(q => {
+      const k = kindOf(String(q.type?.text || '')), c = espnClock(q.clock?.displayValue), side = sideOfTeam[String(q.team?.id)];
+      return k && side ? { k, side, min: c ? c.min : null, extra: c ? c.extra : 0, name: q.participants?.[0]?.athlete?.displayName || '', x: +q.fieldPositionX, y: +q.fieldPositionY, text: String(q.text || '') } : null;
+    }).filter(Boolean);
     const teams = sm.boxscore?.teams || [], stats = {};
     teams.forEach(t => { const sd = sideOfTeam[String(t.team?.id)]; if (sd) stats[sd] = espnTeamStats(t); });
-    const data = { shots, lineups: lineups.home && lineups.away ? lineups : null, subs, pstats, stats: stats.home && stats.away ? stats : null };
+    const data = { shots, shotsAll, lineups: lineups.home && lineups.away ? lineups : null, subs, pstats, stats: stats.home && stats.away ? stats : null };
     store.set(key, { t: Date.now(), data });
     return data;
   } catch (e) { return saved?.data || null; }
@@ -2125,6 +2191,7 @@ async function acctChanged() {
   Acct.busy = false; Acct.error = '';
   if (Acct.user) await syncPreds();
   acctRefresh(true);
+  potmRedraw(); // the fan vote shows the buttons once signed in
 }
 function acctRefresh(full = false) {
   acctButton();
@@ -3147,11 +3214,11 @@ function playVideo(i) {
 function panelHTML(m, st, clocked) {
   switch (state.mcTab) {
     case 'lineups': return lineupsHTML(m, st);
-    case 'stats': return statsHTML(m, st);
-    case 'ratings': return ratingsHTML(m, st, clocked);
+    case 'stats': return espnShotMap(m) + statsHTML(m, st);
+    case 'ratings': return potmHTML(m, st) + ratingsHTML(m, st, clocked);
     case 'h2h': return h2hHTML(m);
     case 'videos': return videosHTML(m);
-    default: return timelineHTML(m, st);
+    default: return (potmWindow(m, st) === 'open' ? potmHTML(m, st) : '') + timelineHTML(m, st);
   }
 }
 
@@ -3232,6 +3299,213 @@ function openPlayer(pid, from) {
     root.querySelector('.sheet-close')?.focus();
   }).catch(() => {});
 }
+/* --- Share cards: story-size images (1080 × 1920) of the score, a goal or your prediction ---
+   Made on the phone with a canvas, then handed to the share sheet (Instagram, WhatsApp…) or saved. */
+function loadImg(url) { // crests only if their server allows it (otherwise the picture couldn't be saved)
+  return new Promise(res => { if (!url) return res(null); const im = new Image(); im.crossOrigin = 'anonymous'; const t = setTimeout(() => res(null), 2500); im.onload = () => { clearTimeout(t); res(im); }; im.onerror = () => { clearTimeout(t); res(null); }; im.src = url; });
+}
+function fitFont(g, text, weight, family, max, width) { let size = max; do { g.font = `${weight} ${size}px ${family}`; size -= 4; } while (g.measureText(text).width > width && size > 20); return g.font; }
+async function drawCard(kind, m, st, extra) {
+  const W = 1080, H = 1920, c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext('2d'), css = getComputedStyle(document.documentElement);
+  const D = '"Big Shoulders Display","Barlow Condensed",sans-serif', B = '"Barlow",system-ui,sans-serif';
+  try { await document.fonts.ready; } catch (e) { /* default fonts */ }
+  // background: night blue with Barça stripes fading in from the top
+  const bg = g.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, '#0B1530'); bg.addColorStop(1, '#050913'); g.fillStyle = bg; g.fillRect(0, 0, W, H);
+  for (let x = 0; x < W; x += 120) { g.fillStyle = (x / 120) % 2 ? '#9E1340' : '#0F3C8F'; g.fillRect(x, 0, 120, 560); }
+  const fade = g.createLinearGradient(0, 0, 0, 560); fade.addColorStop(0, 'rgba(5,9,19,.25)'); fade.addColorStop(1, 'rgba(5,9,19,1)'); g.fillStyle = fade; g.fillRect(0, 0, W, 560);
+  g.textBaseline = 'alphabetic'; g.textAlign = 'center'; g.fillStyle = '#fff';
+  g.font = `800 64px ${D}`; g.fillText('CULÉ LIVE', W / 2, 140);
+  g.fillStyle = '#E9B300'; g.fillRect(W / 2 - 60, 168, 120, 8);
+  g.fillStyle = 'rgba(255,255,255,.8)'; g.font = `500 38px ${B}`;
+  g.fillText([trx(m.comp?.name || ''), m.round ? trx(m.round) : ''].filter(Boolean).join(' · '), W / 2, 240);
+  const crest = async (team, cx, cy, size) => {
+    const im = await loadImg(crestFor(team));
+    if (im) { const r = Math.min(size / im.width, size / im.height); g.drawImage(im, cx - im.width * r / 2, cy - im.height * r / 2, im.width * r, im.height * r); return; }
+    g.beginPath(); g.arc(cx, cy, size / 2, 0, Math.PI * 2); g.fillStyle = team.id === BARCA_ID ? '#0F3C8F' : '#3A4466'; g.fill();
+    g.fillStyle = '#fff'; g.font = `800 ${size / 3.2}px ${D}`; g.textBaseline = 'middle'; g.fillText(team.abbr || shortName(team.name), cx, cy); g.textBaseline = 'alphabetic';
+  };
+  const teamsRow = async (y, size, sc, hiSide) => {
+    await crest(m.home, 250, y, size); await crest(m.away, W - 250, y, size);
+    g.fillStyle = '#fff'; g.font = fitFont(g, m.home.name, 700, B, 46, 360); g.fillText(m.home.name, 250, y + size / 2 + 70);
+    g.font = fitFont(g, m.away.name, 700, B, 46, 360); g.fillText(m.away.name, W - 250, y + size / 2 + 70);
+    if (sc) { g.font = `800 210px ${D}`; g.fillStyle = hiSide === 'home' ? '#fff' : hiSide ? 'rgba(255,255,255,.55)' : '#fff'; g.textAlign = 'right'; g.fillText(String(sc.home), W / 2 - 40, y + 75);
+      g.fillStyle = hiSide === 'away' ? '#fff' : hiSide ? 'rgba(255,255,255,.55)' : '#fff'; g.textAlign = 'left'; g.fillText(String(sc.away), W / 2 + 40, y + 75); g.textAlign = 'center';
+      g.fillStyle = 'rgba(255,255,255,.5)'; g.fillRect(W / 2 - 22, y - 4, 44, 14); }
+  };
+  const pill = (text, y, color) => { g.font = `700 40px ${B}`; const w = g.measureText(text).width + 70; g.fillStyle = color; g.beginPath(); g.roundRect(W / 2 - w / 2, y - 48, w, 70, 35); g.fill(); g.fillStyle = '#fff'; g.fillText(text, W / 2, y); };
+  const live = m.status === 'LIVE' || m.status === 'HT';
+  const statusTxt = m.status === 'FT' ? trx('Full time') : m.status === 'HT' ? trx('Half-time') : live ? `${trx('LIVE')} ${Math.min(90, Math.floor(st.k / 100))}'` : '';
+  if (kind === 'score') {
+    await teamsRow(560, 230, st.score);
+    if (statusTxt) pill(statusTxt.toUpperCase(), 940, live ? '#A3123F' : 'rgba(255,255,255,.14)');
+    const lines = side => { const by = new Map(); st.events.filter(e => e.scoreSide === side).forEach(e => { const n = e.player != null || e.playerName ? shortPlayer(pname(m, e.player, e.playerName)) : trx('Goal'); by.set(n, [...(by.get(n) || []), evMinute(e) + (e.type === 'pen' ? ' (pen)' : e.type === 'own' ? ' (OG)' : '')]); }); return [...by].map(([n, mins]) => `${n} ${mins.join(', ')}`); };
+    g.font = `500 40px ${B}`; g.fillStyle = 'rgba(255,255,255,.85)';
+    lines('home').slice(0, 7).forEach((t, i) => g.fillText(t, 250, 1100 + i * 62)); lines('away').slice(0, 7).forEach((t, i) => g.fillText(t, W - 250, 1100 + i * 62));
+    g.font = `500 36px ${B}`; g.fillStyle = 'rgba(255,255,255,.6)'; g.fillText(fmtDayLong(m.ts) + (m.venue ? ' · ' + m.venue : ''), W / 2, 1640);
+  } else if (kind === 'goal') {
+    const e = extra.e, sh = extra.shot, info = extra.info;
+    let h = 0, a = 0; for (const x of prep(m).events) { if (x.scoreSide) x.scoreSide === 'home' ? h++ : a++; if (x === e) break; }
+    g.fillStyle = '#E9B300'; g.font = `800 190px ${D}`; g.fillText(trx('GOAL!'), W / 2, 470);
+    const who = pname(m, e.player, e.playerName) || m[e.scoreSide].name;
+    g.fillStyle = '#fff'; g.font = fitFont(g, who, 800, D, 120, 960); g.fillText(who.toUpperCase(), W / 2, 620);
+    g.fillStyle = 'rgba(255,255,255,.75)'; g.font = `500 44px ${B}`; g.fillText(`${m[e.scoreSide].name} · ${evMinute(e)}${e.assistName || e.assist != null ? ' · ' + trx('Assist') + ': ' + shortPlayer(pname(m, e.assist, e.assistName)) : ''}`, W / 2, 700);
+    await teamsRow(880, 150, { home: h, away: a }, e.scoreSide);
+    if (sh) { // the shot on the attacking half
+      const X = 90, Y = 1100, PW = 900, PH = 520, sx = v => X + (v - 50) / 50 * PW, sy = v => Y + v / 100 * PH; // ESPN's x from 50 (halfway) to 100 (goal line)
+      g.fillStyle = '#2D7A4D'; g.fillRect(X, Y, PW, PH); g.fillStyle = '#297248'; for (let k = 0; k < 6; k += 2) g.fillRect(X + k * PW / 6, Y, PW / 6, PH);
+      g.strokeStyle = 'rgba(255,255,255,.55)'; g.lineWidth = 4; g.strokeRect(X, Y, PW, PH);
+      const bx0 = sx(100 - 15.7), by0 = sy(50 - 29.65), bx1 = sx(100 - 5.24), by1 = sy(50 - 13.46);
+      g.strokeRect(bx0, by0, sx(100) - bx0, sy(50 + 29.65) - by0); g.strokeRect(bx1, by1, sx(100) - bx1, sy(50 + 13.46) - by1);
+      g.beginPath(); g.arc(X, Y + PH / 2, PH * 0.27, -Math.PI / 2, Math.PI / 2); g.stroke();
+      const px = sx(sh.x), py = sy(100 - sh.y), gx = sx(100), gy = sy(100 - sh.gy);
+      g.strokeStyle = '#fff'; g.lineWidth = 7; g.setLineDash([18, 12]); g.beginPath(); g.moveTo(px, py); g.lineTo(gx, gy); g.stroke(); g.setLineDash([]);
+      g.fillStyle = '#0F3C8F'; g.strokeStyle = '#9E1340'; g.lineWidth = 8; g.beginPath(); g.arc(px, py, 30, 0, Math.PI * 2); g.fill(); g.stroke();
+      g.fillStyle = '#fff'; g.beginPath(); g.arc(gx, gy, 14, 0, Math.PI * 2); g.fill();
+      g.fillStyle = 'rgba(255,255,255,.85)'; g.font = `600 38px ${B}`; g.fillText([info.body, info.sit, info.zone, `${info.dist} m`].filter(Boolean).map(trx).join(' · '), W / 2, Y + PH + 72);
+    }
+  } else if (kind === 'pred') {
+    const p = extra.p, pts = extra.pts, bs = barcaSide(m), os = other(bs);
+    await teamsRow(560, 210, st.score);
+    if (statusTxt) pill(statusTxt.toUpperCase(), 930, 'rgba(255,255,255,.14)');
+    g.fillStyle = 'rgba(255,255,255,.7)'; g.font = `600 44px ${B}`; g.fillText(trx('Your prediction').toUpperCase(), W / 2, 1120);
+    const ps = bs === 'home' ? `${p.b}–${p.o}` : `${p.o}–${p.b}`;
+    g.fillStyle = '#fff'; g.font = `800 190px ${D}`; g.fillText(ps, W / 2, 1320);
+    const msg = pts === 3 ? trx('Exact score!') + ' +3' : pts === 1 ? trx('Right result') + ' +1' : pts === 0 ? trx('No points this time') : '';
+    if (msg) pill(msg, 1480, pts === 3 ? '#1E8A56' : pts === 1 ? '#0F3C8F' : 'rgba(255,255,255,.14)');
+  }
+  g.fillStyle = 'rgba(255,255,255,.55)'; g.font = `500 34px ${B}`; g.fillText('mamenka6.github.io/Cule-Live', W / 2, H - 90);
+  return c;
+}
+async function shareCard(kind, idx) {
+  try {
+    const m = await Data.match(route().id), st = mcStateOf(m);
+    const extra = {};
+    if (kind === 'goal') { extra.e = prep(m).events[idx]; const R = state.replay; if (R && R.idx === idx) { extra.shot = R.s; extra.info = R.info; } if (!extra.e) return; }
+    if (kind === 'pred') { extra.p = getPred(m); if (!extra.p) return; extra.pts = predPoints(extra.p, m); }
+    const c = await drawCard(kind, m, st, extra);
+    const blob = await new Promise(res => c.toBlob(res, 'image/png'));
+    if (!blob) throw new Error('no image');
+    const file = new File([blob], `cule-live-${kind}.png`, { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { try { await navigator.share({ files: [file], title: 'Culé Live' }); return; } catch (e) { if (e.name === 'AbortError') return; } }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = file.name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000); toast('Image saved');
+  } catch (e) { console.warn('Share:', e); toast("Couldn't make the image. Try again."); }
+}
+function shareRowHTML(m) {
+  if (m.status === 'NS') return '';
+  const p = m.source === 'real' || m.source === 'api' ? getPred(m) : null, pts = p ? predPoints(p, m) : null;
+  return `<div class="row share-row"><button class="btn btn-ghost btn-sm" data-act="share" data-kind="score">${I.share} Share score</button>${p && pts != null ? `<button class="btn btn-ghost btn-sm" data-act="share" data-kind="pred">${I.share} Share my prediction</button>` : ''}</div>`;
+}
+
+/* --- Shot map: every shot of the match on one pitch (positions from ESPN's commentary) --- */
+const espnKey = m => 'esum:' + m.id + (m.status === 'FT' ? '' : ':' + Math.floor(Date.now() / 60e3)); // live: new data each minute
+const SHOT_KIND = { goal: 'Goal', saved: 'Saved', missed: 'Off target', blocked: 'Blocked', post: 'Hit the woodwork' };
+const trx = x => LANG === 'en' ? x : trText(x);
+const bodyOf = t => /header/i.test(t) ? 'Header' : /left footed/i.test(t) ? 'Left foot' : /right footed/i.test(t) ? 'Right foot' : '';
+function pitchSVG(cls, inner, label) {
+  const stripes = Array.from({ length: 10 }, (_, k) => `<rect x="${k * 10.5}" y="0" width="10.5" height="68" class="${k % 2 ? 'pb' : 'pa'}"/>`).join('');
+  return `<svg class="${cls}" viewBox="-2 -2 109 72" role="img" aria-label="${label}">${stripes}<g class="ln2"><rect x="0" y="0" width="105" height="68"/><line x1="52.5" y1="0" x2="52.5" y2="68"/><circle cx="52.5" cy="34" r="9.15"/>
+    <rect x="88.5" y="13.84" width="16.5" height="40.32"/><rect x="99.5" y="24.84" width="5.5" height="18.32"/><rect x="0" y="13.84" width="16.5" height="40.32"/><rect x="0" y="24.84" width="5.5" height="18.32"/></g>
+    <rect x="105" y="30.34" width="1.6" height="7.32" class="gc-goalbox"/><rect x="-1.6" y="30.34" width="1.6" height="7.32" class="gc-goalbox"/>${inner}</svg>`;
+}
+function shotMapHTML(m, sum) {
+  const list = (sum && sum.shotsAll) || [];
+  if (!list.length) return '';
+  const us = m.away.id === BARCA_ID ? 'away' : 'home', them = other(us);
+  const at = q => q.side === us ? [q.x * 1.05, (100 - q.y) * 0.68] : [105 - q.x * 1.05, q.y * 0.68]; // Barça shoot to the right
+  const count = side => { const a = list.filter(q => q.side === side); return { n: a.length, on: a.filter(q => q.k === 'goal' || q.k === 'saved').length }; };
+  const cu = count(us), ct = count(them);
+  state.smList = list;
+  const order = list.map((q, i) => i).sort((a, b) => (list[a].k === 'goal') - (list[b].k === 'goal')); // goals drawn on top
+  const dots = order.map(i => { const q = list[i], [x, y] = at(q); return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${q.k === 'goal' ? 2.1 : q.k === 'blocked' ? 1.1 : 1.5}" class="sm-dot sm-${q.k}" data-act="shot" data-i="${i}" tabindex="0" role="button" aria-label="${esc(q.name)} ${q.min ?? ''}'"/>`; }).join('');
+  const labels = `<text x="2" y="4.5" class="sm-lbl" data-notr>◀ ${esc(m[them].abbr || shortName(m[them].name))}</text><text x="103" y="4.5" class="sm-lbl end" data-notr>${esc(m[us].abbr || shortName(m[us].name))} ▶</text>`;
+  const kinds = Object.keys(SHOT_KIND).filter(k => list.some(q => q.k === k));
+  const legend = kinds.map(k => `<span><svg viewBox="-3 -3 6 6" class="sm-key"><circle r="${k === 'goal' ? 2.3 : 1.8}" class="sm-dot sm-${k}"/></svg>${SHOT_KIND[k]}</span>`).join('');
+  return `<section class="card sm-card"><h2 class="sec-title">Shot map</h2>
+    <div class="sm-head"><span><b>${esc(m[them].name)}</b><small><b>${ct.n}</b> <span>shots</span> · <b>${ct.on}</b> <span>on target</span></small></span><span class="r"><b>${esc(m[us].name)}</b><small><b>${cu.n}</b> <span>shots</span> · <b>${cu.on}</b> <span>on target</span></small></span></div>
+    ${pitchSVG('sm-pitch', labels + dots, 'Shot map')}
+    <div class="sm-legend">${legend}</div><p class="help" id="sm-detail">Tap a shot to see who took it.</p><p class="help sm-src">Shot positions from ESPN.</p></section>`;
+}
+function shotDetail(i) {
+  const q = (state.smList || [])[i], el = $('#sm-detail');
+  if (!q || !el) return;
+  document.querySelectorAll('.sm-dot.sel').forEach(d => d.classList.remove('sel'));
+  document.querySelector(`.sm-pitch [data-i="${i}"]`)?.classList.add('sel');
+  const b = bodyOf(q.text);
+  el.textContent = [`${q.min ?? ''}${q.extra ? '+' + q.extra : ''}'`, q.name, trx(SHOT_KIND[q.k]), b && trx(b)].filter(Boolean).join(' · ');
+}
+function espnShotMap(m) {
+  if (m.source !== 'real' || m.status === 'NS' || !ESPN_LEAGUE[m.comp?.id]) return '';
+  const key = espnKey(m), v = state.cache[key];
+  if (!v) { loadInto(key, () => espnSummary(m)); return ''; }
+  return v.data ? shotMapHTML(m, v.data) : '';
+}
+
+/* --- Player of the match: fan vote (opens at 80', one vote per account, live results) ---
+   Votes are saved in Firestore at potm/<match>/votes/<account>; everyone can read them. */
+const POTM = { mid: null, unsub: null, votes: null, err: '', tries: 0, change: false };
+function potmWindow(m, st) {
+  if (m.source !== 'real' || !m.lineups) return null;
+  if (m.status === 'FT') return Date.now() - m.ts < 9 * 3600e3 ? 'open' : 'closed'; // open until about 7 hours after the final whistle
+  if (m.status === 'LIVE' && st.k >= 8000) return 'open';
+  return null;
+}
+function potmPlayers(m, st) {
+  const P = prep(m), side = m.away.id === BARCA_ID ? 'away' : 'home';
+  return Object.keys(st.minutes).filter(id => P.idx[id]?.side === side && st.minutes[id] > 0).map(id => ({ id, p: P.idx[id].p })).sort((a, b) => (a.p.number ?? 99) - (b.p.number ?? 99));
+}
+function potmWatch(m) {
+  const mid = String(m.id);
+  if (POTM.mid === mid && (POTM.unsub || POTM.err)) return;
+  if (!Acct.db || !Acct.m || !Acct.m.onSnapshot) { if (POTM.tries++ < 20) setTimeout(potmRedraw, 1000); return; } // accounts still loading
+  if (POTM.unsub) POTM.unsub();
+  Object.assign(POTM, { mid, votes: null, err: '', unsub: null, change: false });
+  try {
+    POTM.unsub = Acct.m.onSnapshot(Acct.m.collection(Acct.db, 'potm', mid, 'votes'),
+      snap => { const v = {}; snap.forEach(d => { v[d.id] = d.data(); }); POTM.votes = v; potmRedraw(); },
+      e => { POTM.err = e.code || 'error'; potmRedraw(); });
+  } catch (e) { POTM.err = 'error'; }
+}
+function potmHTML(m, st) {
+  const w = potmWindow(m, st);
+  if (!w) return '';
+  potmWatch(m);
+  const players = potmPlayers(m, st);
+  if (!players.length) return '';
+  const mine = POTM.mid === String(m.id) && Acct.user && POTM.votes ? POTM.votes[Acct.user.uid]?.pid : null;
+  const head = `<div class="potm-top"><h2 class="sec-title">Player of the match · fan vote</h2><span class="pill sm ${w === 'open' ? 'live' : ''}">${w === 'open' ? 'Voting open' : 'Final result'}</span></div>`;
+  let body;
+  if (POTM.err) body = `<p class="help">${POTM.err === 'permission-denied' ? "Voting isn't set up yet." : "Votes can't be loaded right now."}</p>`;
+  else if (w === 'open' && Acct.user && (!mine || POTM.change)) {
+    body = `<p class="help">Who was the best Barça player? Tap to vote.</p><div class="potm-grid">${players.map(({ id, p }) => `<button class="potm-btn ${mine === id ? 'mine' : ''}" data-act="potm" data-pid="${esc(id)}">${p.photo ? avatar(p, 'md') : `<span class="sheet-num t-fcb"><span class="pl-no">${p.number ?? ''}</span></span>`}<span>${esc(shortPlayer(p.name))}</span></button>`).join('')}</div>`;
+  } else if (!POTM.votes) body = '<div class="loading">Loading votes…</div>';
+  else {
+    const tally = {}; Object.values(POTM.votes).forEach(v => { tally[v.pid] = (tally[v.pid] || 0) + 1; });
+    const total = Object.values(tally).reduce((a, b) => a + b, 0);
+    const rows = players.filter(x => tally[x.id]).sort((a, b) => tally[b.id] - tally[a.id]).slice(0, 6);
+    body = total ? `<ul class="potm-res">${rows.map(({ id, p }, i) => { const pc = Math.round(tally[id] / total * 100); return `<li class="${mine === id ? 'mine' : ''} ${i === 0 ? 'top' : ''}"><span class="potm-n">${esc(p.name)}${mine === id ? ' <small>· your vote</small>' : ''}</span><span class="potm-pc">${pc}%</span><span class="potm-bar"><i style="width:${pc}%"></i></span></li>`; }).join('')}</ul>
+      <p class="help"><b>${total}</b> <span>${total === 1 ? 'vote' : 'votes'}</span></p>` : '<p class="help">No votes yet. Be the first!</p>';
+    if (w === 'open' && !Acct.user) body += '<a class="btn btn-primary btn-sm" href="#options">Sign in to vote</a>';
+    else if (w === 'open' && mine) body += '<button class="link-btn" data-act="potm-change">Change my vote</button>';
+  }
+  return `<section class="card potm-card" id="potm-vote">${head}${body}</section>`;
+}
+function potmRedraw() {
+  const el = $('#potm-vote'), r = route();
+  if (r.name !== 'match') return;
+  Data.match(r.id).then(m => { const html = potmHTML(m, mcStateOf(m)); const cur = $('#potm-vote'); if (cur && html) cur.outerHTML = html; }).catch(() => {});
+  if (!el) return;
+}
+async function potmCast(pid) {
+  if (!Acct.user) { location.hash = 'options'; return; }
+  try {
+    const m = await Data.match(route().id), p = prep(m).idx[pid]?.p;
+    await Acct.m.setDoc(Acct.m.doc(Acct.db, 'potm', String(m.id), 'votes', Acct.user.uid), { pid: String(pid), name: p?.name || '', at: Date.now() });
+    POTM.change = false; toast('Vote saved');
+  } catch (e) { toast(e && e.code === 'permission-denied' ? "Voting isn't open for this match." : "Couldn't save your vote. Try again."); }
+}
+
 /* --- Goal card: tap a goal in Events to see who scored, the assist and the scorer's match ---
    Uses only what the match data has: no shot positions (the free data doesn't include them). */
 function goalCardHTML(m, idx) {
@@ -3260,7 +3534,8 @@ function goalCardHTML(m, idx) {
     <div class="gc-score">${badge(m.home)}<span class="gc-num"><span class="${e.scoreSide === 'home' ? 'up' : ''}">${h}</span><span class="sep">–</span><span class="${e.scoreSide === 'away' ? 'up' : ''}">${a}</span></span>${badge(m.away)}</div>
     ${m.source === 'real' && ESPN_LEAGUE[m.comp?.id] ? '<div id="gc-replay"><div class="loading gc-loading">Loading replay…</div></div>' : ''}
     ${scorer}${assist}${match}
-    ${gv >= 0 ? `<button class="btn btn-primary wide" data-act="play-goal" data-i="${gv}">${I.play} Watch goal</button>` : ''}`;
+    ${gv >= 0 ? `<button class="btn btn-primary wide" data-act="play-goal" data-i="${gv}">${I.play} Watch goal</button>` : ''}
+    <button class="btn btn-ghost wide" data-act="share" data-kind="goal" data-ev="${idx}">${I.share} Share this goal</button>`;
 }
 // Goal replay: the shot on the pitch, then where it went into the goal. Positions come from ESPN's
 // match summary (in % of the pitch, measured towards the goal being attacked).
@@ -3401,6 +3676,7 @@ async function viewMatch(r) {
   }
   return `<a class="back" href="#${state.lastTab === 'home' ? 'home' : 'matches'}">${I.back} Back</a>
     <section class="card mc-head" id="mc-head" aria-label="Score">${mcHeadInner(m, st, clocked)}</section>
+    ${shareRowHTML(m)}
     ${ctrl}
     <div class="seg mc-tabs" role="tablist" aria-label="Match details">${TABS.map(([k, label]) => `<button role="tab" data-act="mc-tab" data-tab="${k}" aria-selected="${state.mcTab === k}">${label}</button>`).join('')}</div>
     <section id="mc-panel" role="tabpanel">${panelHTML(m, st, clocked)}</section>`;
@@ -3732,6 +4008,10 @@ document.addEventListener('click', e => {
     case 'player': openPlayer(b.dataset.pid, b); break;
     case 'goal': openGoal(+b.dataset.ev, b); break;
     case 'goal-replay': showReplay(); break;
+    case 'shot': shotDetail(+b.dataset.i); break;
+    case 'potm': potmCast(b.dataset.pid); break;
+    case 'potm-change': POTM.change = true; potmRedraw(); break;
+    case 'share': shareCard(b.dataset.kind, +b.dataset.ev); break;
     case 'season-player': openSeasonPlayer(b.dataset.pid, b); break;
     case 'sheet-close': closeSheet(); break;
     case 'load-season':
