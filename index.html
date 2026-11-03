@@ -335,7 +335,9 @@ input[type="range"]{width:100%;accent-color:var(--blau);margin:0}
 .gc-pitch .pa{fill:var(--pitch-a)} .gc-pitch .pb{fill:var(--pitch-b)}
 .gc-pitch .ln2{fill:none;stroke:var(--pitch-line);stroke-width:.35}
 .gc-goalbox{fill:rgba(255,255,255,.35);stroke:#fff;stroke-width:.3}
-.gc-path{stroke:#fff;stroke-width:.45;stroke-dasharray:1.2 1}
+.gc-trail{stroke:#fff;stroke-width:.55;stroke-linecap:round;opacity:.9}
+.gc-ring{fill:none;stroke:#fff;stroke-width:.5}
+.gc-name{font-family:var(--f-body);font-weight:700;font-size:2.5px;fill:#fff;text-anchor:middle;paint-order:stroke;stroke:rgba(0,0,0,.55);stroke-width:.6px}
 .gc-us{fill:var(--stripe-a);stroke:var(--stripe-b);stroke-width:.7} .gc-them{fill:#F2F3F6;stroke:#14203F;stroke-width:.4}
 .gc-numtxt{font-family:var(--f-label);font-weight:700;font-size:2.8px;text-anchor:middle} .gc-numtxt.on-us{fill:#fff} .gc-numtxt.on-them{fill:#14203F}
 .gc-ballc{fill:#fff;stroke:#111;stroke-width:.3}
@@ -755,6 +757,11 @@ const T_ROWS = [
   ["Player ratings aren't available for this match yet.", "Aún no hay notas de los jugadores para este partido.", "Pas encore de notes des joueurs pour ce match.", "لا توجد تقييمات للاعبين في هذه المباراة بعد."],
   ["Stats from ESPN (backup source). Player ratings come from Highlightly.", "Estadísticas de ESPN (fuente de respaldo). Las notas vienen de Highlightly.", "Stats d'ESPN (source de secours). Les notes viennent de Highlightly.", "الإحصائيات من ESPN (مصدر بديل). التقييمات من Highlightly."],
   // Goal replay
+  ["Assist type", "Tipo de asistencia", "Type de passe", "نوع التمريرة"],
+  ["Through ball", "Pase al hueco", "Passe en profondeur", "تمريرة بينية"],
+  ["Cross", "Centro", "Centre", "عرضية"],
+  ["Headed pass", "Pase de cabeza", "Passe de la tête", "تمريرة رأسية"],
+  ["Pass", "Pase", "Passe", "تمريرة"],
   ["Loading replay…", "Cargando repetición…", "Chargement du replay…", "جارٍ تحميل الإعادة…"],
   ["Replay", "Repetir", "Revoir", "إعادة"],
   ["GOAL!", "¡GOL!", "BUT !", "هدف!"],
@@ -3271,31 +3278,49 @@ function shotInfo(s, e) {
   const h = !place ? '' : /top|high/.test(place) ? 'High' : /bottom|low/.test(place) ? 'Low' : 'Middle';
   const across = /left/.test(place) ? 'left' : /right/.test(place) ? 'right' : place ? 'centre' : '';
   const dist = Math.round(Math.hypot((100 - s.x) * 1.05, (s.y - 50) * 0.68)); // a pitch is about 105 × 68 m
-  return { body, sit, zone: h ? `${h} ${across}` : '', height: h === 'High' ? 0.85 : h === 'Middle' ? 0.5 : 0.15, dist };
+  const am = s.text.match(/assisted by (.+?)(?: with an? ([a-z ]+?))?(?: following [a-z ]+)?\.\s*$/i);
+  const kinds = { 'through ball': 'Through ball', cross: 'Cross', 'headed pass': 'Headed pass', pass: 'Pass' };
+  const assistType = am && am[2] ? kinds[am[2].toLowerCase()] || am[2][0].toUpperCase() + am[2].slice(1) : '';
+  return { body, sit, zone: h ? `${h} ${across}` : '', height: h === 'High' ? 0.85 : h === 'Middle' ? 0.5 : 0.15, dist, assistBy: am ? am[1] : s.assist, assistType };
 }
 function replayHTML(m, e, s, info, animate) {
+  // about 4 seconds: the scorer appears, the view zooms into the attacking end, the ball's path is drawn,
+  // then the goal: the ball flies in, the net shakes and GOAL! appears. Without motion: the final picture.
   const px = s.x * 1.05, py = (100 - s.y) * 0.68, gx = 104.2, gy = (100 - s.gy) * 0.68;
   const us = m[e.scoreSide].id === BARCA_ID, p = e.player != null ? prep(m).idx[e.player]?.p : null;
-  const an = (attr, from, to, begin, dur) => animate ? `<animate attributeName="${attr}" from="${from}" to="${to}" begin="${begin}" dur="${dur}" fill="freeze"/>` : '';
-  const f1 = v => v.toFixed(1);
+  const f1 = v => v.toFixed(1), A = (x, extra = '') => animate ? x.replace('/>', ` fill="freeze"${extra}/>`) : '';
+  const ease = ' calcMode="spline" keyTimes="0;1" keySplines="0.3 0.1 0.3 1"';
+  // close-up box around the shot and the goal (same shape as the pitch)
+  let W = Math.max(62, 124 - px), H = W * 72 / 109;
+  const need = Math.abs(py - gy) + 16; if (H < need) { H = need; W = H * 109 / 72; }
+  W = Math.min(W, 109); H = Math.min(H, 72);
+  const x0 = 107 - W, y0 = Math.min(70 - H, Math.max(-2, (py + gy) / 2 - H / 2)), zoom = `${f1(x0)} ${f1(y0)} ${f1(W)} ${f1(H)}`;
+  const L = Math.hypot(gx - px, gy - py);
   const stripes = Array.from({ length: 10 }, (_, k) => `<rect x="${k * 10.5}" y="0" width="10.5" height="68" class="${k % 2 ? 'pb' : 'pa'}"/>`).join('');
-  const pitch = `<svg class="gc-pitch" viewBox="-2 -2 109 72" role="img" aria-label="Where the shot was taken">${stripes}
+  const name = p?.name || e.playerName || s.name || '';
+  const pitch = `<svg class="gc-pitch" viewBox="${animate ? '-2 -2 109 72' : zoom}" role="img" aria-label="Where the shot was taken">
+    ${A(`<animate attributeName="viewBox" from="-2 -2 109 72" to="${zoom}" begin="0.6s" dur="0.9s"/>`, ease)}${stripes}
     <g class="ln2"><rect x="0" y="0" width="105" height="68"/><line x1="52.5" y1="0" x2="52.5" y2="68"/><circle cx="52.5" cy="34" r="9.15"/>
-    <rect x="88.5" y="13.84" width="16.5" height="40.32"/><rect x="99.5" y="24.84" width="5.5" height="18.32"/><rect x="0" y="13.84" width="16.5" height="40.32"/><rect x="0" y="24.84" width="5.5" height="18.32"/></g>
+    <rect x="88.5" y="13.84" width="16.5" height="40.32"/><rect x="99.5" y="24.84" width="5.5" height="18.32"/><rect x="0" y="13.84" width="16.5" height="40.32"/><rect x="0" y="24.84" width="5.5" height="18.32"/><circle cx="94" cy="34" r="0.4"/></g>
     <rect x="105" y="30.34" width="1.6" height="7.32" class="gc-goalbox"/>
-    <line x1="${f1(px)}" y1="${f1(py)}" x2="${f1(gx)}" y2="${f1(gy)}" class="gc-path" opacity="${animate ? 0 : 0.9}">${an('opacity', 0, 0.9, '0.2s', '0.3s')}</line>
-    <circle cx="${f1(px)}" cy="${f1(py)}" r="2.8" class="${us ? 'gc-us' : 'gc-them'}"/><text x="${f1(px)}" y="${f1(py + 1)}" class="gc-numtxt ${us ? 'on-us' : 'on-them'}" data-notr>${p?.number ?? ''}</text>
-    <circle r="1.1" class="gc-ballc" cx="${f1(animate ? px + 2.4 : gx)}" cy="${f1(animate ? py : gy)}">${an('cx', f1(px + 2.4), f1(gx), '0.5s', '0.6s')}${an('cy', f1(py), f1(gy), '0.5s', '0.6s')}</circle></svg>`;
+    <line x1="${f1(px)}" y1="${f1(py)}" x2="${f1(gx)}" y2="${f1(gy)}" class="gc-trail" stroke-dasharray="${f1(L)}" stroke-dashoffset="${animate ? f1(L) : 0}">${A(`<animate attributeName="stroke-dashoffset" from="${f1(L)}" to="0" begin="1.8s" dur="1.2s"/>`, ease)}</line>
+    <circle cx="${f1(px)}" cy="${f1(py)}" r="2.8" class="gc-ring" opacity="0">${A('<animate attributeName="r" from="2.8" to="7" begin="1.5s" dur="0.6s"/>')}${A('<animate attributeName="opacity" from="0.9" to="0" begin="1.5s" dur="0.6s"/>')}</circle>
+    <circle cx="${f1(px)}" cy="${f1(py)}" r="${animate ? 0 : 2.8}" class="${us ? 'gc-us' : 'gc-them'}">${A('<animate attributeName="r" from="0" to="2.8" begin="0.1s" dur="0.35s"/>')}</circle>
+    <text x="${f1(px)}" y="${f1(py + 1)}" class="gc-numtxt ${us ? 'on-us' : 'on-them'}" data-notr opacity="${animate ? 0 : 1}">${p?.number ?? ''}${A('<animate attributeName="opacity" from="0" to="1" begin="0.35s" dur="0.2s"/>')}</text>
+    <text x="${f1(px)}" y="${f1(py - 4)}" class="gc-name" data-notr opacity="${animate ? 0 : 1}">${esc(name)}${A('<animate attributeName="opacity" from="0" to="1" begin="0.5s" dur="0.3s"/>')}</text>
+    <circle r="1.1" class="gc-ballc" cx="${f1(animate ? px + 2.2 : gx)}" cy="${f1(animate ? py + 1.2 : gy)}">${A(`<animate attributeName="cx" from="${f1(px + 2.2)}" to="${f1(gx)}" begin="1.8s" dur="1.2s"/>`, ease)}${A(`<animate attributeName="cy" from="${f1(py + 1.2)}" to="${f1(gy)}" begin="1.8s" dur="1.2s"/>`, ease)}</circle></svg>`;
   // the goal seen from behind the shooter: posts 7.32 m apart, ESPN's across-value 55.4 is the left post and 44.6 the right
   const t = Math.min(0.94, Math.max(0.06, (55.38 - s.gy) / 10.76)), bx = 10 + t * 80, by = 37 - info.height * 26;
   const net = [...Array.from({ length: 15 }, (_, k) => `<line x1="${15 + k * 5}" y1="8" x2="${15 + k * 5}" y2="40"/>`), ...Array.from({ length: 7 }, (_, k) => `<line x1="10" y1="${12 + k * 4}" x2="90" y2="${12 + k * 4}"/>`)].join('');
-  const goal = `<svg class="gc-goal" viewBox="0 0 100 44" role="img" aria-label="Where the ball went in"><text x="50" y="5.2" class="gc-goaltxt">GOAL!</text><g class="gc-net">${net}</g>
+  const goal = `<svg class="gc-goal" viewBox="0 0 100 44" role="img" aria-label="Where the ball went in">
+    <text x="50" y="5.4" class="gc-goaltxt" opacity="${animate ? 0 : 1}">GOAL!${A('<animate attributeName="opacity" from="0" to="1" begin="3.45s" dur="0.15s"/>')}${A('<animate attributeName="y" from="9" to="5.4" begin="3.45s" dur="0.3s"/>')}</text>
+    <g class="gc-net">${net}${animate ? '<animateTransform attributeName="transform" type="translate" values="0 0; 1 0.8; -0.6 -0.4; 0.3 0.2; 0 0" begin="3.4s" dur="0.5s"/>' : ''}</g>
     <line x1="2" y1="40" x2="98" y2="40" class="gc-ground"/><path d="M10 40 V8 H90 V40" class="gc-post"/>
-    <circle cx="${f1(bx)}" cy="${f1(by)}" r="${animate ? 0 : 2.6}" class="gc-ballc">${an('r', 0, 2.6, '1.1s', '0.3s')}</circle></svg>`;
+    <circle cx="${f1(animate ? 50 : bx)}" cy="${f1(animate ? 36 : by)}" r="${animate ? 0 : 2.6}" class="gc-ballc">${A('<animate attributeName="r" from="0.5" to="2.6" begin="3s" dur="0.45s"/>')}${A(`<animate attributeName="cx" from="50" to="${f1(bx)}" begin="3s" dur="0.45s"/>`, ease)}${A(`<animate attributeName="cy" from="36" to="${f1(by)}" begin="3s" dur="0.45s"/>`, ease)}</circle></svg>`;
   const row = (label, val) => val ? `<li><span>${label}</span><b>${val}</b></li>` : '';
-  const assist = !e.assist && !e.assistName && s.assist ? row('Assist', esc(s.assist)) : '';
+  const assist = !e.assist && !e.assistName && info.assistBy ? row('Assist', esc(info.assistBy)) : '';
   return `<div class="gc-replay">${pitch}${goal}
-    <ul class="kvlist">${row('Body part', info.body)}${row('Situation', info.sit)}${row('Goal zone', info.zone)}${row('Distance', `${info.dist} m`)}${assist}</ul>
+    <ul class="kvlist">${row('Body part', info.body)}${row('Situation', info.sit)}${row('Goal zone', info.zone)}${row('Distance', `${info.dist} m`)}${assist}${row('Assist type', info.assistType)}</ul>
     <div class="ctl-foot"><span class="help">Shot data from ESPN.</span><button class="btn btn-ghost btn-sm" data-act="goal-replay">Replay</button></div></div>`;
 }
 async function loadReplay(m, idx) {
