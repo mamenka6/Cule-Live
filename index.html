@@ -430,6 +430,27 @@ button.rrow:hover,button.brow:hover{background:var(--surface-2)}
 .tsc .tsc-g{font-family:var(--f-display);font-weight:800;font-size:24px;font-variant-numeric:tabular-nums}
 .tsc .tsc-g small{font-size:13px;color:var(--muted)}
 
+.top-right{display:flex;align-items:center;gap:8px}
+.acct-btn{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;overflow:hidden;background:var(--surface-2);border:1px solid var(--line);color:var(--ink);font-family:var(--f-label);font-weight:700;font-size:15px;flex:none}
+.acct-btn svg{width:18px;height:18px}
+.acct-btn img,.acct-av img{width:100%;height:100%;object-fit:cover}
+.btn-google{background:var(--surface);border:1px solid var(--line);color:var(--ink);text-transform:none;letter-spacing:0;font-family:var(--f-body);font-weight:600;font-size:15px;height:44px}
+.acct-or{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13px}
+.acct-or::before,.acct-or::after{content:"";flex:1;height:1px;background:var(--line)}
+.acct-form{display:flex;flex-direction:column;gap:6px}
+.acct-form label{font-size:13px;font-weight:600;color:var(--muted);margin-top:4px}
+.acct-form input{height:44px;border-radius:10px;border:1px solid var(--line);background:var(--surface-2);color:var(--ink);padding:0 12px;font:inherit;width:100%}
+.acct-form .btn{margin-top:8px;height:44px}
+.acct-err{color:var(--loss);font-size:13.5px;min-height:0;margin:0}
+.acct-err:empty{display:none}
+.acct-links{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.acct-me{display:flex;align-items:center;gap:12px}
+.acct .sheet-sum{align-items:start}
+.acct-av{width:48px;height:48px;border-radius:50%;overflow:hidden;display:grid;place-items:center;background:var(--blau);color:var(--on-accent);font-family:var(--f-display);font-weight:800;font-size:22px;flex:none}
+.acct-who{min-width:0;display:flex;flex-direction:column}
+.acct-who b{font-size:17px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.acct-who small{color:var(--muted);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
 /* Player card (slides up from the bottom) */
 #sheet-root{position:fixed;inset:0;z-index:50;display:flex;align-items:flex-end;justify-content:center}
 .sheet-back{position:absolute;inset:0;background:rgba(4,8,24,.55);animation:fade .2s ease}
@@ -474,7 +495,7 @@ button.rrow:hover,button.brow:hover{background:var(--surface-2)}
 <header class="topbar">
   <div class="topbar-in">
     <a class="brand" href="#home" aria-label="Culé Live, home"><span class="mark" aria-hidden="true"></span><span class="brand-name">Culé Live</span></a>
-    <span class="mode-chip" id="mode-chip">Demo data</span>
+    <span class="top-right"><span class="mode-chip" id="mode-chip">Demo data</span><a class="acct-btn" id="acct-btn" href="#options" aria-label="Sign in" hidden></a></span>
   </div>
 </header>
 <main id="view" class="main"></main>
@@ -652,6 +673,30 @@ const T_ROWS = [
   ['Something went wrong while loading. Please try again.', 'Algo falló al cargar. Inténtalo de nuevo.', 'Un problème est survenu. Réessaie.', 'حدث خطأ أثناء التحميل. حاول مرة أخرى.'], ['This match could not be found.', 'No se encontró este partido.', 'Match introuvable.', 'لم يتم العثور على هذه المباراة.'],
   ['Could not load season stats right now.', 'No se pudieron cargar las estadísticas ahora.', 'Impossible de charger les stats pour le moment.', 'تعذر تحميل إحصائيات الموسم الآن.'], ['Live data for this season is now on', 'Datos en directo de esta temporada activados', 'Données en direct de la saison activées', 'تم تفعيل البيانات المباشرة لهذا الموسم'],
   ['Season', 'Temporada', 'Saison', 'الموسم'], ['Penalty saved', 'Penalti parado', 'Penalty arrêté', 'ركلة جزاء متصدى لها'],
+  ['Account', 'Cuenta', 'Compte', 'الحساب'], ['Your account and preferences.', 'Tu cuenta y tus preferencias.', 'Ton compte et tes préférences.', 'حسابك وتفضيلاتك.'],
+  ['Sign in to keep your predictions on all your devices.', 'Inicia sesión para guardar tus pronósticos en todos tus dispositivos.', 'Connecte-toi pour garder tes pronostics sur tous tes appareils.', 'سجّل الدخول لحفظ توقعاتك على كل أجهزتك.'],
+  ['to keep your predictions on all your devices.', 'para guardar tus pronósticos en todos tus dispositivos.', 'pour garder tes pronostics sur tous tes appareils.', 'لحفظ توقعاتك على كل أجهزتك.'],
+  ['Continue with Google', 'Continuar con Google', 'Continuer avec Google', 'المتابعة باستخدام Google'], ['or', 'o', 'ou', 'أو'], ['Name', 'Nombre', 'Nom', 'الاسم'], ['Email', 'Correo', 'E-mail', 'البريد الإلكتروني'], ['Password', 'Contraseña', 'Mot de passe', 'كلمة المرور'],
+  ['At least 6 characters.', 'Mínimo 6 caracteres.', 'Au moins 6 caractères.', '6 أحرف على الأقل.'], ['Create account', 'Crear cuenta', 'Créer un compte', 'إنشاء حساب'], ['Sign in', 'Iniciar sesión', 'Se connecter', 'تسجيل الدخول'],
+  ['I already have an account', 'Ya tengo cuenta', "J'ai déjà un compte", 'لدي حساب بالفعل'], ['Create an account', 'Crear una cuenta', 'Créer un compte', 'إنشاء حساب'], ['Forgot password?', '¿Olvidaste la contraseña?', 'Mot de passe oublié ?', 'نسيت كلمة المرور؟'],
+  ['Sign out', 'Cerrar sesión', 'Se déconnecter', 'تسجيل الخروج'], ['Signed out', 'Sesión cerrada', 'Déconnecté', 'تم تسجيل الخروج'], ['Signed in', 'Sesión iniciada', 'Connecté', 'تم تسجيل الدخول'], ['Account created', 'Cuenta creada', 'Compte créé', 'تم إنشاء الحساب'],
+  ['Your account', 'Tu cuenta', 'Ton compte', 'حسابك'], ['Please wait…', 'Espera…', 'Patiente…', 'انتظر…'],
+  ['Points', 'Puntos', 'Points', 'النقاط'], ['Predictions', 'Pronósticos', 'Pronostics', 'التوقعات'], ['Exact scores', 'Exactos', 'Scores exacts', 'نتائج دقيقة'], ['Played', 'Jugados', 'Joués', 'لُعبت'],
+  ['Your predictions are saved to your account.', 'Tus pronósticos se guardan en tu cuenta.', 'Tes pronostics sont enregistrés dans ton compte.', 'توقعاتك محفوظة في حسابك.'],
+  ["Couldn't reach your account just now. Your predictions are safe on this device and will sync later.", 'No se pudo conectar con tu cuenta. Tus pronósticos están a salvo en este dispositivo y se sincronizarán después.', 'Impossible de joindre ton compte. Tes pronostics sont gardés sur cet appareil et seront synchronisés plus tard.', 'تعذر الوصول إلى حسابك الآن. توقعاتك محفوظة على هذا الجهاز وستتم مزامنتها لاحقًا.'],
+  ["Signing in isn't available here. Open the app from its website to sign in.", 'Aquí no se puede iniciar sesión. Abre la app desde su web.', "Connexion impossible ici. Ouvre l'appli depuis son site.", 'لا يمكن تسجيل الدخول هنا. افتح التطبيق من موقعه.'],
+  ['Prediction saved to your account', 'Pronóstico guardado en tu cuenta', 'Pronostic enregistré dans ton compte', 'تم حفظ التوقع في حسابك'],
+  ["Saved on this device. It will go to your account next time you're online.", 'Guardado en este dispositivo. Pasará a tu cuenta cuando tengas conexión.', 'Enregistré sur cet appareil. Il ira dans ton compte à la prochaine connexion.', 'تم الحفظ على هذا الجهاز وسيُنقل إلى حسابك عند الاتصال.'],
+  ['Check your email for a link to reset your password.', 'Revisa tu correo: te enviamos un enlace para cambiar la contraseña.', 'Regarde tes e-mails : un lien pour changer ton mot de passe t\'a été envoyé.', 'تحقق من بريدك الإلكتروني للحصول على رابط إعادة تعيين كلمة المرور.'],
+  ['Type your email above first, then press Forgot password.', 'Escribe primero tu correo y luego pulsa ¿Olvidaste la contraseña?', "Écris d'abord ton e-mail, puis appuie sur Mot de passe oublié.", 'اكتب بريدك أولًا ثم اضغط نسيت كلمة المرور.'],
+  ['Type your name.', 'Escribe tu nombre.', 'Écris ton nom.', 'اكتب اسمك.'],
+  ["That email address doesn't look right.", 'Ese correo no parece correcto.', "Cette adresse e-mail n'a pas l'air correcte.", 'عنوان البريد هذا غير صحيح.'], ['Type your email address.', 'Escribe tu correo.', 'Écris ton adresse e-mail.', 'اكتب بريدك الإلكتروني.'],
+  ['Type your password.', 'Escribe tu contraseña.', 'Écris ton mot de passe.', 'اكتب كلمة المرور.'], ['Use a password with at least 6 characters.', 'Usa una contraseña de al menos 6 caracteres.', 'Utilise un mot de passe d\'au moins 6 caractères.', 'استخدم كلمة مرور من 6 أحرف على الأقل.'],
+  ['Wrong email or password.', 'Correo o contraseña incorrectos.', 'E-mail ou mot de passe incorrect.', 'البريد أو كلمة المرور غير صحيحة.'],
+  ["There's already an account with this email. Sign in instead.", 'Ya existe una cuenta con este correo. Inicia sesión.', 'Un compte existe déjà avec cet e-mail. Connecte-toi.', 'يوجد حساب بهذا البريد بالفعل. سجّل الدخول.'],
+  ['No internet connection. Try again.', 'Sin conexión. Inténtalo de nuevo.', 'Pas de connexion internet. Réessaie.', 'لا يوجد اتصال بالإنترنت. حاول مرة أخرى.'], ['Too many tries. Wait a minute, then try again.', 'Demasiados intentos. Espera un minuto.', 'Trop d\'essais. Attends une minute.', 'محاولات كثيرة. انتظر دقيقة ثم حاول.'],
+  ["Couldn't sign in. Try again.", 'No se pudo iniciar sesión. Inténtalo de nuevo.', 'Connexion impossible. Réessaie.', 'تعذر تسجيل الدخول. حاول مرة أخرى.'], ['This way of signing in is turned off in Firebase.', 'Este método de acceso está desactivado.', 'Ce mode de connexion est désactivé.', 'طريقة تسجيل الدخول هذه معطلة.'],
+  ['This email already signs in another way. Try Continue with Google.', 'Este correo usa otro método. Prueba Continuar con Google.', 'Cet e-mail se connecte autrement. Essaie Continuer avec Google.', 'هذا البريد يسجل الدخول بطريقة أخرى. جرّب المتابعة باستخدام Google.'],
   ['Replay this match', 'Repetir este partido', 'Revoir ce match', 'إعادة هذه المباراة'], ['Exit replay', 'Salir de la repetición', 'Quitter la rediffusion', 'الخروج من الإعادة'], ['Replay', 'Repetición', 'Rediffusion', 'إعادة']
 ];
 
@@ -801,6 +846,7 @@ const I = {
   matches: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
   table: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h12M9 12h12M9 18h12"/><path d="M4 6h1M4 12h1M4 18h1"/></svg>',
   squad: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><circle cx="17" cy="9" r="2.8"/><path d="M15.6 14.3A5.5 5.5 0 0 1 21.5 20"/></svg>',
+  user: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>',
   options: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2.5"/><circle cx="8" cy="17" r="2.5"/></svg>',
   play: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>',
   pause: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6.5" y="5" width="4" height="14" rx="1"/><rect x="13.5" y="5" width="4" height="14" rx="1"/></svg>',
@@ -1558,6 +1604,154 @@ document.addEventListener('error', e => {
   if (b.dataset.fcb) b.classList.add('badge-fcb'); else b.style.setProperty('--h', b.dataset.h);
 }, true);
 
+/* ---------- 3g. Accounts (Firebase) ----------
+   Sign in with Google or with an email and password. Each person's predictions are saved in
+   their own folder in the database (users/<their id>/predictions), and the database rules
+   only let people read and change their own folder. */
+// From Firebase → Project settings → Your apps. These details are public by design: they only
+// identify the project. What protects the data is the database rules and the authorized domains.
+const FIREBASE_CONFIG = {
+  apiKey: 'AIzaSyCTjp1J0YsFtUyqJL_N3JHHYg8RKLGNHzE',
+  authDomain: 'cule-live.firebaseapp.com',
+  projectId: 'cule-live',
+  storageBucket: 'cule-live.firebasestorage.app',
+  messagingSenderId: '1084992346648',
+  appId: '1:1084992346648:web:7487252deac1870749816d'
+};
+const FB_VER = '10.12.2';
+const Acct = { status: FIREBASE_CONFIG ? 'loading' : 'off', user: null, m: null, auth: null, db: null, error: '', mode: 'in', busy: false, start: null };
+function acctStart() {
+  if (!FIREBASE_CONFIG || Acct.start) return Acct.start;
+  Acct.start = (async () => {
+    try {
+      const base = `https://www.gstatic.com/firebasejs/${FB_VER}/`;
+      const [appM, authM, fsM] = await Promise.all(['firebase-app', 'firebase-auth', 'firebase-firestore'].map(n => import(base + n + '.js')));
+      Acct.m = { ...authM, ...fsM };
+      const app = appM.initializeApp(FIREBASE_CONFIG);
+      Acct.auth = authM.getAuth(app);
+      Acct.db = fsM.getFirestore(app);
+      Acct.status = 'ready';
+      authM.onAuthStateChanged(Acct.auth, u => { Acct.user = u || null; acctChanged(); });
+      authM.getRedirectResult(Acct.auth).catch(e => acctError(e)); // finishes a Google sign-in that used a redirect
+    } catch (e) { Acct.status = 'unavailable'; acctRefresh(); } // e.g. inside the Claude preview, which blocks outside scripts
+  })();
+  return Acct.start;
+}
+const AUTH_MSG = {
+  'auth/invalid-email': "That email address doesn't look right.", 'auth/missing-email': 'Type your email address.',
+  'auth/missing-password': 'Type your password.', 'auth/weak-password': 'Use a password with at least 6 characters.',
+  'auth/invalid-credential': 'Wrong email or password.', 'auth/wrong-password': 'Wrong email or password.', 'auth/user-not-found': 'Wrong email or password.', 'auth/invalid-login-credentials': 'Wrong email or password.',
+  'auth/email-already-in-use': "There's already an account with this email. Sign in instead.",
+  'auth/popup-closed-by-user': '', 'auth/cancelled-popup-request': '', 'auth/user-cancelled': '',
+  'auth/unauthorized-domain': "This website isn't allowed to sign in yet. In Firebase, add it under Authentication → Settings → Authorized domains.",
+  'auth/operation-not-allowed': 'This way of signing in is turned off in Firebase.',
+  'auth/network-request-failed': 'No internet connection. Try again.', 'auth/too-many-requests': 'Too many tries. Wait a minute, then try again.',
+  'auth/account-exists-with-different-credential': 'This email already signs in another way. Try Continue with Google.'
+};
+function acctError(e) {
+  const code = e && e.code, msg = code in AUTH_MSG ? AUTH_MSG[code] : "Couldn't sign in. Try again.";
+  Acct.error = msg; Acct.busy = false;
+  const el = $('#acct-err'); if (el) el.textContent = msg; else acctRefresh();
+}
+async function acctChanged() {
+  Acct.busy = false; Acct.error = '';
+  if (Acct.user) await syncPreds();
+  acctRefresh(true);
+}
+function acctRefresh(full = false) {
+  acctButton();
+  const r = route().name;
+  if (r === 'options' || (full && (r === 'home' || r === 'matches'))) render();
+}
+function acctButton() {
+  const el = $('#acct-btn'); if (!el) return;
+  el.hidden = Acct.status === 'off';
+  const u = Acct.user;
+  el.innerHTML = u ? (u.photoURL ? `<img src="${esc(u.photoURL)}" alt="" referrerpolicy="no-referrer">` : `<span>${esc((u.displayName || u.email || '?').trim()[0].toUpperCase())}</span>`) : I.user;
+  el.setAttribute('aria-label', u ? 'Your account' : 'Sign in');
+}
+const predDoc = k => Acct.m.doc(Acct.db, 'users', Acct.user.uid, 'predictions', k);
+function cloudSetPred(k, rec) { return Acct.m.setDoc(predDoc(k), rec); }
+// After signing in: account → this device, then anything newer on this device → account
+async function syncPreds() {
+  const { collection, getDocs, doc, setDoc } = Acct.m, uid = Acct.user.uid;
+  try {
+    const snap = await getDocs(collection(Acct.db, 'users', uid, 'predictions'));
+    const cloud = new Map(); snap.forEach(d => cloud.set(d.id, d.data()));
+    cloud.forEach((v, k) => { const mine = store.get('pred:' + k, null); if (!mine || (v.at || 0) >= (mine.at || 0)) store.set('pred:' + k, v); });
+    for (const k of localPredKeys()) { const mine = store.get('pred:' + k, null), theirs = cloud.get(k); if (mine && (!theirs || (mine.at || 0) > (theirs.at || 0))) await setDoc(predDoc(k), mine); }
+    await setDoc(doc(Acct.db, 'users', uid), { name: Acct.user.displayName || '', lastSeen: Date.now() }, { merge: true });
+    Acct.syncError = false;
+  } catch (e) { Acct.syncError = true; }
+  state.pred = {};
+}
+async function acctGoogle() {
+  await acctStart(); if (Acct.status !== 'ready') return;
+  const { GoogleAuthProvider, signInWithPopup, signInWithRedirect } = Acct.m, provider = new GoogleAuthProvider();
+  try { await signInWithPopup(Acct.auth, provider); }
+  catch (e) {
+    if (['auth/popup-blocked', 'auth/operation-not-supported-in-this-environment'].includes(e.code)) { try { await signInWithRedirect(Acct.auth, provider); } catch (e2) { acctError(e2); } }
+    else acctError(e);
+  }
+}
+async function acctEmail(form) {
+  await acctStart(); if (Acct.status !== 'ready') return;
+  const email = form.querySelector('#acct-email').value.trim(), pass = form.querySelector('#acct-pass').value, name = form.querySelector('#acct-name')?.value.trim();
+  const { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } = Acct.m;
+  if (Acct.mode === 'up' && !name) { $('#acct-err').textContent = 'Type your name.'; return; }
+  Acct.busy = true; const btn = form.querySelector('button[type="submit"]'); if (btn) { btn.disabled = true; btn.textContent = 'Please wait…'; }
+  try {
+    if (Acct.mode === 'up') { const cred = await createUserWithEmailAndPassword(Acct.auth, email, pass); await updateProfile(cred.user, { displayName: name }); Acct.user = cred.user; acctChanged(); toast('Account created'); }
+    else { await signInWithEmailAndPassword(Acct.auth, email, pass); toast('Signed in'); }
+  } catch (e) { acctError(e); if (btn) { btn.disabled = false; btn.textContent = Acct.mode === 'up' ? 'Create account' : 'Sign in'; } }
+}
+async function acctForgot() {
+  await acctStart(); if (Acct.status !== 'ready') return;
+  const email = ($('#acct-email')?.value || '').trim();
+  if (!email) { $('#acct-err').textContent = 'Type your email above first, then press Forgot password.'; return; }
+  try { await Acct.m.sendPasswordResetEmail(Acct.auth, email); $('#acct-err').textContent = ''; toast('Check your email for a link to reset your password.'); }
+  catch (e) { acctError(e); }
+}
+async function acctSignOut() {
+  try { await Acct.m.signOut(Acct.auth); } catch (e) { /* already signed out */ }
+  localPredKeys().forEach(k => { try { localStorage.removeItem('cule:pred:' + k); } catch (e) {} }); // they're kept in the account
+  state.pred = {}; toast('Signed out');
+}
+function acctNudgeHTML() {
+  if (Acct.status !== 'ready' || Acct.user) return '';
+  return '<p class="help"><a class="link-btn" href="#options">Sign in</a> to keep your predictions on all your devices.</p>';
+}
+function accountHTML() {
+  if (Acct.status === 'off') return '';
+  if (Acct.status === 'loading') return '<section class="form-card"><h2 class="fc-title">Account</h2><p class="help">Loading…</p></section>';
+  if (Acct.status === 'unavailable') return `<section class="form-card"><h2 class="fc-title">Account</h2><p class="help">Signing in isn't available here. Open the app from its website to sign in.</p></section>`;
+  const u = Acct.user;
+  if (u) {
+    const st = predStats(), name = u.displayName || u.email || '';
+    return `<section class="form-card acct"><h2 class="fc-title">Account</h2>
+      <div class="acct-me"><span class="acct-av">${u.photoURL ? `<img src="${esc(u.photoURL)}" alt="" referrerpolicy="no-referrer">` : esc((name.trim()[0] || '?').toUpperCase())}</span>
+        <span class="acct-who"><b data-notr>${esc(name)}</b>${u.displayName && u.email ? `<small data-notr>${esc(u.email)}</small>` : ''}</span></div>
+      <div class="sheet-sum"><div class="kv"><b>${st.pts}</b><small>Points</small></div><div class="kv"><b>${st.n}</b><small>Predictions</small></div><div class="kv"><b>${st.exact}</b><small>Exact scores</small></div><div class="kv"><b>${st.done}</b><small>Played</small></div></div>
+      <p class="help">${Acct.syncError ? "Couldn't reach your account just now. Your predictions are safe on this device and will sync later." : 'Your predictions are saved to your account.'}</p>
+      <button class="btn btn-ghost" data-act="acct-out">Sign out</button></section>`;
+  }
+  const up = Acct.mode === 'up';
+  return `<section class="form-card acct"><h2 class="fc-title">Account</h2>
+    <p class="help">Sign in to keep your predictions on all your devices.</p>
+    <button class="btn btn-google wide" data-act="acct-google">Continue with Google</button>
+    <div class="acct-or"><span>or</span></div>
+    <form id="acct-form" class="acct-form" novalidate>
+      ${up ? '<label for="acct-name">Name</label><input id="acct-name" autocomplete="name" maxlength="40">' : ''}
+      <label for="acct-email">Email</label><input id="acct-email" type="email" autocomplete="email" inputmode="email" spellcheck="false">
+      <label for="acct-pass">Password</label><input id="acct-pass" type="password" autocomplete="${up ? 'new-password' : 'current-password'}" minlength="6">
+      ${up ? '<p class="help">At least 6 characters.</p>' : ''}
+      <button class="btn btn-primary wide" type="submit">${up ? 'Create account' : 'Sign in'}</button>
+    </form>
+    <p class="acct-err" id="acct-err" role="alert">${esc(Acct.error)}</p>
+    <div class="acct-links"><button class="link-btn" data-act="acct-mode">${up ? 'I already have an account' : 'Create an account'}</button>${up ? '' : '<button class="link-btn" data-act="acct-forgot">Forgot password?</button>'}</div>
+  </section>`;
+}
+
 /* ---------- 4. Data layer ----------
    Screens ask Data for things; Data decides whether to use demo or API data. */
 const state = { fixtures: null, matchTab: 'upcoming', comp: 'all', mcTab: 'timeline', pred: {}, lastTab: 'home', scrubbing: false, cache: {}, sheetPid: null, sheetReturn: null, gen: 0 };
@@ -2004,6 +2198,42 @@ function toast(html, kind = '') {
   clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 3800);
 }
 
+/* --- Predictions ---
+   Saved under the match day and whether Barça is home or away (for example "2026-11-03-H"),
+   because the match's ID number is different in each data source. Saved on this device,
+   and in your account when you're signed in. */
+const predKey = f => { const d = new Date(f.ts); return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}-${barcaSide(f) === 'home' ? 'H' : 'A'}`; };
+function getPred(f) {
+  const k = predKey(f);
+  let p = store.get('pred:' + k, null);
+  if (!p) { // move a prediction saved by an older version (under the match ID) to the new key
+    for (const id of [f.id, f.srTwin?.id, f.hlId && 'h' + f.hlId].filter(Boolean)) {
+      const old = store.get('pred:' + id, null);
+      if (old && old.b != null) { p = { b: old.b, o: old.o, at: old.at || Date.now() }; store.set('pred:' + k, p); break; }
+    }
+  }
+  return p;
+}
+const PRED_RX = /^\d{4}-\d{2}-\d{2}-[HA]$/;
+function localPredKeys() { try { return Object.keys(localStorage).filter(k => k.startsWith('cule:pred:')).map(k => k.slice(10)).filter(k => PRED_RX.test(k)); } catch (e) { return []; } }
+function predPoints(p, f) {
+  const v = fxView(f), bs = barcaSide(f), os = other(bs);
+  if (v.status !== 'FT' || v.score[bs] == null) return null;
+  if (p.b === v.score[bs] && p.o === v.score[os]) return 3;
+  return Math.sign(p.b - p.o) === Math.sign(v.score[bs] - v.score[os]) ? 1 : 0;
+}
+function predStats() {
+  let pts = 0, n = 0, done = 0, exact = 0;
+  (state.fixtures || []).forEach(f => { const p = getPred(f); if (!p) return; n++; const x = predPoints(p, f); if (x != null) { done++; pts += x; if (x === 3) exact++; } });
+  return { pts, n, done, exact };
+}
+async function savePred(f, d) {
+  const k = predKey(f), rec = { b: d.b, o: d.o, at: Date.now(), opp: f[other(barcaSide(f))].name, ts: f.ts };
+  store.set('pred:' + k, rec);
+  if (!Acct.user) return 'local';
+  try { await cloudSetPred(k, rec); return 'cloud'; } catch (e) { return 'local-error'; }
+}
+
 /* --- Home --- */
 function ctrlHTML() {
   return `<div class="ctl-row">
@@ -2068,8 +2298,8 @@ function realNoteHTML() {
 }
 function nextCardHTML(f) {
   const opp = f[other(barcaSide(f))];
-  const saved = store.get('pred:' + f.id, null);
-  const d = state.pred[f.id] || (state.pred[f.id] = saved ? { ...saved } : { b: 2, o: 1 });
+  const saved = getPred(f), pk = predKey(f);
+  const d = state.pred[pk] || (state.pred[pk] = saved ? { b: saved.b, o: saved.o } : { b: 2, o: 1 });
   return `<section aria-labelledby="next-h">
     <div class="sec-head"><h2 class="sec-title" id="next-h">Next match</h2><a class="sec-link" href="#match-${f.id}">Details</a></div>
     <article class="card next">
@@ -2083,10 +2313,11 @@ function nextCardHTML(f) {
       <div class="pred">
         <span class="pred-label">Your prediction</span>
         <div class="pred-row">
-          ${stepper(f.id, 'b', 'BAR', d.b, 'Barça goals')}<span class="pred-dash">–</span>${stepper(f.id, 'o', opp.abbr || shortName(opp.name), d.o, opp.name + ' goals')}
-          <button class="btn btn-primary btn-sm" data-act="pred-save" data-id="${f.id}">Save</button>
+          ${stepper(pk, 'b', 'BAR', d.b, 'Barça goals')}<span class="pred-dash">–</span>${stepper(pk, 'o', opp.abbr || shortName(opp.name), d.o, opp.name + ' goals')}
+          <button class="btn btn-primary btn-sm" data-act="pred-save" data-id="${pk}" data-fid="${esc(f.id)}">Save</button>
         </div>
-        <p class="help" id="pred-note-${f.id}">${saved ? `Saved: Barça ${saved.b}–${saved.o} ${esc(opp.name)}` : 'Exact score earns 3 points, the right result earns 1.'}</p>
+        <p class="help" id="pred-note-${pk}">${saved ? `Saved: Barça ${saved.b}–${saved.o} ${esc(opp.name)}` : 'Exact score earns 3 points, the right result earns 1.'}</p>
+        ${acctNudgeHTML()}
       </div>
     </article></section>`;
 }
@@ -2147,13 +2378,8 @@ function fxRowHTML(f) {
   } else if (live) end = `<span class="pill live sm"><span class="dot"></span>${(f.source === 'api' || f.source === 'real') && v.status === 'LIVE' ? `<span data-clock="${f.id}">${esc(clockText(f.id) || v.minute)}</span>` : esc(v.minute)}</span><b class="fx-score">${v.score[bs]}–${v.score[os]}</b>`;
   else if (v.status === 'OFF') end = `<span class="pill sm">${esc(f.short)}</span>`;
   else end = `<b class="fx-time">${koTime(f)}</b>`;
-  const pred = store.get('pred:' + f.id, null);
-  let predTxt = '';
-  if (pred && v.status === 'FT') {
-    const exact = pred.b === v.score[bs] && pred.o === v.score[os];
-    const same = Math.sign(pred.b - pred.o) === Math.sign(v.score[bs] - v.score[os]);
-    predTxt = `<span class="predpts">· You said ${pred.b}–${pred.o}: +${exact ? 3 : same ? 1 : 0}</span>`;
-  } else if (pred) predTxt = `<span class="predpts">· You said ${pred.b}–${pred.o}</span>`;
+  const pred = getPred(f), pts = pred ? predPoints(pred, f) : null;
+  const predTxt = pred ? `<span class="predpts">· You said ${pred.b}–${pred.o}${pts != null ? ': +' + pts : ''}</span>` : '';
   return `<a class="fx ${live ? 'is-live' : ''}" href="#match-${f.id}" ${f.id === DEMO_LIVE.id ? 'id="live-row"' : ''}>
     <span class="fx-date"><b>${new Date(f.ts).getDate()}</b><small>${new Date(f.ts).toLocaleDateString(LOCALE, { weekday: 'short' })}</small></span>
     <span class="fx-mid"><span class="fx-comp"><span class="tag ${compClass(f.comp)}">${esc(f.comp.short)}</span><span>${esc(f.comp.name)}</span>${predTxt}</span>
@@ -2577,8 +2803,10 @@ function topScorersHTML() {
 }
 
 /* --- Settings (what everyone sees) --- */
-function viewOptions() {
-  return `<div><h1 class="page-title">Settings</h1><p class="page-sub">Your preferences on this device.</p></div>
+async function viewOptions() {
+  if (Acct.user && !state.fixtures) { try { await Data.fixtures(); } catch (e) { /* points need fixtures; show 0 if they can't load */ } }
+  return `<div><h1 class="page-title">Settings</h1><p class="page-sub">Your account and preferences.</p></div>
+    ${accountHTML()}
     <section class="form-card"><h2 class="fc-title">Language</h2>
       <div class="seg lang-seg" role="group" aria-label="Language">${Object.entries(LANG_NAMES).map(([k, n]) => `<button data-act="lang" data-lang="${k}" lang="${k}" data-notr aria-pressed="${LANG === k}">${n}</button>`).join('')}</div>
     </section>
@@ -2764,9 +2992,12 @@ document.addEventListener('click', e => {
     }
     case 'pred-save': {
       const id = b.dataset.id, d = state.pred[id]; if (!d) break;
-      store.set('pred:' + id, d);
-      const note = document.getElementById('pred-note-' + id); if (note) note.textContent = `Saved: Barça ${d.b}–${d.o}`;
-      toast('Prediction saved'); break;
+      const f = (state.fixtures || []).find(x => String(x.id) === b.dataset.fid); if (!f) break;
+      savePred(f, d).then(where => {
+        const note = document.getElementById('pred-note-' + id); if (note) note.textContent = `Saved: Barça ${d.b}–${d.o}`;
+        toast(where === 'cloud' ? 'Prediction saved to your account' : where === 'local-error' ? "Saved on this device. It will go to your account next time you're online." : 'Prediction saved');
+      });
+      break;
     }
     case 'mode':
       settings.picked = true; devChange();
@@ -2796,9 +3027,16 @@ document.addEventListener('click', e => {
       settings.dev = false; Object.assign(settings, DEFAULTS); saveSettings(); store.clear('cache:'); store.clear('planCheck');
       toast('App reset'); resetApp(); break;
     case 'lang': if (b.dataset.lang !== LANG) { settings.lang = b.dataset.lang; saveSettings(); location.reload(); } break;
+    case 'acct-google': acctGoogle(); break;
+    case 'acct-mode': Acct.mode = Acct.mode === 'up' ? 'in' : 'up'; Acct.error = ''; render(); break;
+    case 'acct-forgot': acctForgot(); break;
+    case 'acct-out': acctSignOut(); break;
     case 'refresh-data': store.clear('cache:'); state.fixtures = null; state.cache = {}; toast('Match data refreshed'); $('#view').dataset.route = ''; render(); break;
     case 'retry': $('#view').dataset.route = ''; render(); break;
   }
+});
+document.addEventListener('submit', e => {
+  if (e.target.id === 'acct-form') { e.preventDefault(); acctEmail(e.target); }
 });
 document.addEventListener('change', e => {
   const t = e.target;
@@ -2833,6 +3071,7 @@ async function checkPlan() {
 }
 (function init() {
   startTranslating();
+  acctStart(); acctButton();
   $('#tabbar').innerHTML = NAV.map(([k, label]) => `<a class="tab" href="#${k}" data-tab="${k}">${I[k]}<span>${label}</span></a>`).join('');
   updateModeChip();
   if (settings.mode === 'demo') startDemo();
