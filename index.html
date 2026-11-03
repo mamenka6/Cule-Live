@@ -1705,7 +1705,7 @@ const espnClock = c => { const mt = String(c || '').match(/(\d+)'?(?:\s*\+\s*(\d
 async function espnSummary(f) {
   const lg = ESPN_LEAGUE[f.comp?.id];
   if (!lg || f.status === 'NS' || f.source !== 'real') return null;
-  const key = 'cache:espnsum:' + f.id, saved = store.get(key, null), ttl = f.status === 'FT' ? 7 * 86400e3 : 60e3;
+  const key = 'cache:espnsum2:' + f.id, saved = store.get(key, null), ttl = f.status === 'FT' ? 7 * 86400e3 : 60e3; // "2": copies saved before the shot map are ignored
   if (saved && Date.now() - saved.t < ttl) return saved.data;
   try {
     let id = store.get('cache:espnid:' + f.id, null);
