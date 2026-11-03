@@ -480,7 +480,7 @@ button.rrow:hover,button.brow:hover{background:var(--surface-2)}
    4. Data layer: demo and API data come out in the same shape
    5. Match engine: score, stats and player ratings at any minute
    6. Match clock: runs the live demo and match replays
-   7. Screens (Home, Matches, Match centre, Table, Squad, Setup)
+   7. Screens (Home, Matches, Match centre, Table, Squad, Settings, hidden developer page)
    8. Buttons, router and start-up
    ===================================================================== */
 
@@ -502,6 +502,11 @@ const settings = Object.assign({ mode: 'real', apiKey: '', server: DATA_SERVER, 
 if (DATA_SERVER && !settings.server) settings.server = DATA_SERVER;
 const saveSettings = () => store.set('settings', settings);
 if ((settings.v || 1) < 2) { settings.mode = 'real'; settings.v = 2; saveSettings(); } // switch older installs to real data
+// Everyone gets the normal app. Data settings can only be changed on the hidden developer page (#dev),
+// and any changes made there only last until "Back to normal" is pressed.
+const DEFAULTS = { mode: 'real', server: DATA_SERVER, apiKey: '', picked: false, season: 2024, refresh: 15 };
+if (!settings.dev) { Object.assign(settings, DEFAULTS); saveSettings(); }
+const devChange = () => { settings.dev = true; };
 
 const BARCA_ID = 529;  // FC Barcelona's team number in API-Football
 const LALIGA_ID = 140; // La Liga's league number in API-Football
@@ -538,7 +543,7 @@ const I = {
   matches: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
   table: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h12M9 12h12M9 18h12"/><path d="M4 6h1M4 12h1M4 18h1"/></svg>',
   squad: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><circle cx="17" cy="9" r="2.8"/><path d="M15.6 14.3A5.5 5.5 0 0 1 21.5 20"/></svg>',
-  setup: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2.5"/><circle cx="8" cy="17" r="2.5"/></svg>',
+  options: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2.5"/><circle cx="8" cy="17" r="2.5"/></svg>',
   play: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>',
   pause: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6.5" y="5" width="4" height="14" rx="1"/><rect x="13.5" y="5" width="4" height="14" rx="1"/></svg>',
   restart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>',
@@ -757,11 +762,11 @@ async function api(path, params = {}, ttl = 600, force = false, tag = '') {
   const saved = store.get(cacheKey, null);
   const ttlSec = saved ? (typeof ttl === 'function' ? ttl(saved.data) : ttl) : 0;
   if (!force && saved && Date.now() - saved.t < ttlSec * 1000) { if (path === 'fixtures' || path === 'fd/teams/81/matches') state.lastSync = saved.t; return saved.data; }
-  if (!server && !settings.apiKey) throw new AppError('Add your data server address or API-Football key in Setup first, or switch back to demo data.', 'nokey');
+  if (!server && !settings.apiKey) throw new AppError('Add a data server address or API-Football key on the developer page, or press Back to normal.', 'nokey');
   let res;
   try { res = await fetch(url, server ? {} : { headers: { 'x-apisports-key': settings.apiKey } }); }
   catch (e) { if (saved) return saved.data; throw new AppError(BLOCKED_MSG, 'network'); }
-  if (!res.ok) throw new AppError(`${server ? 'Your data server' : 'API-Football'} answered with error ${res.status}. Check the address or key in Setup.`, 'http');
+  if (!res.ok) throw new AppError(`${server ? 'Your data server' : 'API-Football'} answered with error ${res.status}. Press Back to normal, or check the developer page.`, 'http');
   const json = await res.json();
   const errs = json.errors && (Array.isArray(json.errors) ? json.errors : Object.values(json.errors));
   if (errs && errs.length) throw new AppError('API-Football says: ' + String(errs[0]), 'api');
@@ -935,7 +940,7 @@ const SR = {
   },
   changed() {
     clearTimeout(this.timer);
-    this.timer = setTimeout(() => { if (settings.mode !== 'real') return; state.fixtures = null; updateModeChip(); if (route().name !== 'setup') render(); }, 300);
+    this.timer = setTimeout(() => { if (settings.mode !== 'real') return; state.fixtures = null; updateModeChip(); if (!['dev', 'options'].includes(route().name)) render(); }, 300);
   },
   async game(f) {
     if (f.status === 'LIVE' || f.status === 'HT') this.watch('g:' + f.srid, { data_type: 'game_stats', league: f.league, game_id: f.srid }, f.srid);
@@ -1998,7 +2003,7 @@ function refreshPanel() {
   Data.match(r.id).then(m => { const p = $('#mc-panel'); if (p) p.innerHTML = panelHTML(m, mcStateOf(m), isClocked(m)); }).catch(() => {});
 }
 function injuriesHTML(m) {
-  if (m.source !== 'api') return '<p class="help demo-note">Injury and suspension news comes with API-Football (see Setup).</p>';
+  if (m.source !== 'api') return '';
   const key = 'inj:' + m.id, v = state.cache[key];
   if (!v) { loadInto(key, () => Data.injuries(m)); return ''; }
   if (v === 'loading' || v.error || !v.data.length) return '';
@@ -2007,7 +2012,7 @@ function injuriesHTML(m) {
 }
 function squadsHTML(m) {
   const posName = { G: 'GK', D: 'DEF', M: 'MID', F: 'FWD' };
-  return `<p class="help">Players who played in this match. Pitch positions, ratings and player stats come with API-Football (see Setup).</p>
+  return `<p class="help">Players who played in this match. Pitch positions and ratings aren't available for this match.</p>
     <div class="bench-wrap">${['home', 'away'].map(sd => `<div class="bench"><h3>${esc(m[sd].name)}</h3><ul>${(m.squads[sd] || []).map(p => `<li><div class="brow sq2"><span class="bn">${posName[p.pos]}</span><span class="bnm">${esc(p.name)}</span></div></li>`).join('')}</ul></div>`).join('')}</div>`;
 }
 function lineupsHTML(m, st) {
@@ -2249,10 +2254,27 @@ function topScorersHTML() {
   return `<section><h2 class="month">Top scorers this season</h2><ol class="rlist tsc">${list.map((p, i) => `<li><div class="rrow"><span class="tsc-n">${i + 1}</span><span class="bn">${{ G: 'GK', D: 'DEF', M: 'MID', F: 'FWD' }[p.pos]}</span><span class="nmw"><b>${esc(p.name)}</b><small>${p.apps} game${p.apps === 1 ? '' : 's'} · ${p.assists} assist${p.assists === 1 ? '' : 's'}</small></span><span class="tsc-g">${p.goals}<small> G</small></span></div></li>`).join('')}</ol><p class="help demo-note">La Liga and Champions League combined.</p></section>`;
 }
 
-/* --- Setup --- */
+/* --- Settings (what everyone sees) --- */
+function viewOptions() {
+  return `<div><h1 class="page-title">Settings</h1><p class="page-sub">Your preferences on this device.</p></div>
+    <section class="form-card"><h2 class="fc-title">Notifications</h2>
+      <label class="switch" for="alerts"><input type="checkbox" id="alerts" ${settings.alerts ? 'checked' : ''}><span>Goal alerts while the app is open</span></label>
+    </section>
+    <section class="form-card"><h2 class="fc-title">Match data</h2>
+      <p class="help">The app saves match data so it opens fast. If something looks out of date, refresh it.</p>
+      <div class="row"><button class="btn btn-ghost" data-act="refresh-data">Refresh match data</button><button class="btn btn-ghost" data-act="dev-reset">Reset app</button></div>
+    </section>
+    <section class="form-card"><h2 class="fc-title">About</h2>
+      <p class="help"><b>Culé Live</b> is an unofficial Barça fan app made for an MYP Personal Project. It isn't connected to FC Barcelona.</p>
+      <p class="help">Fixtures, results, the table and the squad come from football-data.org. Match events, lineups, team and player stats and ratings come from Highlightly. Times are shown in your time zone (${esc(tzName())}).</p>
+    </section>`;
+}
+
+/* --- Developer page (hidden: open it by adding #dev to the address) --- */
 function viewSetup() {
   const isApi = settings.mode === 'api';
-  return `<div><h1 class="page-title">Setup</h1><p class="page-sub">Choose where match data comes from.</p></div>
+  return `<div><h1 class="page-title">Developer</h1><p class="page-sub">Hidden page. Changes here only affect this device.</p></div>
+    <section class="form-card"><h2 class="fc-title">Normal mode</h2><p class="help">${settings.dev ? 'You have changed something here. Press this to go back to the normal app.' : 'This device is using the normal app.'}</p><button class="btn btn-primary" data-act="dev-reset">Back to normal</button></section>
     <section class="form-card"><h2 class="fc-title">Data source</h2>
       <div class="seg" role="group" aria-label="Data source">
         <button data-act="mode" data-mode="real" aria-pressed="${settings.mode === 'real'}">Built-in</button>
@@ -2280,7 +2302,6 @@ function viewSetup() {
       <label class="inline-field" for="refresh"><span>Refresh live matches every</span>
         <select id="refresh">${[15, 30, 60].map(s => `<option value="${s}" ${settings.refresh === s ? 'selected' : ''}>${s} seconds</option>`).join('')}</select></label>
       <p class="help">API-Football updates live scores and events every 15 seconds, so 15 s is the fastest useful setting. The match clock still ticks every second in between. Following a whole live match this way takes several hundred requests, which needs the Pro plan.</p>
-      <label class="switch" for="alerts"><input type="checkbox" id="alerts" ${settings.alerts ? 'checked' : ''}><span>Goal alerts</span></label>
     </section>
     <section class="form-card"><h2 class="fc-title">Account</h2>
       <div class="row"><button class="btn btn-ghost" data-act="status">Check requests used</button><button class="btn btn-ghost" data-act="clear-cache">Clear saved data</button></div>
@@ -2290,11 +2311,13 @@ function viewSetup() {
 }
 
 /* ---------- 8. Buttons, router and start-up ---------- */
-const VIEWS = { home: viewHome, matches: viewMatches, table: viewTable, squad: viewSquad, setup: viewSetup, match: viewMatch };
-const NAV = [['home', 'Home'], ['matches', 'Matches'], ['table', 'Table'], ['squad', 'Squad'], ['setup', 'Setup']];
+const VIEWS = { home: viewHome, matches: viewMatches, table: viewTable, squad: viewSquad, options: viewOptions, dev: viewSetup, match: viewMatch };
+const NAV = [['home', 'Home'], ['matches', 'Matches'], ['table', 'Table'], ['squad', 'Squad'], ['options', 'Settings']];
+const HIDDEN = { dev: 'dev', setup: 'options' }; // #dev = developer page, old #setup links go to Settings
 function route() {
   const h = location.hash.slice(1);
   if (h.startsWith('match-')) return { name: 'match', id: h.slice(6) };
+  if (HIDDEN[h]) return { name: HIDDEN[h] };
   return { name: NAV.some(([k]) => k === h) ? h : 'home' };
 }
 const routeKey = r => r.name + (r.id ? ':' + r.id : '');
@@ -2316,7 +2339,7 @@ async function render() {
 function errorHTML(e) {
   const msg = e instanceof AppError ? e.message : 'Something went wrong while loading. Please try again.';
   if (!(e instanceof AppError)) console.warn(e);
-  return `<div class="errbox" role="alert"><b>Couldn't load this</b><p>${esc(msg)}</p><div class="row"><button class="btn btn-ghost" data-act="retry">Try again</button>${settings.mode === 'api' ? '<button class="btn btn-ghost" data-act="use-demo">Use demo data</button><a class="btn btn-ghost" href="#setup">Setup</a>' : ''}</div></div>`;
+  return `<div class="errbox" role="alert"><b>Couldn't load this</b><p>${esc(msg)}</p><div class="row"><button class="btn btn-ghost" data-act="retry">Try again</button>${settings.mode === 'api' ? '<button class="btn btn-ghost" data-act="dev-reset">Back to normal</button>' : ''}</div></div>`;
 }
 
 // Called every time the clock moves: only the parts that change are redrawn
@@ -2374,7 +2397,7 @@ function schedulePoll() {
   clearInterval(pollTimer);
   if (settings.mode !== 'api' && !(settings.mode === 'real' && settings.server)) return;
   pollTimer = setInterval(async () => {
-    if (document.hidden || !state.fixtures || route().name === 'setup') return;
+    if (document.hidden || !state.fixtures || ['dev', 'options'].includes(route().name)) return;
     const live = state.fixtures.find(isLiveF);
     const soon = state.fixtures.find(f => f.status === 'NS' && f.ts - Date.now() < 15 * 60e3 && f.ts - Date.now() > -3 * 3600e3);
     if (!live && !soon) return;
@@ -2421,19 +2444,19 @@ document.addEventListener('click', e => {
       toast('Prediction saved'); break;
     }
     case 'mode':
-      settings.picked = true;
+      settings.picked = true; devChange();
       if (settings.mode !== b.dataset.mode) { settings.mode = b.dataset.mode; saveSettings(); resetApp(); }
       break;
     case 'key-show': { const inp = $('#api-key'); inp.type = inp.type === 'password' ? 'text' : 'password'; b.textContent = inp.type === 'password' ? 'Show' : 'Hide'; break; }
     case 'key-save':
-      settings.apiKey = $('#api-key').value.trim(); saveSettings();
+      devChange(); settings.apiKey = $('#api-key').value.trim(); saveSettings();
       toast(settings.apiKey ? 'Key saved' : 'Key removed');
       if (settings.mode === 'api') { state.fixtures = null; schedulePoll(); }
       break;
     case 'server-save': {
       let v = $('#server').value.trim();
       if (v && !/^https?:\/\//i.test(v)) v = 'https://' + v;
-      settings.server = v; saveSettings(); $('#server').value = v;
+      devChange(); settings.server = v; saveSettings(); $('#server').value = v;
       toast(v ? 'Server saved' : 'Server removed');
       state.fixtures = null; schedulePoll(); break;
     }
@@ -2443,14 +2466,18 @@ document.addEventListener('click', e => {
       break;
     }
     case 'clear-cache': store.clear('cache:'); state.fixtures = null; state.cache = {}; toast('Saved match data cleared'); break;
-    case 'use-demo': settings.mode = 'demo'; saveSettings(); resetApp(); break;
+    case 'use-demo': devChange(); settings.mode = 'demo'; saveSettings(); resetApp(); break;
+    case 'dev-reset': // back to the normal app
+      settings.dev = false; Object.assign(settings, DEFAULTS); saveSettings(); store.clear('cache:'); store.clear('planCheck');
+      toast('App reset'); resetApp(); break;
+    case 'refresh-data': store.clear('cache:'); state.fixtures = null; state.cache = {}; toast('Match data refreshed'); $('#view').dataset.route = ''; render(); break;
     case 'retry': $('#view').dataset.route = ''; render(); break;
   }
 });
 document.addEventListener('change', e => {
   const t = e.target;
-  if (t.id === 'season') { settings.season = +t.value; saveSettings(); state.fixtures = null; if (Clock.mode === 'replay') Clock.unload(); updateModeChip(); }
-  if (t.id === 'refresh') { settings.refresh = +t.value; saveSettings(); schedulePoll(); }
+  if (t.id === 'season') { devChange(); settings.season = +t.value; saveSettings(); state.fixtures = null; if (Clock.mode === 'replay') Clock.unload(); updateModeChip(); }
+  if (t.id === 'refresh') { devChange(); settings.refresh = +t.value; saveSettings(); schedulePoll(); }
   if (t.id === 'alerts') { settings.alerts = t.checked; saveSettings(); }
   if (t.id === 'scrub') state.scrubbing = false;
 });
