@@ -451,6 +451,41 @@ button.rrow:hover,button.brow:hover{background:var(--surface-2)}
 .acct-who b{font-size:17px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .acct-who small{color:var(--muted);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
+/* Player photos */
+.pl-dot.has-ph{width:40px;height:40px;background:var(--surface-2)}
+.t-fcb .pl-dot.has-ph{box-shadow:0 0 0 2px var(--stripe-a),0 0 0 4px var(--stripe-b),0 2px 6px rgba(0,0,0,.35)}
+.t-opp .pl-dot.has-ph{box-shadow:0 0 0 2px #fff,0 2px 6px rgba(0,0,0,.35)}
+.pl-dot .ph,.sheet-num .ph{position:absolute;inset:0;width:100%;height:100%;border-radius:50%;object-fit:cover;object-position:top}
+.pl-dot.has-ph .pl-no,.sheet-num.has-ph .pl-no{display:none}
+.pl-dot.has-ph .rt{left:28px}
+.pl-nn{font-weight:700;opacity:.85}
+.sheet-num{position:relative;overflow:hidden}
+.sheet-num.has-ph{background:var(--surface-2);box-shadow:inset 0 0 0 2px var(--line)}
+.av{display:inline-block;width:28px;height:28px;border-radius:50%;overflow:hidden;background:var(--surface-2);flex:none}
+.av.sm{width:28px;height:28px}.av.md{width:44px;height:44px}
+.av img{width:100%;height:100%;object-fit:cover;object-position:top}
+.has-av{display:flex;align-items:center;gap:8px;min-width:0}
+.bnt,.nmt,.sq-nm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nmt b,.sq-nm b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nmt small,.sq-nm small{display:block}
+.potm-who{display:flex;align-items:center;gap:10px;min-width:0}
+/* Videos */
+.vids{display:flex;flex-direction:column;gap:12px}
+.vid{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.vid-media{position:relative;display:block;width:100%;aspect-ratio:16/9;max-width:100%;background:#000}
+.vid-media img{width:100%;height:100%;object-fit:cover;opacity:.92}
+.vid-play{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:58px;height:58px;border-radius:50%;background:rgba(0,0,0,.6);color:#fff;display:grid;place-items:center}
+.vid-play svg{width:28px;height:28px;margin-left:3px}
+.vid-frame{position:relative;width:100%;aspect-ratio:16/9;max-width:100%;background:#000}
+.vid-frame iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.vid-text{padding:12px 14px;display:flex;flex-direction:column;gap:4px;align-items:flex-start}
+.vid-text b{font-weight:600;line-height:1.3}
+.vid-text small{color:var(--muted);font-size:12.5px}
+.tl-vid{display:inline-flex;align-items:center;gap:4px;margin-top:4px;padding:2px 8px;border-radius:99px;background:var(--tint-blau);color:var(--blau);font-family:var(--f-label);font-weight:700;font-size:12px;letter-spacing:.04em;text-transform:uppercase}
+.tl-vid svg{width:12px;height:12px}
+.mc-tabs{grid-auto-columns:minmax(58px,1fr);overflow-x:auto;scrollbar-width:none}
+.mc-tabs button{padding:0 6px;white-space:nowrap}
+
 /* Player card (slides up from the bottom) */
 #sheet-root{position:fixed;inset:0;z-index:50;display:flex;align-items:flex-end;justify-content:center}
 .sheet-back{position:absolute;inset:0;background:rgba(4,8,24,.55);animation:fade .2s ease}
@@ -697,11 +732,18 @@ const T_ROWS = [
   ['No internet connection. Try again.', 'Sin conexión. Inténtalo de nuevo.', 'Pas de connexion internet. Réessaie.', 'لا يوجد اتصال بالإنترنت. حاول مرة أخرى.'], ['Too many tries. Wait a minute, then try again.', 'Demasiados intentos. Espera un minuto.', 'Trop d\'essais. Attends une minute.', 'محاولات كثيرة. انتظر دقيقة ثم حاول.'],
   ["Couldn't sign in. Try again.", 'No se pudo iniciar sesión. Inténtalo de nuevo.', 'Connexion impossible. Réessaie.', 'تعذر تسجيل الدخول. حاول مرة أخرى.'], ['This way of signing in is turned off in Firebase.', 'Este método de acceso está desactivado.', 'Ce mode de connexion est désactivé.', 'طريقة تسجيل الدخول هذه معطلة.'],
   ['This email already signs in another way. Try Continue with Google.', 'Este correo usa otro método. Prueba Continuar con Google.', 'Cet e-mail se connecte autrement. Essaie Continuer avec Google.', 'هذا البريد يسجل الدخول بطريقة أخرى. جرّب المتابعة باستخدام Google.'],
+  ['Videos', 'Vídeos', 'Vidéos', 'الفيديوهات'], ['Official', 'Oficial', 'Officiel', 'رسمي'], ['Open video', 'Abrir vídeo', 'Ouvrir la vidéo', 'فتح الفيديو'], ['Watch goal', 'Ver gol', 'Voir le but', 'شاهد الهدف'],
+  ['Videos appear after kick-off.', 'Los vídeos aparecen tras el inicio.', "Les vidéos apparaissent après le coup d'envoi.", 'تظهر الفيديوهات بعد انطلاق المباراة.'],
+  ['Videos come with real match data.', 'Los vídeos llegan con los datos reales.', 'Les vidéos viennent avec les données réelles.', 'الفيديوهات متاحة مع البيانات الحقيقية.'],
+  ['No videos for this match yet. Highlights usually appear a few hours after the final whistle.', 'Aún no hay vídeos de este partido. Los resúmenes suelen aparecer unas horas después del final.', 'Pas encore de vidéos pour ce match. Les résumés arrivent souvent quelques heures après la fin.', 'لا توجد فيديوهات لهذه المباراة بعد. تظهر الملخصات عادةً بعد ساعات من نهايتها.'],
+  ['Videos from official YouTube channels.', 'Vídeos de canales oficiales de YouTube.', 'Vidéos des chaînes YouTube officielles.', 'فيديوهات من قنوات YouTube الرسمية.'],
+  ['Videos are found by Highlightly and come from YouTube and other sites.', 'Los vídeos los encuentra Highlightly y vienen de YouTube y otras webs.', 'Les vidéos sont trouvées par Highlightly et viennent de YouTube et d\'autres sites.', 'تعثر Highlightly على الفيديوهات من YouTube ومواقع أخرى.'],
   ['Replay this match', 'Repetir este partido', 'Revoir ce match', 'إعادة هذه المباراة'], ['Exit replay', 'Salir de la repetición', 'Quitter la rediffusion', 'الخروج من الإعادة'], ['Replay', 'Repetición', 'Rediffusion', 'إعادة']
 ];
 
 // Text with numbers or names inside. "f" means: translate this part too.
 const T_RX = [
+  [/^Play: (.+)$/, { es: 'Reproducir: $1', fr: 'Lire : $1', ar: 'تشغيل: $1' }],
   [/^(\d+)'$/, { ar: '$1 د' }], [/^(\d+)\+(\d+)'$/, { ar: '$1+$2 د' }],
   [/^(\d+) G · (\d+) A$/, { es: '$1 G · $2 A', fr: '$1 B · $2 PD', ar: '$1 هدف · $2 تمريرة حاسمة' }],
   [/^(\d+) saves?$/, { es: '$1 paradas', fr: '$1 arrêts', ar: '$1 تصديات' }],
@@ -1598,11 +1640,121 @@ async function loadCrests() {
 // A logo that fails to load (offline, or blocked) turns back into the coloured badge
 document.addEventListener('error', e => {
   const img = e.target;
+  if (img instanceof HTMLImageElement && img.classList.contains('ph') && /\/small$/.test(img.getAttribute('src'))) { img.src = img.getAttribute('src').slice(0, -6); return; }
+  if (img instanceof HTMLImageElement && img.classList.contains('ph')) { // a player photo that can't load: show the shirt number instead
+    const holder = img.parentElement; img.remove();
+    holder.classList.remove('has-ph'); holder.closest('.pl')?.querySelector('.pl-nn')?.remove();
+    if (holder.classList.contains('av')) holder.remove();
+    return;
+  }
   if (!(img instanceof HTMLImageElement) || !img.closest('.badge')) return;
   CREST_BAD.add(img.getAttribute('src'));
   const b = img.closest('.badge'); img.remove(); b.classList.remove('crest');
   if (b.dataset.fcb) b.classList.add('badge-fcb'); else b.style.setProperty('--h', b.dataset.h);
 }, true);
+
+/* ---------- 3h. Player photos ----------
+   Photos come from TheSportsDB (free). Each player is looked up once, by full name, through
+   the data server, which saves the answer for a month for everyone. Full names come from
+   football-data.org's squad lists, because lineups often use short names like "F. de Jong". */
+const PHOTO_TTL = 30 * 86400e3;
+const nameWords = n => normName(n).split(' ').filter(w => w.length >= 3);
+const fdTeamId = team => team.id === BARCA_ID ? 81 : ((/^fd-(\d+)$/.exec(String(team.id)) || [])[1] || null);
+const fdSquadCached = id => cachedData('fd/teams/' + id, {})?.squad || null;
+async function fdSquadLoad(id) { try { return (await api('fd/teams/' + id, {}, 86400)).squad || []; } catch (e) { return null; } }
+function fullName(squad, p) { // "F. de Jong" in a lineup → "Frenkie de Jong" in the squad list
+  if (!squad || !p.name) return null;
+  const n = normName(p.name), w = nameWords(p.name), last = w[w.length - 1];
+  let hit = squad.find(x => normName(x.name) === n);
+  if (!hit && last) hit = squad.find(x => { const xw = nameWords(x.name); return xw[xw.length - 1] === last && normName(x.name)[0] === n[0]; });
+  if (!hit) hit = squad.find(x => nameWords(x.name).some(t => t.length >= 4 && w.includes(t)));
+  return hit ? hit.name : null;
+}
+const photoKey = (team, name) => 'photo:' + teamKey(team.name) + ':' + normName(name);
+function photoCached(team, p) {
+  const v = store.get(photoKey(team, p.name), null);
+  return v && Date.now() - v.t < (v.url ? PHOTO_TTL : 7 * 86400e3) ? v : null; // "no photo" is checked again after a week
+}
+const sized = url => url + '/small'; // TheSportsDB's smaller version of the picture
+const photoQueue = [], photoQueued = new Set(), photoLoading = new Set();
+let tsdbVia = 'server'; // switches to asking TheSportsDB straight from this phone if the server can't reach it
+async function tsdbSearch(name) {
+  if (tsdbVia === 'server') {
+    try { return await api('tsdb/searchplayers.php', { p: name }, 30 * 86400); }
+    catch (e) { tsdbVia = 'direct'; }
+  }
+  const res = await fetch('https://www.thesportsdb.com/api/v1/json/123/searchplayers.php?p=' + encodeURIComponent(name));
+  if (!res.ok) throw new Error('TheSportsDB answered ' + res.status);
+  return res.json();
+}
+let photoBusy = false, photoTimer = null;
+function photoChanged() {
+  clearTimeout(photoTimer);
+  photoTimer = setTimeout(() => { refreshPanel(); refreshSheet(); if (route().name === 'squad') render(); }, 700);
+}
+function wantPhoto(team, p, query, first) {
+  const k = photoKey(team, p.name);
+  if (photoQueued.has(k)) return;
+  photoQueued.add(k);
+  const job = { team, k, query: (query || p.name).replace(/^[A-Z]\.\s*/, '') };
+  if (first) photoQueue.unshift(job); else photoQueue.push(job);
+  runPhotos();
+}
+async function runPhotos() {
+  if (photoBusy) return;
+  photoBusy = true;
+  while (photoQueue.length) {
+    const job = photoQueue.shift(), t0 = Date.now();
+    try {
+      const json = await tsdbSearch(job.query);
+      const club = teamKey(job.team.name).split(' ').filter(w => w.length >= 4);
+      const pl = (json.player || []).find(x => normName(x.strPlayer) === normName(job.query) || teamKey(x.strTeam || '').split(' ').some(w => club.includes(w)));
+      const url = pl ? (pl.strCutout || pl.strThumb || null) : null;
+      store.set(job.k, { t: Date.now(), url });
+      if (url) photoChanged();
+    } catch (e) { photoQueued.delete(job.k); } // try again another time
+    if (Date.now() - t0 > 250) await new Promise(r => setTimeout(r, 2100)); // TheSportsDB allows 30 lookups a minute
+  }
+  photoBusy = false;
+}
+function photosFor(team, players, first) {
+  if (!settings.server || settings.mode !== 'real') return;
+  const fid = fdTeamId(team), squad = fid ? fdSquadCached(fid) : null;
+  if (fid && !squad) {
+    if (!photoLoading.has('sq' + fid)) { photoLoading.add('sq' + fid); fdSquadLoad(fid).then(x => { if (x) photoChanged(); }); }
+  }
+  players.forEach(p => {
+    const c = photoCached(team, p);
+    if (c) { p.photo = c.url ? sized(c.url) : null; return; }
+    if (fid && !squad) return; // wait for the full names first
+    wantPhoto(team, p, fullName(squad, p) || p.name, first);
+  });
+}
+function attachPhotos(m) {
+  if (!m.lineups) return;
+  const sides = ['home', 'away'].sort((a, b) => (m[b].id === BARCA_ID) - (m[a].id === BARCA_ID)); // Barça first
+  sides.forEach(side => photosFor(m[side], [...m.lineups[side].xi, ...m.lineups[side].bench], m[side].id === BARCA_ID));
+}
+const avatar = (p, cls = '') => p && p.photo ? `<span class="av ${cls}"><img class="ph" src="${esc(p.photo)}" alt="" loading="lazy" referrerpolicy="no-referrer"></span>` : '';
+
+/* ---------- 3i. Match videos ----------
+   Highlightly finds highlight and goal videos for a match (mostly YouTube). Official uploads
+   are listed first. Videos play inside the app, or open on the site they came from. */
+const decodeHTML = t => { const el = document.createElement('textarea'); el.innerHTML = t; return el.value; }; // YouTube titles come with &amp; and &#39;
+async function videosFor(m) {
+  const after = new Date(m.ts - 3600e3).toISOString(), before = new Date(m.ts + 7 * 86400e3).toISOString();
+  const json = await api('yt/search', { q: `${m.home.name} ${m.away.name}`, after, before }, m.ts + 7 * 86400e3 < Date.now() ? 30 * 86400 : 3 * 3600);
+  const list = (json.videos || []).map(v => ({ title: decodeHTML(v.title || ''), url: 'https://www.youtube.com/watch?v=' + v.id, embedUrl: 'https://www.youtube-nocookie.com/embed/' + v.id, imgUrl: v.thumb, channel: decodeHTML(v.channel || ''), type: 'VERIFIED' }));
+  const main = v => /highlight|resumen|résumé|resume|ملخص/i.test(v.title) ? 1 : 0;
+  return list.sort((a, b) => main(b) - main(a)); // full highlights first, then goal clips
+}
+function goalVideo(m, e) { // a video whose title names this goal's scorer
+  const v = state.cache['vid:' + m.id];
+  if (!v || !v.data || !v.data.length) return -1;
+  const w = nameWords(e.playerName || pname(m, e.player, ''));
+  const last = w[w.length - 1]; if (!last) return -1;
+  return v.data.findIndex(x => { const t = normName(x.title || ''); return t.includes(last) && /goal|gol|but/.test(t); });
+}
 
 /* ---------- 3g. Accounts (Firebase) ----------
    Sign in with Google or with an email and password. Each person's predictions are saved in
@@ -1792,6 +1944,7 @@ const Data = {
         if (hm) {
           // fill in team stats from the built-in data if Highlightly has none
           if (!hm.stats && f.srTwin) { const sm = srMatch(f, await SR.game(f.srTwin)); hm.stats = sm.stats; }
+          attachPhotos(hm);
           noteLive(hm);
           return hm;
         }
@@ -2411,7 +2564,7 @@ async function viewMatches() {
 }
 
 /* --- Match centre --- */
-const TABS = [['timeline', 'Events'], ['lineups', 'Lineups'], ['stats', 'Stats'], ['ratings', 'Ratings'], ['h2h', 'H2H']];
+const TABS = [['timeline', 'Events'], ['videos', 'Videos'], ['lineups', 'Lineups'], ['stats', 'Stats'], ['ratings', 'Ratings'], ['h2h', 'H2H']];
 function isClocked(m) { return !!(Clock.m && String(Clock.m.id) === String(m.id)); }
 function mcStateOf(m) { return isClocked(m) ? Clock.state() : stateAt(m, actualIdx(m), { actual: true, official: true }); }
 function statusPill(m, st, clocked) {
@@ -2464,7 +2617,8 @@ function tlRow(m, e, scoreTxt) {
     case 'var': main = 'VAR'; sub = `${esc(e.text || 'Check')}${e.player != null ? ' · ' + n(e.player, e.playerName) : ''}`; break;
     case 'pen_miss': main = n(e.player, e.playerName); sub = e.savedBy ? `Penalty saved by ${n(e.savedBy)}` : 'Penalty missed'; break;
   }
-  return `<li class="tl-row ${e.side} ${e.scoreSide ? 'goal' : ''}"><div class="tl-ev">${evIcon(e)}<div class="txt"><b>${main}</b><small>${sub}</small>${scoreTxt ? `<span class="sc">${scoreTxt}</span>` : ''}</div></div><span class="tl-min">${evMinute(e)}</span></li>`;
+  const gv = e.scoreSide && m.source === 'real' ? goalVideo(m, e) : -1;
+  return `<li class="tl-row ${e.side} ${e.scoreSide ? 'goal' : ''}"><div class="tl-ev">${evIcon(e)}<div class="txt"><b>${main}</b><small>${sub}</small>${scoreTxt ? `<span class="sc">${scoreTxt}</span>` : ''}${gv >= 0 ? `<button class="tl-vid" data-act="play-goal" data-i="${gv}">${I.play} Watch goal</button>` : ''}</div></div><span class="tl-min">${evMinute(e)}</span></li>`;
 }
 function timelineHTML(m, st) {
   if (!st.events.length && st.k <= 0) return empty(m.status === 'NS' ? `Kick-off is on ${fmtDayLong(m.ts)}${m.tbc ? ". The time hasn't been announced yet" : ' at ' + fmtTime(m.ts)}. Goals, cards and subs will appear here during the match.` : 'Nothing has happened yet.');
@@ -2516,7 +2670,7 @@ function sidePlayers(m, st, side) {
     const span = R > 1 ? (p._r - 1) / (R - 1) : 0;
     const y = side === 'home' ? 89 - span * 33 : 11 + span * 33;
     const r = st.ratings[p.id], icons = playerIcons(st, p.id);
-    return `<button class="pl ${isB ? 't-fcb' : 't-opp'}" data-act="player" data-pid="${esc(p.id)}" aria-label="${esc(p.name)}${r != null ? ', rating ' + r.toFixed(1) : ''}" style="left:${x.toFixed(1)}%;top:${y.toFixed(1)}%"><span class="pl-dot">${p.number ?? ''}${r != null ? rtBadge(r) : ''}${icons ? `<span class="pl-evs">${icons}</span>` : ''}</span><span class="pl-name">${esc(shortPlayer(p.name))}</span></button>`;
+    return `<button class="pl ${isB ? 't-fcb' : 't-opp'}" data-act="player" data-pid="${esc(p.id)}" aria-label="${esc(p.name)}${r != null ? ', rating ' + r.toFixed(1) : ''}" style="left:${x.toFixed(1)}%;top:${y.toFixed(1)}%"><span class="pl-dot ${p.photo ? 'has-ph' : ''}">${p.photo ? `<img class="ph" src="${esc(p.photo)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ''}<span class="pl-no">${p.number ?? ''}</span>${r != null ? rtBadge(r) : ''}${icons ? `<span class="pl-evs">${icons}</span>` : ''}</span><span class="pl-name">${p.photo && p.number != null ? `<b class="pl-nn">${p.number}</b> ` : ''}${esc(shortPlayer(p.name))}</span></button>`;
   }).join('');
 }
 function benchHTML(m, st, side) {
@@ -2526,7 +2680,7 @@ function benchHTML(m, st, side) {
   const unused = L.bench.filter(p => !onAt[p.id]);
   return `<div class="bench"><h3>${esc(m[side].name)} bench</h3><ul>${[...used, ...unused].map(p => {
     const e = onAt[p.id], r = st.ratings[p.id];
-    const inner = `<span class="bn">${p.number ?? ''}</span><span class="bnm">${esc(p.name)}</span><span class="bon">${e ? I.up + evMinute(e) : ''}</span>${r != null ? rtBadge(r) : '<span></span>'}`;
+    const inner = `<span class="bn">${p.number ?? ''}</span><span class="bnm ${p.photo ? 'has-av' : ''}">${avatar(p, 'sm')}<span class="bnt">${esc(p.name)}</span></span><span class="bon">${e ? I.up + evMinute(e) : ''}</span>${r != null ? rtBadge(r) : '<span></span>'}`;
     return `<li class="${e ? '' : 'unused'}">${e ? `<button class="brow" data-act="player" data-pid="${esc(p.id)}">${inner}</button>` : `<div class="brow">${inner}</div>`}</li>`;
   }).join('')}</ul></div>`;
 }
@@ -2603,8 +2757,8 @@ function ratingsHTML(m, st, clocked) {
   if (!all.length) return empty('Ratings appear after the first minutes of play.');
   const top = all[0], topSide = P.idx[top.id].side;
   const official = !clocked && m.official && Object.keys(m.official).length > 0;
-  return `<button class="potm" data-act="player" data-pid="${esc(top.id)}">${rtBadge(top.r, 'big')}<div><small>${st.isFT ? 'Player of the match' : 'Top rated so far'}</small><b>${esc(top.p.name)}</b><span class="meta">${esc(m[topSide].name)} · ${Math.min(90, top.mins)}' played</span></div>${badge(m[topSide], 'sm')}</button>
-    ${groups.map(g => `<div class="rgroup"><h3>${esc(m[g.side].name)} ${avgBadge(teamAvg(m, st, g.side))}</h3><ul class="rlist">${g.rows.map(x => `<li><button class="rrow" data-act="player" data-pid="${esc(x.id)}">${rtBadge(x.r)}<span class="bn">${x.p.number ?? ''}</span><span class="nmw"><b>${esc(x.p.name)}</b><small>${Math.min(90, x.mins)}' played</small></span><span class="icons">${playerIcons(st, x.id)}</span></button></li>`).join('')}</ul></div>`).join('')}
+  return `<button class="potm" data-act="player" data-pid="${esc(top.id)}">${rtBadge(top.r, 'big')}<div class="${top.p.photo ? 'potm-who' : ''}">${avatar(top.p, 'md')}<div><small>${st.isFT ? 'Player of the match' : 'Top rated so far'}</small><b>${esc(top.p.name)}</b><span class="meta">${esc(m[topSide].name)} · ${Math.min(90, top.mins)}' played</span></div></div>${badge(m[topSide], 'sm')}</button>
+    ${groups.map(g => `<div class="rgroup"><h3>${esc(m[g.side].name)} ${avgBadge(teamAvg(m, st, g.side))}</h3><ul class="rlist">${g.rows.map(x => `<li><button class="rrow" data-act="player" data-pid="${esc(x.id)}">${rtBadge(x.r)}<span class="bn">${x.p.number ?? ''}</span><span class="nmw ${x.p.photo ? 'has-av' : ''}">${avatar(x.p, 'sm')}<span class="nmt"><b>${esc(x.p.name)}</b><small>${Math.min(90, x.mins)}' played</small></span></span><span class="icons">${playerIcons(st, x.id)}</span></button></li>`).join('')}</ul></div>`).join('')}
     ${official ? '<p class="help">Ratings from API-Football.</p>' : `<details class="how"><summary>How these ratings are worked out</summary><ul>
       <li>Every player starts at 6.0 and gains up to 0.6 for time on the pitch, plus a little up or down for general form.</li>
       <li>Goal +1.0 (penalty +0.8), assist +0.6, penalty save +0.8.</li>
@@ -2636,12 +2790,35 @@ function h2hHTML(m) {
     <h2 class="month">${n === 1 ? 'Last meeting' : `Last ${n} meetings`}</h2><div class="fxlist">${list.map(h2hRow).join('')}</div>
     ${m.source === 'demo' ? '<p class="help demo-note">Made-up results for the demo.</p>' : m.source === 'real' && !list.full ? '<p class="help demo-note">This season only.</p>' : list.full ? '<p class="help demo-note">All competitions, most recent first.</p>' : ''}`;
 }
+function videosHTML(m) {
+  if (m.source !== 'real' || !settings.server) return empty(settings.mode === 'demo' ? 'Videos come with real match data.' : 'No videos for this match yet. Highlights usually appear a few hours after the final whistle.');
+  if (m.status === 'NS') return empty('Videos appear after kick-off.');
+  const key = 'vid:' + m.id, v = state.cache[key];
+  if (!v) { loadInto(key, () => videosFor(m)); return '<div class="loading">Loading…</div>'; }
+  if (v === 'loading') return '<div class="loading">Loading…</div>';
+  if (v.error) return empty(esc(v.error));
+  if (!v.data.length) return empty('No videos for this match yet. Highlights usually appear a few hours after the final whistle.');
+  state.videoList = v.data;
+  return `<div class="vids">${v.data.map((x, i) => `<article class="vid" id="vid-${i}">
+      <button class="vid-media" data-act="play" data-i="${i}" aria-label="Play: ${esc(x.title || '')}">${x.imgUrl ? `<img src="${esc(x.imgUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ''}<span class="vid-play">${I.play}</span></button>
+      <div class="vid-text"><b data-notr>${esc(x.title || '')}</b><small>${x.type === 'VERIFIED' ? '<span class="tag">Official</span> ' : ''}<span data-notr>${esc(x.channel || x.source || '')}</span></small>
+        <a class="link-btn" href="${esc(x.url)}" target="_blank" rel="noopener">Open video</a></div></article>`).join('')}</div>
+    <p class="help">Videos from official YouTube channels.</p>`;
+}
+function playVideo(i) {
+  const x = (state.videoList || [])[i], box = $('#vid-' + i);
+  if (!x || !box) return;
+  if (!x.embedUrl) { window.open(x.url, '_blank', 'noopener'); return; }
+  const src = x.embedUrl + (x.embedUrl.includes('?') ? '&' : '?') + 'autoplay=1&rel=0';
+  box.querySelector('.vid-media').outerHTML = `<div class="vid-frame"><iframe src="${esc(src)}" title="${esc(x.title || 'Video')}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>`;
+}
 function panelHTML(m, st, clocked) {
   switch (state.mcTab) {
     case 'lineups': return lineupsHTML(m, st);
     case 'stats': return statsHTML(m, st);
     case 'ratings': return ratingsHTML(m, st, clocked);
     case 'h2h': return h2hHTML(m);
+    case 'videos': return videosHTML(m);
     default: return timelineHTML(m, st);
   }
 }
@@ -2684,7 +2861,7 @@ function sheetHeadHTML(m, pid) {
   if (!info) return '';
   const { p, side } = info, isB = m[side].id === BARCA_ID;
   const posName = { G: 'Goalkeeper', D: 'Defender', M: 'Midfielder', F: 'Forward' }[p.pos] || '';
-  return `<div class="sheet-top"><span class="sheet-num ${isB ? 't-fcb' : 't-opp'}">${p.number ?? ''}</span><span class="sheet-name"><b id="sheet-title">${esc(p.name)}</b><small>${esc(m[side].name)}${posName ? ' · ' + posName : ''}</small></span><button class="sheet-close" data-act="sheet-close" aria-label="Close player stats">×</button></div>`;
+  return `<div class="sheet-top"><span class="sheet-num ${isB ? 't-fcb' : 't-opp'} ${p.photo ? 'has-ph' : ''}">${p.photo ? `<img class="ph" src="${esc(p.photo)}" alt="" referrerpolicy="no-referrer">` : ''}<span class="pl-no">${p.number ?? ''}</span></span><span class="sheet-name"><b id="sheet-title">${esc(p.name)}</b><small>${esc(m[side].name)}${posName ? ' · ' + posName : ''}</small></span><button class="sheet-close" data-act="sheet-close" aria-label="Close player stats">×</button></div>`;
 }
 function sheetBodyHTML(m, st, pid) {
   const info = prep(m).idx[pid];
@@ -2726,7 +2903,7 @@ function seasonSheetHTML(p) {
   parts.push(sec('Passing', [row('Assists', p.assists), row('Expected assists (xA)', s.xa.toFixed(2)), row('Accurate passes', `${s.passOk}/${s.passes} (${pct(s.passOk, s.passes)}%)`), row('Passes per game', perGame(s.passes)), row('Key passes', s.keyPasses)]));
   parts.push(sec('Defending', [row('Tackles', s.tackles), row('Interceptions', s.interceptions), row('Duels won', `${s.duelsWon}/${s.duels} (${pct(s.duelsWon, s.duels)}%)`)]));
   parts.push(sec('Discipline', [row('Fouls committed', s.fouls), row('Yellow cards', s.yellow), row('Red cards', s.red)]));
-  return `<div class="sheet-top"><span class="sheet-num t-fcb">${p.number ?? ''}</span><span class="sheet-name"><b id="sheet-title">${esc(p.name)}</b><small>Barcelona${posName ? ' · ' + posName : ''}${p.age ? ' · ' + p.age : ''}</small></span><button class="sheet-close" data-act="sheet-close" aria-label="Close player stats">×</button></div>
+  return `<div class="sheet-top"><span class="sheet-num t-fcb ${p.photo ? 'has-ph' : ''}">${p.photo ? `<img class="ph" src="${esc(p.photo)}" alt="" referrerpolicy="no-referrer">` : ''}<span class="pl-no">${p.number ?? ''}</span></span><span class="sheet-name"><b id="sheet-title">${esc(p.name)}</b><small>Barcelona${posName ? ' · ' + posName : ''}${p.age ? ' · ' + p.age : ''}</small></span><button class="sheet-close" data-act="sheet-close" aria-label="Close player stats">×</button></div>
     <div id="sheet-content"><div class="sheet-sum"><div class="kv">${p.rating != null ? rtBadge(p.rating, 'big') : '<b>–</b>'}<small>Avg rating</small></div><div class="kv"><b>${p.apps}</b><small>Games</small></div><div class="kv"><b>${p.goals}</b><small>Goals</small></div><div class="kv"><b>${p.assists}</b><small>Assists</small></div></div>
     ${parts.join('')}<p class="help">This season, all competitions except friendlies, from ${state.seasonHave} match${state.seasonHave === 1 ? '' : 'es'}. Stats from Highlightly.</p></div>`;
 }
@@ -2739,6 +2916,9 @@ function openSeasonPlayer(pid, from) {
   root.hidden = false; document.body.style.overflow = 'hidden';
   root.querySelector('.sheet-close')?.focus();
 }
+function refreshSheet() { // redraw an open match player card (e.g. once photos arrive)
+  if (state.sheetPid && !String(state.sheetPid).startsWith('season:') && $('#sheet-root') && !$('#sheet-root').hidden) openPlayer(state.sheetPid, state.sheetReturn);
+}
 function closeSheet(restoreFocus = true) {
   if (!state.sheetPid) return;
   state.sheetPid = null;
@@ -2748,6 +2928,7 @@ function closeSheet(restoreFocus = true) {
 }
 async function viewMatch(r) {
   const m = await Data.match(r.id);
+  if (m.source === 'real' && settings.server && m.status !== 'NS' && !state.cache['vid:' + m.id]) loadInto('vid:' + m.id, () => videosFor(m));
   const clocked = isClocked(m), st = mcStateOf(m);
   let ctrl = '';
   if (clocked) {
@@ -2778,14 +2959,15 @@ async function viewTable() {
 /* --- Squad --- */
 async function viewSquad() {
   const sq = await Data.squad();
+  if (settings.mode === 'real' && settings.server) photosFor({ ...BARCA }, sq, true);
   const groups = [['G', 'Goalkeepers', 'Goalkeeper'], ['D', 'Defenders', 'Defender'], ['M', 'Midfielders', 'Midfielder'], ['F', 'Forwards', 'Forward']];
   const html = groups.map(([k, title, one]) => {
     const players = sq.filter(p => p.pos === k).sort((a, b) => (a.number ?? 99) - (b.number ?? 99));
     if (!players.length) return '';
     return `<section><h2 class="month">${title}</h2><div class="sq">${players.map(p => p.s ? `<button class="sq-row sq-btn" data-act="season-player" data-pid="${esc(p.id)}" aria-label="${esc(p.name)}: season stats">
-        <span class="sq-num">${p.number ?? `<small class="pos-ab">${{ G: 'GK', D: 'DEF', M: 'MID', F: 'FWD' }[p.pos] || '–'}</small>`}</span><span class="sq-name"><b>${esc(p.name)}</b><small>${one}${p.age ? ' · ' + p.age : ''} · ${p.apps} game${p.apps === 1 ? '' : 's'}</small></span>
+        <span class="sq-num">${p.number ?? `<small class="pos-ab">${{ G: 'GK', D: 'DEF', M: 'MID', F: 'FWD' }[p.pos] || '–'}</small>`}</span><span class="sq-name ${p.photo ? 'has-av' : ''}">${avatar(p, 'sm')}<span class="sq-nm"><b>${esc(p.name)}</b><small>${one}${p.age ? ' · ' + p.age : ''} · ${p.apps} game${p.apps === 1 ? '' : 's'}</small></span></span>
         <span class="sq-ga">${p.pos === 'G' ? `${p.s.saves} saves` : `${p.goals} G · ${p.assists} A`}</span>${p.rating != null ? rtBadge(p.rating) : '<span></span>'}</button>` : `<details class="sq-row"><summary>
-        <span class="sq-num">${p.number ?? `<small class="pos-ab">${{ G: 'GK', D: 'DEF', M: 'MID', F: 'FWD' }[p.pos] || '–'}</small>`}</span><span class="sq-name"><b>${esc(p.name)}</b><small>${one}${p.age ? ' · ' + p.age : ''}</small></span>
+        <span class="sq-num">${p.number ?? `<small class="pos-ab">${{ G: 'GK', D: 'DEF', M: 'MID', F: 'FWD' }[p.pos] || '–'}</small>`}</span><span class="sq-name ${p.photo ? 'has-av' : ''}">${avatar(p, 'sm')}<span class="sq-nm"><b>${esc(p.name)}</b><small>${one}${p.age ? ' · ' + p.age : ''}</small></span></span>
         <span class="sq-ga">${p.goals == null ? (p.apps == null ? '' : `${p.apps} game${p.apps === 1 ? '' : 's'}`) : `${p.goals} G · ${p.assists} A`}</span>${p.rating != null ? rtBadge(p.rating) : '<span></span>'}</summary>
         <div class="sq-detail"><div class="kv"><b>${p.apps ?? '–'}</b><small>Games</small></div><div class="kv"><b>${p.goals ?? '–'}</b><small>Goals</small></div><div class="kv"><b>${p.assists ?? '–'}</b><small>Assists</small></div><div class="kv"><b>${p.minutes != null ? p.minutes : p.rating != null ? p.rating.toFixed(1) : '–'}</b><small>${p.minutes != null ? 'Minutes' : 'Avg rating'}</small></div></div>
       </details>`).join('')}</div></section>`;
@@ -3027,6 +3209,14 @@ document.addEventListener('click', e => {
       settings.dev = false; Object.assign(settings, DEFAULTS); saveSettings(); store.clear('cache:'); store.clear('planCheck');
       toast('App reset'); resetApp(); break;
     case 'lang': if (b.dataset.lang !== LANG) { settings.lang = b.dataset.lang; saveSettings(); location.reload(); } break;
+    case 'play': playVideo(+b.dataset.i); break;
+    case 'play-goal': {
+      state.mcTab = 'videos';
+      document.querySelectorAll('[data-act="mc-tab"]').forEach(t => t.setAttribute('aria-selected', String(t.dataset.tab === 'videos')));
+      const r = route(); if (r.name !== 'match') break;
+      Data.match(r.id).then(m => { const p = $('#mc-panel'); if (!p) return; p.innerHTML = panelHTML(m, mcStateOf(m), isClocked(m)); playVideo(+b.dataset.i); $('#vid-' + b.dataset.i)?.scrollIntoView({ block: 'center' }); }).catch(() => {});
+      break;
+    }
     case 'acct-google': acctGoogle(); break;
     case 'acct-mode': Acct.mode = Acct.mode === 'up' ? 'in' : 'up'; Acct.error = ''; render(); break;
     case 'acct-forgot': acctForgot(); break;
