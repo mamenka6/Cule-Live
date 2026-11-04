@@ -249,6 +249,11 @@ h1,h2,h3,p{margin:0}
 .tbl tr.z-uel td.rank::before{background:var(--z-uel)}
 .tbl tr.z-uecl td.rank::before{background:var(--z-uecl)}
 .tbl tr.z-rel td.rank::before{background:var(--loss)}
+.tbl tr.z-r16 td.rank::before{background:var(--blau)}
+.tbl tr.z-po td.rank::before{background:var(--z-uel)}
+.tbl tr.z-out td.rank::before{background:var(--loss)}
+.tbl-seg{margin-bottom:-8px}
+.tbl-seg button{text-transform:none;letter-spacing:.02em;font-size:15px}
 .tbl td.pts{font-weight:700}
 .tbl tr.me td{background:var(--tint-blau)}
 .tbl tr.me td.club{font-weight:700}
@@ -815,6 +820,14 @@ const T_ROWS = [
   ["Exact score!", "¡Resultado exacto!", "Score exact !", "نتيجة دقيقة!"],
   ["Right result", "Resultado acertado", "Bon résultat", "نتيجة صحيحة"],
   ["No points this time", "Sin puntos esta vez", "Pas de points cette fois", "لا نقاط هذه المرة"],
+  // Champions League table
+  ["Round of 16", "Octavos de final", "Huitièmes de finale", "دور الستة عشر"],
+  ["Knockout play-offs", "Play-offs eliminatorios", "Barrages", "الملحق الإقصائي"],
+  ["Eliminated", "Eliminado", "Éliminé", "مُقصى"],
+  ["No Champions League table yet.", "Aún no hay clasificación de la Champions.", "Pas encore de classement de Ligue des champions.", "لا يوجد ترتيب لدوري الأبطال بعد."],
+  ["The Champions League table comes with real data.", "La clasificación de la Champions llega con datos reales.", "Le classement de la Ligue des champions vient avec les données réelles.", "ترتيب دوري الأبطال متاح مع البيانات الحقيقية."],
+  ["The Champions League table can't be loaded right now.", "Ahora no se puede cargar la clasificación de la Champions.", "Impossible de charger le classement de la Ligue des champions pour le moment.", "تعذر تحميل ترتيب دوري الأبطال الآن."],
+  ["League phase", "Fase liga", "Phase de ligue", "مرحلة الدوري"],
   // Goal replay
   ["Assist type", "Tipo de asistencia", "Type de passe", "نوع التمريرة"],
   ["Through ball", "Pase al hueco", "Passe en profondeur", "تمريرة بينية"],
@@ -945,6 +958,8 @@ const T_RX = [
   [/^Matchday (\d+)$/, { es: 'Jornada $1', fr: 'Journée $1', ar: 'الجولة $1' }],
   [/^Season (\S+)$/, { es: 'Temporada $1', fr: 'Saison $1', ar: 'موسم $1' }],
   [/^La Liga (\d{4}–\d{2})$/, { es: 'LaLiga $1', fr: 'Liga $1', ar: 'الدوري الإسباني $1' }],
+  [/^Champions League (\d{4}–\d{2})$/, { es: 'Champions League $1', fr: 'Ligue des champions $1', ar: 'دوري أبطال أوروبا $1' }],
+  [/^Group ([A-Z])$/, { es: 'Grupo $1', fr: 'Groupe $1', ar: 'المجموعة $1' }],
   [/^times in your time zone \((.+)\)\. TBC = time not announced yet\.$/, { es: 'horas en tu zona horaria ($1). Por conf. = hora aún no anunciada.', fr: 'heures dans ton fuseau horaire ($1). À conf. = heure pas encore annoncée.', ar: 'الأوقات حسب منطقتك الزمنية ($1). غير محدد = لم يُعلن الوقت بعد.' }],
   [/^vs (.+)$/, { es: 'vs $1', fr: 'contre $1', ar: 'ضد $1' }],
   [/^at (.+)$/, { es: 'fuera ante $1', fr: 'chez $1', ar: 'في ضيافة $1' }],
@@ -2370,6 +2385,22 @@ const Data = {
     const rows = list.map(r => ({ rank: r.rank, team: { id: r.team.id, name: r.team.name }, p: r.all.played, w: r.all.win, d: r.all.draw, l: r.all.lose, gf: r.all.goals.for, ga: r.all.goals.against, gd: r.goalsDiff, pts: r.points, form: r.form || '', zone: zone(r.description) }));
     return { title: `La Liga ${seasonLabel(settings.season)}`, rows, live: false, note: '' };
   },
+  async clTable() {
+    if (settings.mode !== 'real') return { title: 'Champions League', rows: [], groups: false, note: settings.mode === 'demo' ? 'The Champions League table comes with real data.' : '' };
+    if (!fdReady()) throw new AppError("The Champions League table can't be loaded right now.");
+    const json = await fdGet('competitions/CL/standings', {}, 600);
+    const tables = (json.standings || []).filter(t => (t.type || 'TOTAL') === 'TOTAL' && (t.table || []).length);
+    if (!tables.length) return { title: `Champions League ${seasonLabel(2026)}`, rows: [], groups: false, note: '' };
+    const row = (r, zone) => ({ rank: r.position, team: fdTeam(r.team || {}), p: r.playedGames, w: r.won, d: r.draw, l: r.lost, gf: r.goalsFor, ga: r.goalsAgainst, gd: r.goalDifference, pts: r.points, zone, form: (r.form || '').replace(/,/g, '') });
+    saveCrests();
+    if (tables.length === 1) { // league phase: 1–8 straight to the last 16, 9–24 play-offs, 25+ out
+      const rows = tables[0].table.map(r => row(r, r.position <= 8 ? 'r16' : r.position <= 24 ? 'po' : 'out'));
+      return { title: `Champions League ${seasonLabel(2026)} · League phase`, rows, groups: false, note: '' };
+    }
+    const mine = tables.find(t => t.table.some(r => r.team?.id === 81)) || tables[0]; // group format: Barça's group
+    const g = String(mine.group || '').replace(/^GROUP_/, '');
+    return { title: `Champions League ${seasonLabel(2026)}${g ? ' · Group ' + g : ''}`, rows: mine.table.map(r => row(r, r.position <= 2 ? 'r16' : r.position === 3 ? 'uel' : '')), groups: true, note: '' };
+  },
   async squad() {
     if (settings.mode === 'real') {
       if (fdReady()) {
@@ -3685,10 +3716,26 @@ async function viewMatch(r) {
 }
 
 /* --- Table --- */
+const TABLE_COMPS = [['PD', 'La Liga'], ['CL', 'Champions League']];
+state.tableComp = (() => { try { return localStorage.getItem('cule:tableComp') === 'CL' ? 'CL' : 'PD'; } catch (e) { return 'PD'; } })();
+const tableSwitch = () => `<div class="seg tbl-seg" role="group" aria-label="Competition">${TABLE_COMPS.map(([k, n]) => `<button data-act="table-comp" data-comp="${k}" aria-pressed="${state.tableComp === k}">${n}</button>`).join('')}</div>`;
 async function viewTable() {
+  if (state.tableComp === 'CL') {
+    let t;
+    try { t = await Data.clTable(); }
+    catch (e) { return `<h1 class="page-title">Table</h1>${tableSwitch()}${empty(esc(e.message || "The Champions League table can't be loaded right now."))}`; }
+    if (!t.rows.length) return `<h1 class="page-title">Table</h1>${tableSwitch()}${empty(t.note ? esc(t.note) : 'No Champions League table yet.')}`;
+    const legend = t.groups
+      ? '<span><i style="background:var(--blau)"></i>Round of 16</span><span><i style="background:var(--z-uel)"></i>Europa League</span>'
+      : '<span><i style="background:var(--blau)"></i>Round of 16</span><span><i style="background:var(--z-uel)"></i>Knockout play-offs</span><span><i style="background:var(--loss)"></i>Eliminated</span>';
+    return `<div><h1 class="page-title">Table</h1><p class="page-sub">${esc(t.title)}</p></div>${tableSwitch()}
+      <div class="tbl-wrap"><table class="tbl"><thead><tr><th class="rank">#</th><th class="club">Club</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GD</th><th class="form-col">Last 5</th><th>Pts</th></tr></thead>
+      <tbody id="table-body">${t.rows.map(r => tableRowHTML(r, false)).join('')}</tbody></table></div>
+      <div class="legend">${legend}</div>`;
+  }
   const t = await Data.standings();
-  if (!t.rows.length) return `<h1 class="page-title">Table</h1>${empty('No table for this season yet.')}`;
-  return `<div><h1 class="page-title">Table</h1><p class="page-sub">${esc(t.title)}${t.live ? ' · <span class="live-dot"></span> updating live' : ''}</p></div>
+  if (!t.rows.length) return `<h1 class="page-title">Table</h1>${tableSwitch()}${empty('No table for this season yet.')}`;
+  return `<div><h1 class="page-title">Table</h1><p class="page-sub">${esc(t.title)}${t.live ? ' · <span class="live-dot"></span> updating live' : ''}</p></div>${tableSwitch()}
     <div class="tbl-wrap"><table class="tbl"><thead><tr><th class="rank">#</th><th class="club">Club</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GD</th><th class="form-col">Last 5</th><th>Pts</th></tr></thead>
     <tbody id="table-body">${t.rows.map(r => tableRowHTML(r, false)).join('')}</tbody></table></div>
     <div class="legend"><span><i style="background:var(--blau)"></i>Champions League</span><span><i style="background:var(--z-uel)"></i>Europa League</span><span><i style="background:var(--z-uecl)"></i>Conference League</span><span><i style="background:var(--loss)"></i>Relegation</span></div>
@@ -3941,7 +3988,7 @@ function onClockChange(fresh) {
     const sheet = $('#sheet-content'); if (sheet && state.sheetPid) sheet.innerHTML = sheetBodyHTML(Clock.m, st, state.sheetPid);
   } else if (r.name === 'matches' && Clock.m === DEMO_LIVE) {
     const row = $('#live-row'); if (row) row.outerHTML = fxRowHTML(DEMO_LIVE);
-  } else if (r.name === 'table' && Clock.m === DEMO_LIVE) {
+  } else if (r.name === 'table' && Clock.m === DEMO_LIVE && state.tableComp !== 'CL') {
     const body = $('#table-body'); if (body) body.innerHTML = demoTable().rows.map(x => tableRowHTML(x, false)).join('');
   }
   syncControls();
@@ -4014,6 +4061,7 @@ document.addEventListener('click', e => {
     case 'potm': potmCast(b.dataset.pid); break;
     case 'potm-change': POTM.change = true; potmRedraw(); break;
     case 'share': shareCard(b.dataset.kind, +b.dataset.ev); break;
+    case 'table-comp': if (b.dataset.comp !== state.tableComp) { state.tableComp = b.dataset.comp; try { localStorage.setItem('cule:tableComp', state.tableComp); } catch (e) { /* not remembered */ } $('#view').dataset.route = ''; render(); } break;
     case 'season-player': openSeasonPlayer(b.dataset.pid, b); break;
     case 'sheet-close': closeSheet(); break;
     case 'load-season':
