@@ -44,7 +44,7 @@ service cloud.firestore {
     }
 
     // Player of the match fan vote: one vote per person per match, results public
-    match /potm/{match}/votes/{uid} {
+    match /potm/{matchId}/votes/{uid} {
       allow read: if true;
       allow create, update: if request.auth != null && request.auth.uid == uid
         && request.resource.data.keys().hasOnly(['pid', 'name', 'at'])
