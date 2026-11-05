@@ -16,6 +16,8 @@ service cloud.firestore {
         && request.resource.data.displayName.size() >= 2 && request.resource.data.displayName.size() <= 30
         && request.resource.data.username is string
         && request.resource.data.username.matches('^[a-z0-9_.]{3,20}$')
+        && !request.resource.data.displayName.lower().matches('.*(fuck|bitch|cunt|nigger|nigga|faggot|whore|motherf|putain|salope|mierda|gilipollas|qahba|9a7ba).*')
+        && !request.resource.data.username.matches('.*(fuck|bitch|cunt|nigger|nigga|faggot|whore|motherf|putain|salope|mierda|gilipollas|qahba|9a7ba).*')
         && getAfter(/databases/$(database)/documents/usernames/$(request.resource.data.username)).data.uid == uid;
       allow delete: if false;
     }
@@ -37,6 +39,7 @@ service cloud.firestore {
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.text is string
         && request.resource.data.text.size() >= 1 && request.resource.data.text.size() <= 500
+        && !request.resource.data.text.lower().matches('.*(fuck|bitch|cunt|nigger|nigga|faggot|whore|motherf|putain|salope|mierda|gilipollas|qahba|9a7ba).*')  // the worst swear words, also blocked in the app
         && request.resource.data.at == request.time
         && request.resource.data.name == get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.displayName
         && request.resource.data.username == get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.username;

@@ -860,6 +860,9 @@ const T_ROWS = [
   ["The Champions League table can't be loaded right now.", "Ahora no se puede cargar la clasificación de la Champions.", "Impossible de charger le classement de la Ligue des champions pour le moment.", "تعذر تحميل ترتيب دوري الأبطال الآن."],
   ["League phase", "Fase liga", "Phase de ligue", "مرحلة الدوري"],
   // Profiles and chat
+  ["Swearing isn't allowed in the chat. Please change your message.", "No se permiten palabrotas en el chat. Cambia tu mensaje.", "Les gros mots sont interdits dans le chat. Modifie ton message.", "الشتائم ممنوعة في الدردشة. عدّل رسالتك من فضلك."],
+  ["Please choose a name without swear words.", "Elige un nombre sin palabrotas.", "Choisis un nom sans gros mots.", "اختر اسمًا بدون شتائم من فضلك."],
+  ["Talk with Culés everywhere. Be kind: no swearing, insults, spam or personal details.", "Habla con culés de todo el mundo. Sé amable: sin palabrotas, insultos, spam ni datos personales.", "Discute avec des culés du monde entier. Sois sympa : pas de gros mots, d'insultes, de spam ni d'infos personnelles.", "تحدث مع مشجعي برشلونة في كل مكان. كن لطيفًا: لا شتائم ولا إهانات ولا رسائل مزعجة ولا معلومات شخصية."],
   ["Chat", "Chat", "Chat", "الدردشة"],
   ["Fan chat", "Chat de la afición", "Chat des fans", "دردشة المشجعين"],
   ["Talk with Culés everywhere. Be kind: no insults, spam or personal details.", "Habla con culés de todo el mundo. Sé amable: sin insultos, spam ni datos personales.", "Discute avec des culés du monde entier. Sois sympa : pas d'insultes, de spam ni d'infos personnelles.", "تحدث مع مشجعي برشلونة في كل مكان. كن لطيفًا: لا شتائم ولا رسائل مزعجة ولا معلومات شخصية."],
@@ -3902,6 +3905,7 @@ function unameCheck(input) {
   if (!v) { msg.textContent = '3 to 20 characters: letters, numbers, dots and underscores. No one else can have the same one.'; msg.className = 'help'; return; }
   if (!UNAME_RX.test(v)) { msg.textContent = 'Use 3 to 20 letters, numbers, dots or underscores.'; msg.className = 'help bad'; return; }
   if (Prof.me && Prof.me.username === v) { msg.textContent = 'This is your username.'; msg.className = 'help ok'; return; }
+  if (hasSwear(v) || hasSwear(v.replace(/[._]/g, ' '))) { msg.textContent = 'Please choose a name without swear words.'; msg.className = 'help bad'; return; }
   msg.textContent = 'Checking…'; msg.className = 'help';
   unameTimer = setTimeout(async () => {
     try { const d = await Acct.m.getDoc(Acct.m.doc(Acct.db, 'usernames', v)); if ($('#prof-user')?.value !== v) return; const free = !d.exists() || d.data().uid === Acct.user?.uid; msg.textContent = free ? `@${v} is available` : `@${v} is already taken`; msg.className = 'help ' + (free ? 'ok' : 'bad'); }
@@ -3912,6 +3916,7 @@ async function profSave(form) {
   const err = $('#prof-err'), dn = $('#prof-name').value.trim().replace(/\s+/g, ' '), un = $('#prof-user').value.trim().toLowerCase();
   if (dn.length < 2 || dn.length > 30) { err.textContent = 'Your display name needs 2 to 30 characters.'; return; }
   if (!UNAME_RX.test(un)) { err.textContent = 'Use 3 to 20 letters, numbers, dots or underscores for your username.'; return; }
+  if (hasSwear(dn) || hasSwear(un.replace(/[._]/g, ' ')) || hasSwear(un)) { err.textContent = 'Please choose a name without swear words.'; return; }
   const btn = form.querySelector('button[type="submit"]'); btn.disabled = true; err.textContent = '';
   try {
     const { runTransaction, doc } = Acct.m, uid = Acct.user.uid, old = Prof.me?.username;
@@ -3929,6 +3934,28 @@ async function profSave(form) {
     err.textContent = e.code === 'taken' ? `@${un} is already taken. Try another one.` : e.code === 'permission-denied' ? "Profiles aren't set up yet." : "Couldn't save. Check your connection and try again.";
   } finally { btn.disabled = false; }
 }
+
+/* Swear filter for the chat, display names and usernames (English, Spanish, French, Arabic and Darija).
+   Catches tricks like f*ck, sh1t, f u c k and fuuuck. The database rules also refuse the worst words. */
+const SWEAR_IN = ['fuck', 'fuk', 'fck', 'phuck', 'phuk', 'fvck', 'shit', 'bitch', 'cunt', 'asshole', 'dickhead', 'bastard', 'whore', 'slut', 'nigger', 'nigga', 'faggot', 'retard', 'pussy', 'wanker', 'twat', 'motherf', 'bullshit',
+  'mierda', 'gilipollas', 'cabron', 'pendejo', 'hijueputa', 'hijoputa', 'maricon', 'putain', 'salope', 'connard', 'connasse', 'encule', 'enculer', 'batard', 'fdp', 'ntm', 'nikmok', 'nikmouk', 'qahba', 'kahba', '9a7ba', 'zamel', 't9awed', 'tqawed'];
+const SWEAR_WORD = ['ass', 'arse', 'dick', 'cock', 'fag', 'piss', 'prick', 'tits', 'puta', 'puto', 'putas', 'putos', 'joder', 'coño', 'cono', 'verga', 'polla', 'zorra', 'culero', 'pute', 'putes', 'merde', 'nique', 'niquer', 'zebi', 'zeb', 'zab', 'nik', 'khra', 'wtf', 'stfu',
+  'كس', 'زب', 'قحبة', 'قحبه', 'شرموطة', 'شرموطه', 'منيوك', 'نيك', 'طيز', 'زامل', 'تقود'];
+const LEET = { '0': 'o', '1': 'i', '3': 'e', '4': 'a', '5': 's', '7': 't', '8': 'b', '@': 'a', '$': 's', '!': 'i', '|': 'i', '€': 'e' };
+const swearBase = t => String(t || '').toLowerCase().normalize('NFKD').replace(/[̀-ًͯ-ٟـ]/g, '');
+const swearVariants = w => { const b = swearBase(w), l = b.replace(/[0-9@$!|€]/g, c => LEET[c] || c); const d = x => x.replace(/(.)\1{2,}/g, '$1$1'), d1 = x => x.replace(/(.)\1+/g, '$1'); return [...new Set([b, l, d(b), d(l), d1(b), d1(l)])]; };
+const SW_IN = SWEAR_IN.map(swearBase), SW_WORD = new Set(SWEAR_WORD.map(swearBase));
+function swearToken(tok) { // one word, with its letters only (keeps Arabic letters and digits used in Darija)
+  return swearVariants(tok).some(v => { const w = v.replace(/[^\p{L}\p{N}]/gu, ''); return w && (SW_WORD.has(w) || SW_IN.some(x => w.includes(x))); });
+}
+const SWEAR_OK = /scunthorpe|shi+tak[ei]|dick advocaat|cockerill|hancock|peacock|arsenal|penistone|essex|sussex|middlesex|cockpit|cocktail|cocker/gi; // real words that contain a swear
+function hasSwear(text) {
+  const t = String(text || '').replace(SWEAR_OK, ' ');
+  if (t.split(/[\s.,;:!?¿¡"'()\[\]{}<>«»/\\_\-+=~^·…]+/u).some(x => x && swearToken(x))) return true;
+  // spaced or dotted out letters: "f u c k", "s.h.i.t" (only the strong words, to avoid catching normal sentences)
+  return swearVariants(t.replace(/[\s.\-_*•+]+/g, '')).some(v => { const w = v.replace(/[^\p{L}\p{N}]/gu, ''); return SW_IN.some(x => x.length >= 4 && w.includes(x)); });
+}
+const maskSwears = text => String(text || '').replace(SWEAR_OK, m => m.replace(/./g, c => c + '\u200b')).replace(/[^\s.,;:!?¿¡"'()\[\]{}<>«»/\\]+/gu, w => swearToken(w) ? '•'.repeat(Math.min(w.length, 8)) : w);
 
 const Chat = { unsub: null, msgs: null, err: '', lastSend: 0, sending: false };
 function chatWatch() {
@@ -3950,8 +3977,8 @@ function chatListHTML() {
   let prevUid = null;
   return Chat.msgs.map(m => {
     const mine = m.uid === me, cont = m.uid === prevUid; prevUid = m.uid;
-    return `<div class="msg ${mine ? 'mine' : ''} ${cont ? 'cont' : ''}">${cont ? '' : `<div class="msg-who"><b data-notr>${esc(m.name || '?')}</b>${m.username ? ` <small data-notr>@${esc(m.username)}</small>` : ''}</div>`}
-      <div class="msg-bubble"><span class="msg-text" data-notr>${esc(m.text || '')}</span><span class="msg-meta">${chatTime(m.at)}${mine ? ` · <button class="msg-del" data-act="chat-del" data-id="${esc(m.id)}">Delete</button>` : ''}</span></div></div>`;
+    return `<div class="msg ${mine ? 'mine' : ''} ${cont ? 'cont' : ''}">${cont ? '' : `<div class="msg-who"><b data-notr>${esc(maskSwears(m.name || '?'))}</b>${m.username ? ` <small data-notr>@${esc(maskSwears(m.username))}</small>` : ''}</div>`}
+      <div class="msg-bubble"><span class="msg-text" data-notr>${esc(maskSwears(m.text || ''))}</span><span class="msg-meta">${chatTime(m.at)}${mine ? ` · <button class="msg-del" data-act="chat-del" data-id="${esc(m.id)}">Delete</button>` : ''}</span></div></div>`;
   }).join('');
 }
 function chatPaint() {
@@ -3972,12 +3999,13 @@ async function viewChat() {
   if (Acct.user && !Prof.loaded) await profLoad();
   chatWatch();
   setTimeout(chatPaint, 0);
-  return `<div><h1 class="page-title">Fan chat</h1><p class="page-sub">Talk with Culés everywhere. Be kind: no insults, spam or personal details.</p></div>
+  return `<div><h1 class="page-title">Fan chat</h1><p class="page-sub">Talk with Culés everywhere. Be kind: no swearing, insults, spam or personal details.</p></div>
     <section class="chat-box card"><div id="chat-list" class="chat-list" aria-live="polite">${chatListHTML()}</div><div id="chat-compose">${chatComposerHTML()}</div></section>`;
 }
 async function chatSend(form) {
   const input = $('#chat-input'), text = (input?.value || '').trim().slice(0, 500);
   if (!text || Chat.sending || !Prof.me) return;
+  if (hasSwear(text)) { toast("Swearing isn't allowed in the chat. Please change your message."); input?.focus(); return; }
   if (Date.now() - Chat.lastSend < 3000) { toast('Slow down a little'); return; }
   Chat.sending = true;
   try {
