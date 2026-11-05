@@ -253,6 +253,16 @@ h1,h2,h3,p{margin:0}
 .tbl tr.z-po td.rank::before{background:var(--z-uel)}
 .tbl tr.z-out td.rank::before{background:var(--loss)}
 .tbl-seg{margin-bottom:-8px}
+.xi-card{padding:14px;display:flex;flex-direction:column;gap:12px}
+.xi-card .sec-head{margin:0}
+.xi-forms .chip{font-family:var(--f-label);font-weight:700;font-size:14px;letter-spacing:.04em}
+.xi-pitch{aspect-ratio:68/88}
+.xi-spot .pl-dot{width:40px;height:40px}
+.xi-empty{background:rgba(255,255,255,.18)!important;color:#fff;font-size:22px;font-weight:600;box-shadow:inset 0 0 0 2px rgba(255,255,255,.55)!important;text-shadow:none!important}
+.xi-spot .pl-name{font-size:12px}
+.xi-list .rrow{grid-template-columns:28px 34px minmax(0,1fr) 0}
+.xi-list .nmt small{color:var(--blau)}
+#xi-search{height:44px;border-radius:10px;border:1px solid var(--line);background:var(--surface-2);color:var(--ink);padding:0 12px;font:inherit;width:100%}
 .tbl-seg button{text-transform:none;letter-spacing:.02em;font-size:15px}
 .tbl td.pts{font-weight:700}
 .tbl tr.me td{background:var(--tint-blau)}
@@ -828,6 +838,21 @@ const T_ROWS = [
   ["The Champions League table comes with real data.", "La clasificación de la Champions llega con datos reales.", "Le classement de la Ligue des champions vient avec les données réelles.", "ترتيب دوري الأبطال متاح مع البيانات الحقيقية."],
   ["The Champions League table can't be loaded right now.", "Ahora no se puede cargar la clasificación de la Champions.", "Impossible de charger le classement de la Ligue des champions pour le moment.", "تعذر تحميل ترتيب دوري الأبطال الآن."],
   ["League phase", "Fase liga", "Phase de ligue", "مرحلة الدوري"],
+  // Build your XI
+  ["Build your XI", "Crea tu once", "Compose ton onze", "كوّن تشكيلتك"],
+  ["Formation", "Formación", "Système", "الخطة"],
+  ["Your XI", "Tu once", "Ton onze", "تشكيلتك"],
+  ["Tap a spot to pick any Barça player. Anyone can play anywhere.", "Toca una posición para elegir a cualquier jugador del Barça. Cualquiera puede jugar donde sea.", "Touche un poste pour choisir n'importe quel joueur du Barça. Chacun peut jouer partout.", "اضغط على مركز لاختيار أي لاعب من برشلونة. أي لاعب يمكنه اللعب في أي مكان."],
+  ["Share my XI", "Compartir mi once", "Partager mon onze", "مشاركة تشكيلتي"],
+  ["Clear", "Borrar", "Effacer", "مسح"],
+  ["Pick a player", "Elige un jugador", "Choisis un joueur", "اختر لاعبًا"],
+  ["Search players", "Buscar jugadores", "Chercher un joueur", "ابحث عن لاعب"],
+  ["Remove from this spot", "Quitar de esta posición", "Retirer de ce poste", "إزالة من هذا المركز"],
+  ["No player found.", "No se encontró ningún jugador.", "Aucun joueur trouvé.", "لم يتم العثور على لاعب."],
+  ["In this spot", "En esta posición", "À ce poste", "في هذا المركز"],
+  ["In your XI · tap to swap", "En tu once · toca para cambiar", "Dans ton onze · touche pour échanger", "في تشكيلتك · اضغط للتبديل"],
+  ["MY BARÇA XI", "MI ONCE DEL BARÇA", "MON ONZE DU BARÇA", "تشكيلتي لبرشلونة"],
+  ["Close", "Cerrar", "Fermer", "إغلاق"],
   // Goal replay
   ["Assist type", "Tipo de asistencia", "Type de passe", "نوع التمريرة"],
   ["Through ball", "Pase al hueco", "Passe en profondeur", "تمريرة بينية"],
@@ -3686,7 +3711,7 @@ function openSeasonPlayer(pid, from) {
   root.querySelector('.sheet-close')?.focus();
 }
 function refreshSheet() { // redraw an open match player card (e.g. once photos arrive)
-  if (state.sheetPid && !/^(season|goal):/.test(String(state.sheetPid)) && $('#sheet-root') && !$('#sheet-root').hidden) openPlayer(state.sheetPid, state.sheetReturn);
+  if (state.sheetPid && !/^(season|goal|xi):/.test(String(state.sheetPid)) && $('#sheet-root') && !$('#sheet-root').hidden) openPlayer(state.sheetPid, state.sheetReturn);
 }
 function closeSheet(restoreFocus = true) {
   if (!state.sheetPid) return;
@@ -3761,7 +3786,93 @@ async function viewSquad() {
   state.squadList = sq;
   const loadBtn = settings.mode === 'real' && state.squadSource === 'fd' && state.seasonMissing > 0
     ? `<section class="form-card"><b>Load full season stats</b><p class="help">Adds every player's season stats from this season's ${state.seasonMissing + state.seasonHave} matches: rating, goals, assists, xG, shots, passes, tackles, duels, saves, clean sheets and more. Uses about ${state.seasonMissing} of your 100 free daily requests the first time, then it's saved.</p><button class="btn btn-primary" data-act="load-season">Load season stats</button></section>` : '';
-  return `<div><h1 class="page-title">Squad</h1><p class="page-sub">${settings.mode === 'demo' ? 'Season stats are made up for the demo.' : settings.mode === 'real' ? (state.squadSource === 'fd' ? (state.seasonFull ? `This season's stats from ${state.seasonHave} match${state.seasonHave === 1 ? '' : 'es'}. Tap a player to see all of them.` : 'Current first-team squad, with goals and assists for this season\'s scorers.') : `Players used in the last ${state.squadGames || 0} matches. Goals, assists and ratings come with API-Football.`) : 'Season ' + seasonLabel(settings.season) + ' · all competitions'}</p></div>${loadBtn}${topScorersHTML()}${html || empty('No players found for this season.')}`;
+  return `<div><h1 class="page-title">Squad</h1><p class="page-sub">${settings.mode === 'demo' ? 'Season stats are made up for the demo.' : settings.mode === 'real' ? (state.squadSource === 'fd' ? (state.seasonFull ? `This season's stats from ${state.seasonHave} match${state.seasonHave === 1 ? '' : 'es'}. Tap a player to see all of them.` : 'Current first-team squad, with goals and assists for this season\'s scorers.') : `Players used in the last ${state.squadGames || 0} matches. Goals, assists and ratings come with API-Football.`) : 'Season ' + seasonLabel(settings.season) + ' · all competitions'}</p></div>
+    ${xiHTML()}${loadBtn}${topScorersHTML()}${html || empty('No players found for this season.')}`;
+}
+
+/* --- Build your XI: pick a formation and put any Barça player in any spot (saved on this phone) --- */
+const XI_FORMS = ['4-3-3', '4-2-3-1', '4-4-2', '4-1-4-1', '4-3-1-2', '3-5-2', '3-4-3', '5-3-2'];
+const XI = Object.assign({ f: '4-3-3', slots: {} }, (() => { const v = store.get('myxi', null); return v && XI_FORMS.includes(v.f) ? v : {}; })());
+const xiSave = () => store.set('myxi', { f: XI.f, slots: XI.slots });
+function xiSpots(f) { // where each of the 11 spots sits: GK at the bottom, attack upwards
+  const lines = f.split('-').map(Number), n = lines.length, out = [{ x: 50, y: 90, role: 'GK' }];
+  lines.forEach((c, r) => {
+    const y = 72 - r * (60 / Math.max(1, n - 1)), role = r === 0 ? 'DEF' : r === n - 1 ? 'FWD' : 'MID';
+    for (let i = 0; i < c; i++) out.push({ x: c === 1 ? 50 : 14 + i * (72 / (c - 1)), y: n === 1 ? 50 : y, role });
+  });
+  return out;
+}
+const xiPlayer = id => (state.squadList || []).find(p => String(p.id) === String(id)) || null;
+function xiHTML() {
+  const spots = xiSpots(XI.f), filled = Object.values(XI.slots).filter(xiPlayer).length;
+  const dots = spots.map((sp, i) => {
+    const p = xiPlayer(XI.slots[i]);
+    const inner = p ? `<span class="pl-dot ${p.photo ? 'has-ph' : ''}">${p.photo ? `<img class="ph" src="${esc(p.photo)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ''}<span class="pl-no">${p.number ?? ''}</span></span><span class="pl-name">${esc(shortPlayer(p.name))}</span>`
+      : `<span class="pl-dot xi-empty">+</span><span class="pl-name">${sp.role}</span>`;
+    return `<button class="pl t-fcb xi-spot" data-act="xi-spot" data-i="${i}" style="left:${sp.x.toFixed(1)}%;top:${sp.y.toFixed(1)}%" aria-label="${p ? esc(p.name) : 'Empty spot, ' + sp.role}">${inner}</button>`;
+  }).join('');
+  return `<section class="card xi-card" id="xi-card"><div class="sec-head"><h2 class="sec-title">Build your XI</h2><span class="help">${filled}/11</span></div>
+    <div class="chips xi-forms" role="group" aria-label="Formation">${XI_FORMS.map(f => `<button class="chip" data-act="xi-form" data-f="${f}" aria-pressed="${XI.f === f}" data-notr>${f}</button>`).join('')}</div>
+    <div class="pitch xi-pitch" role="group" aria-label="Your XI"><span class="ln outline"></span><span class="ln half"></span><span class="ln circle"></span><span class="ln box top"></span><span class="ln box bottom"></span><span class="ln six top"></span><span class="ln six bottom"></span>${dots}</div>
+    <p class="help">Tap a spot to pick any Barça player. Anyone can play anywhere.</p>
+    <div class="row"><button class="btn btn-ghost btn-sm" data-act="xi-share" ${filled ? '' : 'disabled'}>${I.share} Share my XI</button><button class="btn btn-ghost btn-sm" data-act="xi-clear" ${filled ? '' : 'disabled'}>Clear</button></div></section>`;
+}
+function xiRedraw() { const el = $('#xi-card'); if (el) el.outerHTML = xiHTML(); }
+function xiPickerList(q) {
+  const t = normName(q || ''), mine = String(XI.slots[state.xiSlot] ?? '');
+  const where = {}; Object.entries(XI.slots).forEach(([i, id]) => { where[String(id)] = +i; });
+  const posAb = { G: 'GK', D: 'DEF', M: 'MID', F: 'FWD' };
+  const list = (state.squadList || []).filter(p => !t || normName(p.name).includes(t) || String(p.number ?? '') === t).sort((a, b) => (a.number ?? 99) - (b.number ?? 99));
+  if (!list.length) return `<p class="help">No player found.</p>`;
+  return `<ul class="rlist xi-list">${list.map(p => { const at = where[String(p.id)], here = String(p.id) === mine;
+    return `<li><button class="rrow" data-act="xi-pick" data-pid="${esc(p.id)}"><span class="bn">${p.number ?? ''}</span><span class="pos-ab">${posAb[p.pos] || ''}</span><span class="nmw ${p.photo ? 'has-av' : ''}">${avatar(p, 'sm')}<span class="nmt"><b>${esc(p.name)}</b>${at != null ? `<small>${here ? 'In this spot' : 'In your XI · tap to swap'}</small>` : ''}</span></span><span></span></button></li>`; }).join('')}</ul>`;
+}
+function xiOpen(i, from) {
+  state.xiSlot = i; state.sheetPid = 'xi:' + i; state.sheetReturn = from || null;
+  const sp = xiSpots(XI.f)[i], has = XI.slots[i] != null;
+  const root = $('#sheet-root');
+  root.innerHTML = `<div class="sheet-back" data-act="sheet-close"></div><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+    <div class="sheet-top"><span class="sheet-num t-fcb"><span class="pl-no">${sp.role}</span></span><span class="sheet-name"><b id="sheet-title">Pick a player</b><small>${XI.f} · ${sp.role}</small></span><button class="sheet-close" data-act="sheet-close" aria-label="Close">×</button></div>
+    <div class="field"><input id="xi-search" type="search" placeholder="Search players" autocomplete="off" spellcheck="false" aria-label="Search players"></div>
+    ${has ? '<button class="btn btn-ghost btn-sm" data-act="xi-remove">Remove from this spot</button>' : ''}
+    <div id="xi-results">${xiPickerList('')}</div></div>`;
+  root.hidden = false; document.body.style.overflow = 'hidden';
+  setTimeout(() => $('#xi-search')?.focus(), 50);
+}
+function xiPick(pid) {
+  const i = state.xiSlot, prev = XI.slots[i];
+  const from = Object.keys(XI.slots).find(k => String(XI.slots[k]) === String(pid) && +k !== i);
+  if (from != null) { if (prev != null) XI.slots[from] = prev; else delete XI.slots[from]; } // already picked: swap the two spots
+  XI.slots[i] = pid; xiSave(); closeSheet(false); xiRedraw();
+}
+async function xiShare() {
+  try {
+    const W = 1080, H = 1920, c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d');
+    const D = '"Big Shoulders Display","Barlow Condensed",sans-serif', B = '"Barlow",system-ui,sans-serif';
+    try { await document.fonts.ready; } catch (e) { /* default fonts */ }
+    const bg = g.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, '#0B1530'); bg.addColorStop(1, '#050913'); g.fillStyle = bg; g.fillRect(0, 0, W, H);
+    g.textAlign = 'center'; g.fillStyle = '#fff'; g.font = `800 64px ${D}`; g.fillText('CULÉ LIVE', W / 2, 120); g.fillStyle = '#E9B300'; g.fillRect(W / 2 - 60, 146, 120, 8);
+    g.fillStyle = '#fff'; g.font = `800 92px ${D}`; g.fillText(trx('MY BARÇA XI'), W / 2, 270); g.fillStyle = 'rgba(255,255,255,.75)'; g.font = `600 44px ${B}`; g.fillText(XI.f, W / 2, 340);
+    const X = 90, Y = 400, PW = 900, PH = 1350;
+    for (let k = 0; k < 10; k++) { g.fillStyle = k % 2 ? '#297248' : '#2D7A4D'; g.fillRect(X, Y + k * PH / 10, PW, PH / 10); }
+    g.strokeStyle = 'rgba(255,255,255,.5)'; g.lineWidth = 5; g.strokeRect(X + 20, Y + 20, PW - 40, PH - 40);
+    g.beginPath(); g.moveTo(X + 20, Y + PH / 2); g.lineTo(X + PW - 20, Y + PH / 2); g.stroke(); g.beginPath(); g.arc(X + PW / 2, Y + PH / 2, 120, 0, Math.PI * 2); g.stroke();
+    g.strokeRect(X + PW * 0.22, Y + 20, PW * 0.56, 190); g.strokeRect(X + PW * 0.22, Y + PH - 210, PW * 0.56, 190);
+    const imgs = await Promise.all(xiSpots(XI.f).map((sp, i) => { const p = xiPlayer(XI.slots[i]); return p && p.photo ? loadImg(p.photo) : null; }));
+    xiSpots(XI.f).forEach((sp, i) => {
+      const p = xiPlayer(XI.slots[i]), cx = X + sp.x / 100 * PW, cy = Y + sp.y / 100 * PH;
+      g.save(); g.beginPath(); g.arc(cx, cy, 58, 0, Math.PI * 2); g.fillStyle = p ? '#0F3C8F' : 'rgba(255,255,255,.18)'; g.fill(); g.lineWidth = 8; g.strokeStyle = p ? '#9E1340' : 'rgba(255,255,255,.4)'; g.stroke();
+      if (imgs[i]) { g.clip(); const im = imgs[i], r = 116 / Math.min(im.width, im.height); g.drawImage(im, cx - im.width * r / 2, cy - 58, im.width * r, im.height * r); }
+      else { g.fillStyle = '#fff'; g.font = `800 52px ${D}`; g.textBaseline = 'middle'; g.fillText(p ? String(p.number ?? '') : '+', cx, cy + 2); g.textBaseline = 'alphabetic'; }
+      g.restore();
+      g.fillStyle = '#fff'; g.font = `700 36px ${B}`; g.shadowColor = 'rgba(0,0,0,.6)'; g.shadowBlur = 8; g.fillText(p ? shortPlayer(p.name) : sp.role, cx, cy + 104); g.shadowBlur = 0;
+    });
+    g.fillStyle = 'rgba(255,255,255,.55)'; g.font = `500 34px ${B}`; g.fillText('mamenka6.github.io/Cule-Live', W / 2, H - 80);
+    const blob = await new Promise(res => c.toBlob(res, 'image/png'));
+    const file = new File([blob], 'my-barca-xi.png', { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { try { await navigator.share({ files: [file], title: 'Culé Live' }); return; } catch (e) { if (e.name === 'AbortError') return; } }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = file.name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); toast('Image saved');
+  } catch (e) { toast("Couldn't make the image. Try again."); }
 }
 
 function topScorersHTML() {
@@ -3967,7 +4078,7 @@ async function render() {
   catch (e) { html = errorHTML(e); }
   if (seq !== renderSeq) return;
   view.innerHTML = html; view.dataset.route = routeKey(r);
-  if (r.name === 'match' && state.sheetPid && !/^(season|goal):/.test(String(state.sheetPid))) Data.match(r.id).then(m => { const c = $('#sheet-content'); if (c) c.innerHTML = sheetBodyHTML(m, mcStateOf(m), state.sheetPid); }).catch(() => {});
+  if (r.name === 'match' && state.sheetPid && !/^(season|goal|xi):/.test(String(state.sheetPid))) Data.match(r.id).then(m => { const c = $('#sheet-content'); if (c) c.innerHTML = sheetBodyHTML(m, mcStateOf(m), state.sheetPid); }).catch(() => {});
 }
 function errorHTML(e) {
   const msg = e instanceof AppError ? e.message : 'Something went wrong while loading. Please try again.';
@@ -4061,6 +4172,12 @@ document.addEventListener('click', e => {
     case 'potm': potmCast(b.dataset.pid); break;
     case 'potm-change': POTM.change = true; potmRedraw(); break;
     case 'share': shareCard(b.dataset.kind, +b.dataset.ev); break;
+    case 'xi-spot': xiOpen(+b.dataset.i, b); break;
+    case 'xi-pick': xiPick(b.dataset.pid); break;
+    case 'xi-remove': delete XI.slots[state.xiSlot]; xiSave(); closeSheet(false); xiRedraw(); break;
+    case 'xi-form': if (b.dataset.f !== XI.f) { XI.f = b.dataset.f; xiSave(); xiRedraw(); } break;
+    case 'xi-clear': XI.slots = {}; xiSave(); xiRedraw(); break;
+    case 'xi-share': xiShare(); break;
     case 'table-comp': if (b.dataset.comp !== state.tableComp) { state.tableComp = b.dataset.comp; try { localStorage.setItem('cule:tableComp', state.tableComp); } catch (e) { /* not remembered */ } $('#view').dataset.route = ''; render(); } break;
     case 'season-player': openSeasonPlayer(b.dataset.pid, b); break;
     case 'sheet-close': closeSheet(); break;
@@ -4146,7 +4263,7 @@ document.addEventListener('change', e => {
   if (t.dataset.push) { Push.prefs[t.dataset.push] = t.checked; pushPrefs(); }
   if (t.id === 'scrub') state.scrubbing = false;
 });
-document.addEventListener('input', e => { if (e.target.id === 'scrub') { state.scrubbing = true; Clock.seek(+e.target.value); } });
+document.addEventListener('input', e => { if (e.target.id === 'xi-search') { const r = $('#xi-results'); if (r) r.innerHTML = xiPickerList(e.target.value); return; } if (e.target.id === 'scrub') { state.scrubbing = true; Clock.seek(+e.target.value); } });
 document.addEventListener('pointerup', () => { state.scrubbing = false; });
 window.addEventListener('hashchange', render);
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
