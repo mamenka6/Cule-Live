@@ -253,6 +253,7 @@ h1,h2,h3,p{margin:0}
 .tbl tr.z-po td.rank::before{background:var(--z-uel)}
 .tbl tr.z-out td.rank::before{background:var(--loss)}
 .tbl-seg{margin-bottom:-8px}
+.xi-open{height:48px;font-size:16px}
 .xi-card{padding:14px;display:flex;flex-direction:column;gap:12px}
 .xi-card .sec-head{margin:0}
 .xi-forms .chip{font-family:var(--f-label);font-weight:700;font-size:14px;letter-spacing:.04em}
@@ -839,6 +840,8 @@ const T_ROWS = [
   ["The Champions League table can't be loaded right now.", "Ahora no se puede cargar la clasificación de la Champions.", "Impossible de charger le classement de la Ligue des champions pour le moment.", "تعذر تحميل ترتيب دوري الأبطال الآن."],
   ["League phase", "Fase liga", "Phase de ligue", "مرحلة الدوري"],
   // Build your XI
+  ["Build your own XI", "Crea tu propio once", "Compose ton propre onze", "كوّن تشكيلتك الخاصة"],
+  ["Pick a formation, then put any Barça player in any spot.", "Elige una formación y pon a cualquier jugador del Barça en cualquier posición.", "Choisis un système, puis place n'importe quel joueur du Barça à n'importe quel poste.", "اختر خطة، ثم ضع أي لاعب من برشلونة في أي مركز."],
   ["Build your XI", "Crea tu once", "Compose ton onze", "كوّن تشكيلتك"],
   ["Formation", "Formación", "Système", "الخطة"],
   ["Your XI", "Tu once", "Ton onze", "تشكيلتك"],
@@ -3787,7 +3790,7 @@ async function viewSquad() {
   const loadBtn = settings.mode === 'real' && state.squadSource === 'fd' && state.seasonMissing > 0
     ? `<section class="form-card"><b>Load full season stats</b><p class="help">Adds every player's season stats from this season's ${state.seasonMissing + state.seasonHave} matches: rating, goals, assists, xG, shots, passes, tackles, duels, saves, clean sheets and more. Uses about ${state.seasonMissing} of your 100 free daily requests the first time, then it's saved.</p><button class="btn btn-primary" data-act="load-season">Load season stats</button></section>` : '';
   return `<div><h1 class="page-title">Squad</h1><p class="page-sub">${settings.mode === 'demo' ? 'Season stats are made up for the demo.' : settings.mode === 'real' ? (state.squadSource === 'fd' ? (state.seasonFull ? `This season's stats from ${state.seasonHave} match${state.seasonHave === 1 ? '' : 'es'}. Tap a player to see all of them.` : 'Current first-team squad, with goals and assists for this season\'s scorers.') : `Players used in the last ${state.squadGames || 0} matches. Goals, assists and ratings come with API-Football.`) : 'Season ' + seasonLabel(settings.season) + ' · all competitions'}</p></div>
-    ${xiHTML()}${loadBtn}${topScorersHTML()}${html || empty('No players found for this season.')}`;
+    <a class="btn btn-primary wide xi-open" href="#xi">${I.squad} Build your own XI</a>${loadBtn}${topScorersHTML()}${html || empty('No players found for this season.')}`;
 }
 
 /* --- Build your XI: pick a formation and put any Barça player in any spot (saved on this phone) --- */
@@ -3811,7 +3814,7 @@ function xiHTML() {
       : `<span class="pl-dot xi-empty">+</span><span class="pl-name">${sp.role}</span>`;
     return `<button class="pl t-fcb xi-spot" data-act="xi-spot" data-i="${i}" style="left:${sp.x.toFixed(1)}%;top:${sp.y.toFixed(1)}%" aria-label="${p ? esc(p.name) : 'Empty spot, ' + sp.role}">${inner}</button>`;
   }).join('');
-  return `<section class="card xi-card" id="xi-card"><div class="sec-head"><h2 class="sec-title">Build your XI</h2><span class="help">${filled}/11</span></div>
+  return `<section class="card xi-card" id="xi-card"><div class="sec-head"><h2 class="sec-title">Your XI</h2><span class="help">${filled}/11</span></div>
     <div class="chips xi-forms" role="group" aria-label="Formation">${XI_FORMS.map(f => `<button class="chip" data-act="xi-form" data-f="${f}" aria-pressed="${XI.f === f}" data-notr>${f}</button>`).join('')}</div>
     <div class="pitch xi-pitch" role="group" aria-label="Your XI"><span class="ln outline"></span><span class="ln half"></span><span class="ln circle"></span><span class="ln box top"></span><span class="ln box bottom"></span><span class="ln six top"></span><span class="ln six bottom"></span>${dots}</div>
     <p class="help">Tap a spot to pick any Barça player. Anyone can play anywhere.</p>
@@ -3873,6 +3876,11 @@ async function xiShare() {
     if (navigator.canShare && navigator.canShare({ files: [file] })) { try { await navigator.share({ files: [file], title: 'Culé Live' }); return; } catch (e) { if (e.name === 'AbortError') return; } }
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = file.name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); toast('Image saved');
   } catch (e) { toast("Couldn't make the image. Try again."); }
+}
+
+async function viewXI() {
+  if (!state.squadList || !state.squadList.length) { try { state.squadList = await Data.squad(); if (settings.mode === 'real' && settings.server) photosFor({ ...BARCA }, state.squadList, true); } catch (e) { state.squadList = []; } }
+  return `<a class="back" href="#squad">${I.back} Squad</a><div><h1 class="page-title">Build your own XI</h1><p class="page-sub">Pick a formation, then put any Barça player in any spot.</p></div>${xiHTML()}`;
 }
 
 function topScorersHTML() {
@@ -4055,9 +4063,9 @@ function viewSetup() {
 }
 
 /* ---------- 8. Buttons, router and start-up ---------- */
-const VIEWS = { home: viewHome, matches: viewMatches, table: viewTable, squad: viewSquad, options: viewOptions, dev: viewSetup, match: viewMatch };
+const VIEWS = { home: viewHome, matches: viewMatches, table: viewTable, squad: viewSquad, options: viewOptions, dev: viewSetup, match: viewMatch, xi: viewXI };
 const NAV = [['home', 'Home'], ['matches', 'Matches'], ['table', 'Table'], ['squad', 'Squad'], ['options', 'Settings']];
-const HIDDEN = { dev: 'dev', setup: 'options' }; // #dev = developer page, old #setup links go to Settings
+const HIDDEN = { dev: 'dev', setup: 'options', xi: 'xi' }; // #dev = developer page, old #setup links go to Settings
 function route() {
   const h = location.hash.slice(1);
   if (h.startsWith('match-')) return { name: 'match', id: h.slice(6) };
@@ -4069,8 +4077,8 @@ const routeKey = r => r.name + (r.id ? ':' + r.id : '');
 let renderSeq = 0;
 async function render() {
   const seq = ++renderSeq, r = route(), view = $('#view');
-  if (r.name !== 'match') state.lastTab = r.name;
-  document.querySelectorAll('.tab').forEach(t => { if (t.dataset.tab === (r.name === 'match' ? state.lastTab : r.name)) t.setAttribute('aria-current', 'page'); else t.removeAttribute('aria-current'); });
+  if (r.name !== 'match' && r.name !== 'xi') state.lastTab = r.name;
+  document.querySelectorAll('.tab').forEach(t => { if (t.dataset.tab === (r.name === 'match' ? state.lastTab : r.name === 'xi' ? 'squad' : r.name)) t.setAttribute('aria-current', 'page'); else t.removeAttribute('aria-current'); });
   const sameView = view.dataset.route === routeKey(r);
   if (!sameView) { closeSheet(false); view.innerHTML = '<div class="loading">Loading…</div>'; window.scrollTo(0, 0); }
   let html;
