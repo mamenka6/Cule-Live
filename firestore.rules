@@ -1,0 +1,55 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Each person's own predictions (unchanged)
+    match /users/{uid}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Public profiles: anyone can see them, each person edits only their own,
+    // and only with a username they have reserved below
+    match /profiles/{uid} {
+      allow read: if true;
+      allow create, update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['displayName', 'username', 'at'])
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() >= 2 && request.resource.data.displayName.size() <= 30
+        && request.resource.data.username is string
+        && request.resource.data.username.matches('^[a-z0-9_.]{3,20}$')
+        && getAfter(/databases/$(database)/documents/usernames/$(request.resource.data.username)).data.uid == uid;
+      allow delete: if false;
+    }
+
+    // Usernames: one person per username. A taken name can't be claimed (that would be an update),
+    // and only its owner can free it
+    match /usernames/{name} {
+      allow read: if true;
+      allow create: if request.auth != null && name.matches('^[a-z0-9_.]{3,20}$')
+        && request.resource.data.keys().hasOnly(['uid']) && request.resource.data.uid == request.auth.uid;
+      allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
+    }
+
+    // Fan chat: anyone can read; signed-in people post only as themselves, with their own profile name
+    match /chat/{id} {
+      allow read: if true;
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly(['uid', 'name', 'username', 'text', 'at'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.text is string
+        && request.resource.data.text.size() >= 1 && request.resource.data.text.size() <= 500
+        && request.resource.data.at == request.time
+        && request.resource.data.name == get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.displayName
+        && request.resource.data.username == get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.username;
+      allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
+    }
+
+    // Player of the match fan vote: one vote per person per match, results public
+    match /potm/{match}/votes/{uid} {
+      allow read: if true;
+      allow create, update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['pid', 'name', 'at'])
+        && request.resource.data.pid is string && request.resource.data.pid.size() <= 40;
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+  }
+}
