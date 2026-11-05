@@ -256,10 +256,12 @@ h1,h2,h3,p{margin:0}
 .xi-open{height:48px;font-size:16px}
 .xi-card{padding:14px;display:flex;flex-direction:column;gap:12px}
 .xi-card .sec-head{margin:0}
-.xi-forms .chip{font-family:var(--f-label);font-weight:700;font-size:14px;letter-spacing:.04em}
+.xi-form-row{display:flex;align-items:center;justify-content:space-between;gap:12px;font-weight:600}
+#xi-form{height:42px;border-radius:10px;border:1px solid var(--line);background:var(--surface-2);color:var(--ink);padding:0 10px;font:inherit;font-weight:600;min-width:0;flex:1;max-width:240px}
+.xi-spot .pl-name{max-width:64px}
 .xi-pitch{aspect-ratio:68/88}
 .xi-spot .pl-dot{width:40px;height:40px}
-.xi-empty{background:rgba(255,255,255,.18)!important;color:#fff;font-size:22px;font-weight:600;box-shadow:inset 0 0 0 2px rgba(255,255,255,.55)!important;text-shadow:none!important}
+.xi-empty{background:rgba(255,255,255,.18)!important;color:#fff;font-size:20px;font-weight:600;box-shadow:inset 0 0 0 2px rgba(255,255,255,.55)!important;text-shadow:none!important}
 .xi-spot .pl-name{font-size:12px}
 .xi-list .rrow{grid-template-columns:28px 34px minmax(0,1fr) 0}
 .xi-list .nmt small{color:var(--blau)}
@@ -987,6 +989,7 @@ const T_RX = [
   [/^Season (\S+)$/, { es: 'Temporada $1', fr: 'Saison $1', ar: 'موسم $1' }],
   [/^La Liga (\d{4}–\d{2})$/, { es: 'LaLiga $1', fr: 'Liga $1', ar: 'الدوري الإسباني $1' }],
   [/^Champions League (\d{4}–\d{2})$/, { es: 'Champions League $1', fr: 'Ligue des champions $1', ar: 'دوري أبطال أوروبا $1' }],
+  [/^(\d(?:-\d)+) \((Holding|Attack|Defend|False 9|Flat|Wide|Narrow)\)$/, { es: m => `${m[1]} (${{ Holding: 'Contención', Attack: 'Ataque', Defend: 'Defensa', 'False 9': 'Falso 9', Flat: 'En línea', Wide: 'Abierto', Narrow: 'Cerrado' }[m[2]]})`, fr: m => `${m[1]} (${{ Holding: 'Récupération', Attack: 'Attaque', Defend: 'Défense', 'False 9': 'Faux 9', Flat: 'À plat', Wide: 'Large', Narrow: 'Resserré' }[m[2]]})`, ar: m => `${m[1]} (${{ Holding: 'ارتكاز', Attack: 'هجومي', Defend: 'دفاعي', 'False 9': 'مهاجم وهمي', Flat: 'مسطح', Wide: 'عريض', Narrow: 'ضيق' }[m[2]]})` }],
   [/^Group ([A-Z])$/, { es: 'Grupo $1', fr: 'Groupe $1', ar: 'المجموعة $1' }],
   [/^times in your time zone \((.+)\)\. TBC = time not announced yet\.$/, { es: 'horas en tu zona horaria ($1). Por conf. = hora aún no anunciada.', fr: 'heures dans ton fuseau horaire ($1). À conf. = heure pas encore annoncée.', ar: 'الأوقات حسب منطقتك الزمنية ($1). غير محدد = لم يُعلن الوقت بعد.' }],
   [/^vs (.+)$/, { es: 'vs $1', fr: 'contre $1', ar: 'ضد $1' }],
@@ -3794,16 +3797,40 @@ async function viewSquad() {
 }
 
 /* --- Build your XI: pick a formation and put any Barça player in any spot (saved on this phone) --- */
-const XI_FORMS = ['4-3-3', '4-2-3-1', '4-4-2', '4-1-4-1', '4-3-1-2', '3-5-2', '3-4-3', '5-3-2'];
-const XI = Object.assign({ f: '4-3-3', slots: {} }, (() => { const v = store.get('myxi', null); return v && XI_FORMS.includes(v.f) ? v : {}; })());
+// Formations like in FIFA: the same shape can be played different ways. Each spot: position x y (x 0–100 left to right, y 0 top to 100 bottom)
+const XI_DEF4 = 'LB 12 70|CB 37 74|CB 63 74|RB 88 70', XI_DEF3 = 'CB 22 73|CB 50 75|CB 78 73', XI_DEF5 = 'LWB 9 62|CB 30 74|CB 50 76|CB 70 74|RWB 91 62';
+const XI_SHAPES = {
+  '4-3-3 (Holding)': [XI_DEF4, 'CM 25 50|CDM 50 58|CM 75 50|LW 16 22|ST 50 15|RW 84 22'],
+  '4-3-3 (Attack)': [XI_DEF4, 'CM 27 54|CAM 50 40|CM 73 54|LW 16 22|ST 50 14|RW 84 22'],
+  '4-3-3 (Defend)': [XI_DEF4, 'CDM 30 58|CM 50 48|CDM 70 58|LW 16 22|ST 50 14|RW 84 22'],
+  '4-3-3 (False 9)': [XI_DEF4, 'CM 25 52|CDM 50 60|CM 75 52|LW 16 20|CF 50 28|RW 84 20'],
+  '4-3-3 (Flat)': [XI_DEF4, 'CM 22 50|CM 50 50|CM 78 50|LW 16 22|ST 50 14|RW 84 22'],
+  '4-4-2 (Flat)': [XI_DEF4, 'LM 12 46|CM 37 50|CM 63 50|RM 88 46|ST 37 17|ST 63 17'],
+  '4-4-2 (Holding)': [XI_DEF4, 'LM 12 46|CDM 37 57|CDM 63 57|RM 88 46|ST 37 17|ST 63 17'],
+  '4-2-3-1 (Wide)': [XI_DEF4, 'CDM 35 58|CDM 65 58|LM 14 36|CAM 50 36|RM 86 36|ST 50 14'],
+  '4-2-3-1 (Narrow)': [XI_DEF4, 'CDM 35 58|CDM 65 58|CAM 22 36|CAM 50 34|CAM 78 36|ST 50 14'],
+  '4-1-2-1-2 (Wide)': [XI_DEF4, 'CDM 50 60|LM 14 44|RM 86 44|CAM 50 34|ST 36 15|ST 64 15'],
+  '4-1-2-1-2 (Narrow)': [XI_DEF4, 'CDM 50 60|CM 30 48|CM 70 48|CAM 50 34|ST 36 15|ST 64 15'],
+  '4-1-4-1': [XI_DEF4, 'CDM 50 60|LM 12 42|CM 36 46|CM 64 46|RM 88 42|ST 50 15'],
+  '4-2-2-2': [XI_DEF4, 'CDM 35 58|CDM 65 58|CAM 25 36|CAM 75 36|ST 37 15|ST 63 15'],
+  '4-3-2-1': [XI_DEF4, 'CM 22 52|CM 50 54|CM 78 52|CF 32 30|CF 68 30|ST 50 13'],
+  '4-5-1 (Attack)': [XI_DEF4, 'LM 12 44|CAM 35 38|CM 50 54|CAM 65 38|RM 88 44|ST 50 14'],
+  '3-5-2': [XI_DEF3, 'CDM 35 58|CDM 65 58|LM 12 42|CAM 50 38|RM 88 42|ST 37 15|ST 63 15'],
+  '3-4-3': [XI_DEF3, 'LM 12 46|CM 37 50|CM 63 50|RM 88 46|LW 18 20|ST 50 14|RW 82 20'],
+  '3-4-2-1': [XI_DEF3, 'LM 12 46|CM 37 52|CM 63 52|RM 88 46|CF 32 30|CF 68 30|ST 50 13'],
+  '3-1-4-2': [XI_DEF3, 'CDM 50 60|LM 12 44|CM 37 46|CM 63 46|RM 88 44|ST 37 16|ST 63 16'],
+  '5-3-2': [XI_DEF5, 'CM 25 48|CM 50 50|CM 75 48|ST 37 17|ST 63 17'],
+  '5-2-1-2': [XI_DEF5, 'CM 33 50|CM 67 50|CAM 50 36|ST 37 16|ST 63 16'],
+  '5-4-1': [XI_DEF5, 'LM 14 44|CM 37 48|CM 63 48|RM 86 44|ST 50 15'],
+};
+const XI_FORMS = Object.keys(XI_SHAPES);
+const XI_OLD = { '4-3-3': '4-3-3 (Holding)', '4-2-3-1': '4-2-3-1 (Wide)', '4-4-2': '4-4-2 (Flat)', '4-3-1-2': '4-1-2-1-2 (Narrow)' }; // names saved by the first version
+const XI = Object.assign({ f: '4-3-3 (Holding)', slots: {} }, (() => { const v = store.get('myxi', null); if (!v) return {}; const f = XI_SHAPES[v.f] ? v.f : XI_OLD[v.f]; return f ? { ...v, f } : {}; })());
 const xiSave = () => store.set('myxi', { f: XI.f, slots: XI.slots });
-function xiSpots(f) { // where each of the 11 spots sits: GK at the bottom, attack upwards
-  const lines = f.split('-').map(Number), n = lines.length, out = [{ x: 50, y: 90, role: 'GK' }];
-  lines.forEach((c, r) => {
-    const y = 72 - r * (60 / Math.max(1, n - 1)), role = r === 0 ? 'DEF' : r === n - 1 ? 'FWD' : 'MID';
-    for (let i = 0; i < c; i++) out.push({ x: c === 1 ? 50 : 14 + i * (72 / (c - 1)), y: n === 1 ? 50 : y, role });
-  });
-  return out;
+const XI_ROLE = r => r === 'GK' ? 'GK' : /B$|^CB/.test(r) ? 'DEF' : /^(ST|CF|LW|RW)$/.test(r) ? 'FWD' : 'MID';
+function xiSpots(f) { // the GK at the bottom, attack upwards
+  const spec = XI_SHAPES[f] || XI_SHAPES[XI_FORMS[0]];
+  return [{ x: 50, y: 90, role: 'GK' }, ...spec.join('|').split('|').map(t => { const [role, x, y] = t.split(' '); return { role, x: +x, y: +y }; })];
 }
 const xiPlayer = id => (state.squadList || []).find(p => String(p.id) === String(id)) || null;
 function xiHTML() {
@@ -3815,7 +3842,7 @@ function xiHTML() {
     return `<button class="pl t-fcb xi-spot" data-act="xi-spot" data-i="${i}" style="left:${sp.x.toFixed(1)}%;top:${sp.y.toFixed(1)}%" aria-label="${p ? esc(p.name) : 'Empty spot, ' + sp.role}">${inner}</button>`;
   }).join('');
   return `<section class="card xi-card" id="xi-card"><div class="sec-head"><h2 class="sec-title">Your XI</h2><span class="help">${filled}/11</span></div>
-    <div class="chips xi-forms" role="group" aria-label="Formation">${XI_FORMS.map(f => `<button class="chip" data-act="xi-form" data-f="${f}" aria-pressed="${XI.f === f}" data-notr>${f}</button>`).join('')}</div>
+    <label class="xi-form-row"><span>Formation</span><select id="xi-form" aria-label="Formation">${[...new Set(XI_FORMS.map(f => f.split(' ')[0]))].map(base => `<optgroup label="${base}">${XI_FORMS.filter(f => f.split(' ')[0] === base).map(f => `<option value="${f}" ${XI.f === f ? 'selected' : ''}>${f}</option>`).join('')}</optgroup>`).join('')}</select></label>
     <div class="pitch xi-pitch" role="group" aria-label="Your XI"><span class="ln outline"></span><span class="ln half"></span><span class="ln circle"></span><span class="ln box top"></span><span class="ln box bottom"></span><span class="ln six top"></span><span class="ln six bottom"></span>${dots}</div>
     <p class="help">Tap a spot to pick any Barça player. Anyone can play anywhere.</p>
     <div class="row"><button class="btn btn-ghost btn-sm" data-act="xi-share" ${filled ? '' : 'disabled'}>${I.share} Share my XI</button><button class="btn btn-ghost btn-sm" data-act="xi-clear" ${filled ? '' : 'disabled'}>Clear</button></div></section>`;
@@ -4268,6 +4295,7 @@ document.addEventListener('change', e => {
   if (t.id === 'season') { devChange(); settings.season = +t.value; saveSettings(); state.fixtures = null; if (Clock.mode === 'replay') Clock.unload(); updateModeChip(); }
   if (t.id === 'refresh') { devChange(); settings.refresh = +t.value; saveSettings(); schedulePoll(); }
   if (t.id === 'alerts') { settings.alerts = t.checked; saveSettings(); }
+  if (t.id === 'xi-form' && XI_SHAPES[t.value] && t.value !== XI.f) { XI.f = t.value; xiSave(); xiRedraw(); }
   if (t.dataset.push) { Push.prefs[t.dataset.push] = t.checked; pushPrefs(); }
   if (t.id === 'scrub') state.scrubbing = false;
 });
