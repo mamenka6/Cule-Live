@@ -271,6 +271,11 @@ h1,h2,h3,p{margin:0}
 .chat-form{display:flex;gap:8px;padding:10px;border-top:1px solid var(--line);background:var(--surface)}
 .chat-form input{flex:1;min-width:0;height:44px;border-radius:22px;border:1px solid var(--line);background:var(--surface-2);color:var(--ink);padding:0 16px;font:inherit}
 .chat-form .btn{width:44px;height:44px;padding:0;border-radius:50%}
+.adm-tag{display:inline-block;font-family:var(--f-label);font-weight:700;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;padding:1px 6px;border-radius:5px;background:var(--gold);color:#1a1300;vertical-align:1px}
+.mod-tag{display:inline-block;font-family:var(--f-label);font-weight:700;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;padding:1px 6px;border-radius:5px;background:var(--loss);color:#fff;vertical-align:1px}
+.mod-quote{background:var(--surface-2);border-radius:12px;padding:10px 12px;font-style:italic;overflow-wrap:anywhere}
+.mod-ban{color:var(--loss)}
+.adm-list{list-style:none;padding:0;margin:0;background:var(--surface-2);border-radius:12px}
 .chat-cta{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px;border-top:1px solid var(--line)}.chat-cta .help{margin:0}
 .xi-card{padding:14px;display:flex;flex-direction:column;gap:12px}
 .xi-card .sec-head{margin:0}
@@ -860,6 +865,28 @@ const T_ROWS = [
   ["The Champions League table can't be loaded right now.", "Ahora no se puede cargar la clasificación de la Champions.", "Impossible de charger le classement de la Ligue des champions pour le moment.", "تعذر تحميل ترتيب دوري الأبطال الآن."],
   ["League phase", "Fase liga", "Phase de ligue", "مرحلة الدوري"],
   // Profiles and chat
+  ["Admin", "Admin", "Admin", "مشرف"],
+  ["You", "Tú", "Toi", "أنت"],
+  ["Banned", "Baneado", "Banni", "محظور"],
+  ["Muted", "Silenciado", "Muet", "مكتوم"],
+  ["Moderate", "Moderar", "Modérer", "إدارة"],
+  ["Delete this message", "Borrar este mensaje", "Supprimer ce message", "حذف هذه الرسالة"],
+  ["Mute", "Silenciar", "Rendre muet", "كتم"],
+  ["Unmute", "Quitar silencio", "Rétablir", "إلغاء الكتم"],
+  ["10 min", "10 min", "10 min", "10 دقائق"],
+  ["1 hour", "1 hora", "1 heure", "ساعة"],
+  ["24 hours", "24 horas", "24 heures", "24 ساعة"],
+  ["7 days", "7 días", "7 jours", "7 أيام"],
+  ["Ban", "Banear", "Bannir", "حظر"],
+  ["Ban from the chat", "Banear del chat", "Bannir du chat", "حظر من الدردشة"],
+  ["Ban and delete all their messages", "Banear y borrar todos sus mensajes", "Bannir et supprimer tous ses messages", "حظر وحذف كل رسائله"],
+  ["Unban", "Quitar baneo", "Débannir", "إلغاء الحظر"],
+  ["Only admins can do that.", "Solo los admins pueden hacer eso.", "Seuls les admins peuvent faire ça.", "المشرفون فقط يمكنهم ذلك."],
+  ["Couldn't do that. Try again.", "No se pudo hacer. Inténtalo de nuevo.", "Impossible. Réessaie.", "تعذر ذلك. حاول مجددًا."],
+  ["You've been banned from the chat. You can still read it.", "Te han baneado del chat. Aún puedes leerlo.", "Tu as été banni du chat. Tu peux encore le lire.", "تم حظرك من الدردشة. ما زال بإمكانك قراءتها."],
+  ["You can delete any message, mute or ban people: tap Moderate under a message in the chat.", "Puedes borrar cualquier mensaje, silenciar o banear: toca Moderar bajo un mensaje del chat.", "Tu peux supprimer n'importe quel message, rendre muet ou bannir : touche Modérer sous un message du chat.", "يمكنك حذف أي رسالة أو كتم أو حظر الأشخاص: اضغط «إدارة» تحت أي رسالة في الدردشة."],
+  ["Nobody is banned.", "No hay nadie baneado.", "Personne n'est banni.", "لا أحد محظور."],
+  ["Nobody is muted.", "No hay nadie silenciado.", "Personne n'est muet.", "لا أحد مكتوم."],
   ["Swearing isn't allowed in the chat. Please change your message.", "No se permiten palabrotas en el chat. Cambia tu mensaje.", "Les gros mots sont interdits dans le chat. Modifie ton message.", "الشتائم ممنوعة في الدردشة. عدّل رسالتك من فضلك."],
   ["Please choose a name without swear words.", "Elige un nombre sin palabrotas.", "Choisis un nom sans gros mots.", "اختر اسمًا بدون شتائم من فضلك."],
   ["Talk with Culés everywhere. Be kind: no swearing, insults, spam or personal details.", "Habla con culés de todo el mundo. Sé amable: sin palabrotas, insultos, spam ni datos personales.", "Discute avec des culés du monde entier. Sois sympa : pas de gros mots, d'insultes, de spam ni d'infos personnelles.", "تحدث مع مشجعي برشلونة في كل مكان. كن لطيفًا: لا شتائم ولا إهانات ولا رسائل مزعجة ولا معلومات شخصية."],
@@ -1052,6 +1079,13 @@ const T_RX = [
   [/^@(.+) is already taken$/, { es: '@$1 ya está cogido', fr: '@$1 est déjà pris', ar: '@$1 مأخوذ بالفعل' }],
   [/^@(.+) is already taken\. Try another one\.$/, { es: '@$1 ya está cogido. Prueba otro.', fr: '@$1 est déjà pris. Essaie un autre.', ar: '@$1 مأخوذ بالفعل. جرّب اسمًا آخر.' }],
   [/^Message as (.+)$/, { es: 'Escribe como $1', fr: 'Écris en tant que $1', ar: 'اكتب باسم $1' }],
+  [/^You're muted until (.+)\.$/, { es: 'Estás silenciado hasta las $1.', fr: "Tu es muet jusqu'à $1.", ar: 'أنت مكتوم حتى $1.' }],
+  [/^Muted until (.+)\.$/, { es: 'Silenciado hasta las $1.', fr: "Muet jusqu'à $1.", ar: 'مكتوم حتى $1.' }],
+  [/^until (.+)$/, { es: 'hasta las $1', fr: "jusqu'à $1", ar: 'حتى $1' }],
+  [/^@(.+) is muted$/, { es: '@$1 está silenciado', fr: '@$1 est muet', ar: 'تم كتم @$1' }],
+  [/^@(.+) can chat again$/, { es: '@$1 puede volver a chatear', fr: '@$1 peut de nouveau discuter', ar: 'يمكن لـ @$1 الدردشة مجددًا' }],
+  [/^@(.+) is banned$/, { es: '@$1 está baneado', fr: '@$1 est banni', ar: 'تم حظر @$1' }],
+  [/^@(.+) is unbanned$/, { es: '@$1 ya no está baneado', fr: "@$1 n'est plus banni", ar: 'تم إلغاء حظر @$1' }],
   [/^Group ([A-Z])$/, { es: 'Grupo $1', fr: 'Groupe $1', ar: 'المجموعة $1' }],
   [/^times in your time zone \((.+)\)\. TBC = time not announced yet\.$/, { es: 'horas en tu zona horaria ($1). Por conf. = hora aún no anunciada.', fr: 'heures dans ton fuseau horaire ($1). À conf. = heure pas encore annoncée.', ar: 'الأوقات حسب منطقتك الزمنية ($1). غير محدد = لم يُعلن الوقت بعد.' }],
   [/^vs (.+)$/, { es: 'vs $1', fr: 'contre $1', ar: 'ضد $1' }],
@@ -3957,17 +3991,29 @@ function hasSwear(text) {
 }
 const maskSwears = text => String(text || '').replace(SWEAR_OK, m => m.replace(/./g, c => c + '\u200b')).replace(/[^\s.,;:!?¿¡"'()\[\]{}<>«»/\\]+/gu, w => swearToken(w) ? '•'.repeat(Math.min(w.length, 8)) : w);
 
-const Chat = { unsub: null, msgs: null, err: '', lastSend: 0, sending: false };
+const Chat = { unsub: null, msgs: null, err: '', lastSend: 0, sending: false, modUnsub: [], bans: {}, mutes: {} };
+// Chat admins (the database rules list the same accounts). @mamenka6 = the app's creator
+const ADMINS = ['ADVyrwkXjyQK7zUJAxqrDzHuasm2'];
+const isAdmin = uid => !!uid && ADMINS.includes(uid);
+const mutedUntil = uid => { const m = Chat.mutes[uid]; return m && m.until > Date.now() ? m.until : 0; };
+function modWatch() { // who is banned or muted (public lists, so everyone's app knows)
+  if (Chat.modUnsub.length || !Acct.m?.onSnapshot) return;
+  const { collection, onSnapshot } = Acct.m;
+  for (const [name, key] of [['bans', 'bans'], ['mutes', 'mutes']]) {
+    Chat.modUnsub.push(onSnapshot(collection(Acct.db, name), snap => { const o = {}; snap.forEach(d => { o[d.id] = d.data(); }); Chat[key] = o; chatPaint(); chatComposerPaint(); const c = $('#admin-card'); if (c) c.outerHTML = adminHTML(); }, () => {}));
+  }
+}
 function chatWatch() {
   if (Chat.unsub) return;
   if (!Acct.db || !Acct.m?.onSnapshot) return;
   const { collection, query, orderBy, limit, onSnapshot } = Acct.m;
   Chat.err = '';
+  modWatch();
   Chat.unsub = onSnapshot(query(collection(Acct.db, 'chat'), orderBy('at', 'desc'), limit(100)),
     snap => { const out = []; snap.forEach(d => out.push({ id: d.id, ...d.data() })); Chat.msgs = out.reverse(); chatPaint(); },
     e => { Chat.err = e.code || 'error'; Chat.unsub = null; chatPaint(); });
 }
-function chatStop() { if (Chat.unsub) { Chat.unsub(); Chat.unsub = null; } }
+function chatStop() { if (Chat.unsub) { Chat.unsub(); Chat.unsub = null; } Chat.modUnsub.forEach(f => f()); Chat.modUnsub = []; }
 const chatTime = at => { const d = at && at.toDate ? at.toDate() : at ? new Date(at) : null; if (!d) return 'now'; const sameDay = d.toDateString() === new Date().toDateString(); return sameDay ? fmtTime(+d) : `${fmtDay(+d)} ${fmtTime(+d)}`; };
 function chatListHTML() {
   if (Chat.err) return empty(Chat.err === 'permission-denied' ? "The fan chat isn't set up yet." : "The chat can't be loaded right now.");
@@ -3977,8 +4023,8 @@ function chatListHTML() {
   let prevUid = null;
   return Chat.msgs.map(m => {
     const mine = m.uid === me, cont = m.uid === prevUid; prevUid = m.uid;
-    return `<div class="msg ${mine ? 'mine' : ''} ${cont ? 'cont' : ''}">${cont ? '' : `<div class="msg-who"><b data-notr>${esc(maskSwears(m.name || '?'))}</b>${m.username ? ` <small data-notr>@${esc(maskSwears(m.username))}</small>` : ''}</div>`}
-      <div class="msg-bubble"><span class="msg-text" data-notr>${esc(maskSwears(m.text || ''))}</span><span class="msg-meta">${chatTime(m.at)}${mine ? ` · <button class="msg-del" data-act="chat-del" data-id="${esc(m.id)}">Delete</button>` : ''}</span></div></div>`;
+    return `<div class="msg ${mine ? 'mine' : ''} ${cont ? 'cont' : ''}">${cont ? '' : `<div class="msg-who"><b data-notr>${esc(maskSwears(m.name || '?'))}</b>${isAdmin(m.uid) ? ' <span class="adm-tag">Admin</span>' : ''}${m.username ? ` <small data-notr>@${esc(maskSwears(m.username))}</small>` : ''}${Chat.bans[m.uid] ? ' <span class="mod-tag">Banned</span>' : mutedUntil(m.uid) ? ' <span class="mod-tag">Muted</span>' : ''}</div>`}
+      <div class="msg-bubble"><span class="msg-text" data-notr>${esc(maskSwears(m.text || ''))}</span><span class="msg-meta">${chatTime(m.at)}${mine ? ` · <button class="msg-del" data-act="chat-del" data-id="${esc(m.id)}">Delete</button>` : isAdmin(me) ? ` · <button class="msg-del" data-act="mod-open" data-id="${esc(m.id)}">Moderate</button>` : ''}</span></div></div>`;
   }).join('');
 }
 function chatPaint() {
@@ -3987,10 +4033,13 @@ function chatPaint() {
   list.innerHTML = chatListHTML();
   if (atBottom || !list.dataset.seen) { list.scrollTop = list.scrollHeight; list.dataset.seen = '1'; }
 }
+function chatComposerPaint() { const c = $('#chat-compose'); if (c && !c.querySelector('#chat-input')) c.innerHTML = chatComposerHTML(); else if (c && (Chat.bans[Acct.user?.uid] || mutedUntil(Acct.user?.uid))) c.innerHTML = chatComposerHTML(); }
 function chatComposerHTML() {
   if (!Acct.user) return `<div class="chat-cta"><p class="help">Sign in to chat with other Culés.</p><a class="btn btn-primary btn-sm" href="#options">Sign in</a></div>`;
   if (!Prof.loaded) return '<div class="chat-cta"><p class="help">Loading your profile…</p></div>';
   if (!Prof.me) return `<div class="chat-cta"><p class="help">Choose a display name and username to start chatting.</p><button class="btn btn-primary btn-sm" data-act="prof-edit">Set up profile</button></div>`;
+  if (Chat.bans[Acct.user.uid]) return `<div class="chat-cta"><p class="help">You've been banned from the chat. You can still read it.</p></div>`;
+  const mu = mutedUntil(Acct.user.uid); if (mu) { setTimeout(chatComposerPaint, mu - Date.now() + 500); return `<div class="chat-cta"><p class="help">You're muted until ${fmtTime(mu)}${new Date(mu).toDateString() !== new Date().toDateString() ? ' on ' + fmtDay(mu) : ''}.</p></div>`; }
   return `<form id="chat-form" class="chat-form"><input id="chat-input" maxlength="500" autocomplete="off" placeholder="Message as ${esc(Prof.me.displayName)}" aria-label="Message"><button class="btn btn-primary" type="submit" aria-label="Send">${I.send}</button></form>`;
 }
 async function viewChat() {
@@ -4015,6 +4064,53 @@ async function chatSend(form) {
     const list = $('#chat-list'); if (list) list.scrollTop = list.scrollHeight;
   } catch (e) { toast(e.code === 'permission-denied' ? "Couldn't send. Check your profile is saved." : "Couldn't send. Check your connection."); }
   finally { Chat.sending = false; input?.focus(); }
+}
+function modOpen(id, from) {
+  const m = (Chat.msgs || []).find(x => x.id === id); if (!m || !isAdmin(Acct.user?.uid)) return;
+  state.sheetPid = 'xi:mod'; state.sheetReturn = from || null; state.modMsg = m;
+  const banned = !!Chat.bans[m.uid], mu = mutedUntil(m.uid), self = m.uid === Acct.user.uid;
+  const root = $('#sheet-root');
+  root.innerHTML = `<div class="sheet-back" data-act="sheet-close"></div><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+    <div class="sheet-top"><span class="sheet-num t-opp"><span class="pl-no">${esc((m.name || '?').trim()[0] || '?').toUpperCase()}</span></span><span class="sheet-name"><b id="sheet-title" data-notr>${esc(maskSwears(m.name || '?'))}</b><small data-notr>@${esc(m.username || '')}</small></span><button class="sheet-close" data-act="sheet-close" aria-label="Close">×</button></div>
+    <p class="mod-quote" data-notr>“${esc(maskSwears(m.text || ''))}”</p>
+    <button class="btn btn-ghost wide" data-act="mod-del">Delete this message</button>
+    ${self ? '' : `<h3>Mute</h3><div class="row">${mu ? '<button class="btn btn-ghost btn-sm" data-act="mod-unmute">Unmute</button>' : [[10, '10 min'], [60, '1 hour'], [1440, '24 hours'], [10080, '7 days']].map(([n, l]) => `<button class="btn btn-ghost btn-sm" data-act="mod-mute" data-min="${n}">${l}</button>`).join('')}</div>
+    ${mu ? `<p class="help">Muted until ${fmtTime(mu)}.</p>` : ''}
+    <h3>Ban</h3>${banned ? '<button class="btn btn-ghost wide" data-act="mod-unban">Unban</button>' : '<button class="btn btn-ghost wide mod-ban" data-act="mod-ban">Ban from the chat</button><button class="btn btn-ghost wide mod-ban" data-act="mod-ban-wipe">Ban and delete all their messages</button>'}`}
+  </div>`;
+  root.hidden = false; document.body.style.overflow = 'hidden';
+}
+async function modAct(kind, arg) {
+  const m = state.modMsg, { doc, setDoc, deleteDoc } = Acct.m, me = Acct.user?.uid;
+  if (!m || !isAdmin(me)) return;
+  try {
+    if (kind === 'del') { await deleteDoc(doc(Acct.db, 'chat', m.id)); toast('Message deleted'); }
+    if (kind === 'mute') { await setDoc(doc(Acct.db, 'mutes', m.uid), { until: Date.now() + arg * 60e3, by: me, at: Date.now(), username: m.username || '' }); toast(`@${m.username} is muted`); }
+    if (kind === 'unmute') { await deleteDoc(doc(Acct.db, 'mutes', m.uid)); toast(`@${m.username} can chat again`); }
+    if (kind === 'ban' || kind === 'ban-wipe') {
+      await setDoc(doc(Acct.db, 'bans', m.uid), { by: me, at: Date.now(), username: m.username || '' });
+      if (kind === 'ban-wipe') await Promise.all((Chat.msgs || []).filter(x => x.uid === m.uid).map(x => deleteDoc(doc(Acct.db, 'chat', x.id)).catch(() => {})));
+      toast(`@${m.username} is banned`);
+    }
+    if (kind === 'unban') { await deleteDoc(doc(Acct.db, 'bans', m.uid)); toast(`@${m.username} is unbanned`); }
+    closeSheet(false);
+  } catch (e) { toast(e.code === 'permission-denied' ? "Only admins can do that." : "Couldn't do that. Try again."); }
+}
+// Admin list in Settings: everyone banned or muted, with undo
+function adminHTML() {
+  if (!isAdmin(Acct.user?.uid)) return '';
+  modWatch();
+  const bans = Object.entries(Chat.bans), mutes = Object.entries(Chat.mutes).filter(([u]) => mutedUntil(u));
+  const row = (uid, d, act, label, extra) => `<li><span><b data-notr>@${esc(d.username || uid.slice(0, 6))}</b>${extra ? `<small>${extra}</small>` : ''}</span><button class="btn btn-ghost btn-sm" data-act="${act}" data-uid="${esc(uid)}" data-name="${esc(d.username || '')}">${label}</button></li>`;
+  return `<section class="form-card" id="admin-card"><h2 class="fc-title">Admin <span class="adm-tag">You</span></h2>
+    <p class="help">You can delete any message, mute or ban people: tap Moderate under a message in the chat.</p>
+    <h3 class="sec-title">Banned</h3>${bans.length ? `<ul class="injlist adm-list">${bans.map(([u, d]) => row(u, d, 'adm-unban', 'Unban')).join('')}</ul>` : '<p class="help">Nobody is banned.</p>'}
+    <h3 class="sec-title">Muted</h3>${mutes.length ? `<ul class="injlist adm-list">${mutes.map(([u, d]) => row(u, d, 'adm-unmute', 'Unmute', 'until ' + fmtTime(d.until))).join('')}</ul>` : '<p class="help">Nobody is muted.</p>'}
+  </section>`;
+}
+async function admUndo(kind, uid, name) {
+  try { await Acct.m.deleteDoc(Acct.m.doc(Acct.db, kind === 'unban' ? 'bans' : 'mutes', uid)); toast(kind === 'unban' ? `@${name} is unbanned` : `@${name} can chat again`); } catch (e) { toast("Couldn't do that. Try again."); }
+  setTimeout(() => { const c = $('#admin-card'); if (c) c.outerHTML = adminHTML(); }, 600);
 }
 async function chatDelete(id) {
   try { await Acct.m.deleteDoc(Acct.m.doc(Acct.db, 'chat', id)); toast('Message deleted'); } catch (e) { toast("Couldn't delete the message."); }
@@ -4253,6 +4349,7 @@ async function viewOptions() {
   if (Acct.user && !state.fixtures) { try { await Data.fixtures(); } catch (e) { /* points need fixtures; show 0 if they can't load */ } }
   return `<div><h1 class="page-title">Settings</h1><p class="page-sub">Your account and preferences.</p></div>
     ${accountHTML()}
+    ${adminHTML()}
     ${installHTML()}
     <section class="form-card"><h2 class="fc-title">Language</h2>
       <div class="seg lang-seg" role="group" aria-label="Language">${Object.entries(LANG_NAMES).map(([k, n]) => `<button data-act="lang" data-lang="${k}" lang="${k}" data-notr aria-pressed="${LANG === k}">${n}</button>`).join('')}</div>
@@ -4328,7 +4425,7 @@ const routeKey = r => r.name + (r.id ? ':' + r.id : '');
 let renderSeq = 0;
 async function render() {
   const seq = ++renderSeq, r = route(), view = $('#view');
-  if (r.name !== 'chat') chatStop(); // only listen for new messages while the chat is open
+  if (r.name !== 'chat') { if (Chat.unsub) { Chat.unsub(); Chat.unsub = null; } if (r.name !== 'options') chatStop(); } // only listen while the chat (or the admin list) is open
   if (r.name !== 'match' && r.name !== 'xi') state.lastTab = r.name;
   document.querySelectorAll('.tab').forEach(t => { if (t.dataset.tab === (r.name === 'match' ? state.lastTab : r.name === 'xi' ? 'squad' : r.name)) t.setAttribute('aria-current', 'page'); else t.removeAttribute('aria-current'); });
   const sameView = view.dataset.route === routeKey(r);
@@ -4434,6 +4531,15 @@ document.addEventListener('click', e => {
     case 'share': shareCard(b.dataset.kind, +b.dataset.ev); break;
     case 'prof-edit': profOpen(b); break;
     case 'chat-del': chatDelete(b.dataset.id); break;
+    case 'mod-open': modOpen(b.dataset.id, b); break;
+    case 'mod-del': modAct('del'); break;
+    case 'mod-mute': modAct('mute', +b.dataset.min); break;
+    case 'mod-unmute': modAct('unmute'); break;
+    case 'mod-ban': modAct('ban'); break;
+    case 'mod-ban-wipe': modAct('ban-wipe'); break;
+    case 'mod-unban': modAct('unban'); break;
+    case 'adm-unban': admUndo('unban', b.dataset.uid, b.dataset.name); break;
+    case 'adm-unmute': admUndo('unmute', b.dataset.uid, b.dataset.name); break;
     case 'xi-spot': xiOpen(+b.dataset.i, b); break;
     case 'xi-pick': xiPick(b.dataset.pid); break;
     case 'xi-remove': delete XI.slots[state.xiSlot]; xiSave(); closeSheet(false); xiRedraw(); break;

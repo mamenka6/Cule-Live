@@ -1,6 +1,11 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Chat admins: @mamenka6 (the app's creator)
+    function isAdmin() { return request.auth != null && request.auth.uid in ['ADVyrwkXjyQK7zUJAxqrDzHuasm2']; }
+    function isBanned(uid) { return exists(/databases/$(database)/documents/bans/$(uid)); }
+    function isMuted(uid) { return exists(/databases/$(database)/documents/mutes/$(uid)) && get(/databases/$(database)/documents/mutes/$(uid)).data.until > request.time.toMillis(); }
+
     // Each person's own predictions (unchanged)
     match /users/{uid}/{document=**} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
@@ -42,8 +47,19 @@ service cloud.firestore {
         && !request.resource.data.text.lower().matches('.*(fuck|bitch|cunt|nigger|nigga|faggot|whore|motherf|putain|salope|mierda|gilipollas|qahba|9a7ba).*')  // the worst swear words, also blocked in the app
         && request.resource.data.at == request.time
         && request.resource.data.name == get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.displayName
-        && request.resource.data.username == get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.username;
-      allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
+        && request.resource.data.username == get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.username
+        && !isBanned(request.auth.uid) && !isMuted(request.auth.uid);
+      allow delete: if request.auth != null && (resource.data.uid == request.auth.uid || isAdmin());
+    }
+
+    // Bans and mutes: everyone can see them (so the app knows), only admins can change them
+    match /bans/{uid} {
+      allow read: if true;
+      allow write: if isAdmin() && uid != request.auth.uid;
+    }
+    match /mutes/{uid} {
+      allow read: if true;
+      allow write: if isAdmin() && uid != request.auth.uid;
     }
 
     // Player of the match fan vote: one vote per person per match, results public
