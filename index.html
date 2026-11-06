@@ -2381,6 +2381,7 @@ async function acctChanged() {
   if (Acct.user) await syncPreds();
   await profLoad();
   if (!Acct.user) { chatStop(); Chat.msgs = null; }
+  modWatch();
   acctRefresh(true);
   if (['chat', 'members'].includes(route().name)) { $('#view').dataset.route = ''; render(); }
   potmRedraw(); // the fan vote shows the buttons once signed in
@@ -4077,16 +4078,26 @@ function hasSwear(text) {
 }
 const maskSwears = text => String(text || '').replace(SWEAR_OK, m => m.replace(/./g, c => c + '\u200b')).replace(/[^\s.,;:!?¿¡"'()\[\]{}<>«»/\\]+/gu, w => swearToken(w) ? '•'.repeat(Math.min(w.length, 8)) : w);
 
-const Chat = { unsub: null, msgs: null, err: '', lastSend: 0, sending: false, modUnsub: [], bans: {}, mutes: {} };
-// Chat admins (the database rules list the same accounts). @mamenka6 = the app's creator
-const ADMINS = ['ADVyrwkXjyQK7zUJAxqrDzHuasm2'];
-const isAdmin = uid => !!uid && ADMINS.includes(uid);
+const Chat = { unsub: null, msgs: null, err: '', lastSend: 0, sending: false, modUnsub: [], bans: {}, mutes: {}, roles: {} };
+// Roles (the database rules say the same). @mamenka6 = the app's creator, always an owner.
+// Owners can do everything. Admins can do everything except take admin away or make owners.
+const FOUNDER = 'ADVyrwkXjyQK7zUJAxqrDzHuasm2';
+const roleOf = uid => !uid ? '' : uid === FOUNDER ? 'owner' : (Chat.roles[uid] && Chat.roles[uid].role) || '';
+const isOwner = uid => roleOf(uid) === 'owner';
+const isAdmin = uid => !!roleOf(uid);
+const roleTag = uid => { const r = roleOf(uid); return r ? `<span class="adm-tag">${r === 'owner' ? 'Owner' : 'Admin'}</span>` : ''; };
+let rolesReady, rolesDone; rolesReady = new Promise(r => { rolesDone = r; });
 const mutedUntil = uid => { const m = Chat.mutes[uid]; return m && m.until > Date.now() ? m.until : 0; };
 function modWatch() { // who is banned or muted (public lists, so everyone's app knows)
   if (Chat.modUnsub.length || !Acct.m?.onSnapshot) return;
   const { collection, onSnapshot } = Acct.m;
-  for (const [name, key] of [['bans', 'bans'], ['mutes', 'mutes']]) {
-    Chat.modUnsub.push(onSnapshot(collection(Acct.db, name), snap => { const o = {}; snap.forEach(d => { o[d.id] = d.data(); }); Chat[key] = o; chatPaint(); chatComposerPaint(); memPaint(); const c = $('#admin-card'); if (c) c.outerHTML = adminHTML(); }, () => {}));
+  for (const [name, key] of [['bans', 'bans'], ['mutes', 'mutes'], ['roles', 'roles']]) {
+    Chat.modUnsub.push(onSnapshot(collection(Acct.db, name), snap => {
+      const o = {}; snap.forEach(d => { o[d.id] = d.data(); });
+      const wasAdmin = isAdmin(Acct.user?.uid);
+      Chat[key] = o; chatPaint(); chatComposerPaint(); memPaint(); const c = $('#admin-card'); if (c) c.outerHTML = adminHTML();
+      if (key === 'roles') { rolesDone(); if (wasAdmin !== isAdmin(Acct.user?.uid) && ['options', 'members', 'chat'].includes(route().name)) { $('#view').dataset.route = ''; render(); } }
+    }, () => { if (key === 'roles') rolesDone(); }));
   }
 }
 function chatWatch() {
@@ -4099,7 +4110,7 @@ function chatWatch() {
     snap => { const out = []; snap.forEach(d => out.push({ id: d.id, ...d.data() })); Chat.msgs = out.reverse(); chatPaint(); },
     e => { Chat.err = e.code || 'error'; Chat.unsub = null; chatPaint(); });
 }
-function chatStop() { if (Chat.unsub) { Chat.unsub(); Chat.unsub = null; } Chat.modUnsub.forEach(f => f()); Chat.modUnsub = []; }
+function chatStop() { if (Chat.unsub) { Chat.unsub(); Chat.unsub = null; } }
 const chatTime = at => { const d = at && at.toDate ? at.toDate() : at ? new Date(at) : null; if (!d) return 'now'; const sameDay = d.toDateString() === new Date().toDateString(); return sameDay ? fmtTime(+d) : `${fmtDay(+d)} ${fmtTime(+d)}`; };
 function chatListHTML() {
   if (Chat.err) return empty(Chat.err === 'permission-denied' ? "The fan chat isn't set up yet." : "The chat can't be loaded right now.");
@@ -4109,7 +4120,7 @@ function chatListHTML() {
   let prevUid = null;
   return Chat.msgs.map(m => {
     const mine = m.uid === me, cont = m.uid === prevUid; prevUid = m.uid;
-    return `<div class="msg ${mine ? 'mine' : ''} ${cont ? 'cont' : ''}">${cont ? '' : `<div class="msg-who"><b data-notr>${esc(maskSwears(m.name || '?'))}</b>${isAdmin(m.uid) ? ' <span class="adm-tag">Admin</span>' : ''}${m.username ? ` <small data-notr>@${esc(maskSwears(m.username))}</small>` : ''}${Chat.bans[m.uid] ? ' <span class="mod-tag">Banned</span>' : mutedUntil(m.uid) ? ' <span class="mod-tag">Muted</span>' : ''}</div>`}
+    return `<div class="msg ${mine ? 'mine' : ''} ${cont ? 'cont' : ''}">${cont ? '' : `<div class="msg-who"><b data-notr>${esc(maskSwears(m.name || '?'))}</b>${roleTag(m.uid) ? ' ' + roleTag(m.uid) : ''}${m.username ? ` <small data-notr>@${esc(maskSwears(m.username))}</small>` : ''}${Chat.bans[m.uid] ? ' <span class="mod-tag">Banned</span>' : mutedUntil(m.uid) ? ' <span class="mod-tag">Muted</span>' : ''}</div>`}
       <div class="msg-bubble"><span class="msg-text" data-notr>${esc(maskSwears(m.text || ''))}</span><span class="msg-meta">${chatTime(m.at)}${mine ? ` · <button class="msg-del" data-act="chat-del" data-id="${esc(m.id)}">Delete</button>` : isAdmin(me) ? ` · <button class="msg-del" data-act="mod-open" data-id="${esc(m.id)}">Moderate</button>` : ''}</span></div></div>`;
   }).join('');
 }
@@ -4201,7 +4212,7 @@ async function memLoad() {
   try { const snap = await getDocs(collection(Acct.db, 'profiles')); const out = []; snap.forEach(d => out.push({ uid: d.id, ...d.data() })); Mem.list = out.sort((a, b) => (b.createdAt || b.at || 0) - (a.createdAt || a.at || 0)); Mem.err = ''; }
   catch (e) { Mem.err = e.code || 'error'; }
 }
-const memTags = m => `${isAdmin(m.uid) ? '<span class="adm-tag">Admin</span>' : ''}${m.guest ? '<span class="tag c-oth">Guest</span>' : ''}${Chat.bans[m.uid] ? '<span class="mod-tag">Banned</span>' : mutedUntil(m.uid) ? '<span class="mod-tag">Muted</span>' : ''}`;
+const memTags = m => `${roleTag(m.uid)}${m.guest ? '<span class="tag c-oth">Guest</span>' : ''}${Chat.bans[m.uid] ? '<span class="mod-tag">Banned</span>' : mutedUntil(m.uid) ? '<span class="mod-tag">Muted</span>' : ''}`;
 function memFiltered() {
   const q = normName(Mem.q).replace(/^@/, '');
   return (Mem.list || []).filter(m => {
@@ -4222,6 +4233,7 @@ function memListHTML() {
 function memPaint() { const el = $('#mem-results'); if (el) el.innerHTML = memListHTML(); }
 async function viewMembers() {
   if (Acct.start) { try { await Acct.start; } catch (e) { /* below */ } }
+  modWatch(); await Promise.race([rolesReady, new Promise(r => setTimeout(r, 4000))]);
   if (!isAdmin(Acct.user?.uid)) return `<a class="back" href="#options">${I.back} Settings</a>${empty('Only admins can see this page.')}`;
   modWatch(); await memLoad();
   const all = Mem.list || [], guests = all.filter(m => m.guest).length;
@@ -4236,25 +4248,47 @@ const fmtWhen = t => t ? `${fmtDay(t)} ${fmtTime(t)}` : '–';
 function memOpen(uid, from) {
   const m = (Mem.list || []).find(x => x.uid === uid); if (!m || !isAdmin(Acct.user?.uid)) return;
   state.sheetPid = 'xi:mem'; state.sheetReturn = from || null; state.modMsg = { uid: m.uid, username: m.username, id: null }; state.memUid = uid;
-  const self = uid === Acct.user.uid, other = isAdmin(uid) && !self, banned = !!Chat.bans[uid], mu = mutedUntil(uid);
+  const me = Acct.user.uid, self = uid === me, iOwn = isOwner(me), their = roleOf(uid), other = !!their && !self && !iOwn, staff = !!their, banned = !!Chat.bans[uid], mu = mutedUntil(uid);
   const row = (a, b) => `<li><span>${a}</span><b>${b}</b></li>`;
   const root = $('#sheet-root');
   root.innerHTML = `<div class="sheet-back" data-act="sheet-close"></div><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
     <div class="sheet-top"><span class="mem-av big ${m.guest ? 'g' : ''}">${esc(((m.displayName || '?').trim()[0] || '?').toUpperCase())}</span><span class="sheet-name"><b id="sheet-title" data-notr>${esc(maskSwears(m.displayName || '?'))}</b><small data-notr>@${esc(m.username || '')}</small></span><button class="sheet-close" data-act="sheet-close" aria-label="Close">×</button></div>
     <div class="mem-tags">${memTags(m)}</div>
     <ul class="kvlist">${row('Type', m.guest ? 'Guest (no profile yet)' : 'Member')}${row('Joined', fmtWhen(m.createdAt || m.at))}${row('Last seen', fmtWhen(m.lastSeen))}${mu ? row('Muted until', fmtTime(mu)) : ''}</ul>
-    ${other ? '<p class="help">This is another admin.</p>' : `<h3>Edit</h3>
+    ${other || (uid === FOUNDER && !self) ? `<p class="help">This is ${their === 'owner' ? 'an owner' : 'another admin'}. Only owners can edit them.</p>` : `<h3>Edit</h3>
     <form id="mem-form" class="acct-form" novalidate>
       <label for="mem-name">Display name</label><input id="mem-name" maxlength="30" value="${esc(m.displayName || '')}">
       <label for="mem-user">Username</label><div class="prof-at"><span>@</span><input id="mem-user" maxlength="20" autocapitalize="none" spellcheck="false" value="${esc(m.username || '')}"></div>
       <p class="acct-err" id="mem-err"></p>
       <button class="btn btn-primary wide" type="submit">Save changes</button>
     </form>`}
-    ${self || other ? '' : `<h3>Mute</h3><div class="row">${mu ? '<button class="btn btn-ghost btn-sm" data-act="mod-unmute">Unmute</button>' : [[10, '10 min'], [60, '1 hour'], [1440, '24 hours'], [10080, '7 days']].map(([n, l]) => `<button class="btn btn-ghost btn-sm" data-act="mod-mute" data-min="${n}">${l}</button>`).join('')}</div>
+    ${memRoleHTML(uid, self, iOwn, their)}
+    ${self || staff ? (staff && !self ? `<p class="help">${their === 'owner' ? 'Owners' : 'Admins'} can't be muted or banned.</p>` : '') : `<h3>Mute</h3><div class="row">${mu ? '<button class="btn btn-ghost btn-sm" data-act="mod-unmute">Unmute</button>' : [[10, '10 min'], [60, '1 hour'], [1440, '24 hours'], [10080, '7 days']].map(([n, l]) => `<button class="btn btn-ghost btn-sm" data-act="mod-mute" data-min="${n}">${l}</button>`).join('')}</div>
     <h3>Ban</h3>${banned ? '<button class="btn btn-ghost wide" data-act="mod-unban">Unban</button>' : '<button class="btn btn-ghost wide mod-ban" data-act="mod-ban">Ban from the chat</button>'}
     <button class="btn btn-ghost wide mod-ban" data-act="mem-wipe">Delete all their chat messages</button>`}
   </div>`;
   root.hidden = false; document.body.style.overflow = 'hidden';
+}
+function memRoleHTML(uid, self, iOwn, their) {
+  if (self || uid === FOUNDER) return '';
+  const b = (role, label, cls = '') => `<button class="btn btn-ghost btn-sm ${cls}" data-act="role-set" data-role="${role}">${label}</button>`;
+  let btns = '';
+  if (!their) btns = b('admin', 'Make admin') + (iOwn ? b('owner', 'Make owner') : '');
+  else if (iOwn && their === 'admin') btns = b('owner', 'Make owner') + b('', 'Remove admin', 'mod-ban');
+  else if (iOwn && their === 'owner') btns = b('admin', 'Change to admin') + b('', 'Remove owner', 'mod-ban');
+  const now = their === 'owner' ? 'Owner' : their === 'admin' ? 'Admin' : 'Member';
+  return `<h3>Role</h3><p class="help">Now: <b>${now}</b>${!iOwn && their ? ' · only owners can change this' : ''}</p>${btns ? `<div class="row">${btns}</div>` : ''}`;
+}
+async function roleSet(role) {
+  const uid = state.memUid, me = Acct.user?.uid; if (!uid || !isAdmin(me) || uid === FOUNDER || uid === me) return;
+  const m = (Mem.list || []).find(x => x.uid === uid), name = m ? '@' + m.username : 'They';
+  try {
+    const ref = Acct.m.doc(Acct.db, 'roles', uid);
+    if (!role) await Acct.m.deleteDoc(ref); else await Acct.m.setDoc(ref, { role, by: me, at: Date.now() });
+    Chat.roles = { ...Chat.roles }; if (role) Chat.roles[uid] = { role }; else delete Chat.roles[uid];
+    toast(role ? `${name} is now ${role === 'owner' ? 'an owner' : 'an admin'}` : `${name} is a normal member again`);
+    memOpen(uid, state.sheetReturn); memPaint();
+  } catch (e) { toast(e.code === 'permission-denied' ? (role === 'owner' || !role ? 'Only owners can do that.' : "You can't do that.") : "Couldn't do that. Try again."); }
 }
 async function memSave(form) {
   const uid = state.memUid, m = (Mem.list || []).find(x => x.uid === uid), err = $('#mem-err');
@@ -4719,6 +4753,7 @@ document.addEventListener('click', e => {
     case 'mod-open': modOpen(b.dataset.id, b); break;
     case 'mem-open': memOpen(b.dataset.uid, b); break;
     case 'mem-wipe': memWipe(); break;
+    case 'role-set': roleSet(b.dataset.role); break;
     case 'mem-filter': Mem.f = b.dataset.f; document.querySelectorAll('[data-act="mem-filter"]').forEach(c => c.setAttribute('aria-pressed', String(c.dataset.f === Mem.f))); memPaint(); break;
     case 'mod-del': modAct('del'); break;
     case 'mod-mute': modAct('mute', +b.dataset.min); break;

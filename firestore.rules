@@ -1,8 +1,13 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Chat admins: @mamenka6 (the app's creator)
-    function isAdmin() { return request.auth != null && request.auth.uid in ['ADVyrwkXjyQK7zUJAxqrDzHuasm2']; }
+    // Roles: @mamenka6 (the app's creator) is always an owner. Others are in /roles/{uid} as 'owner' or 'admin'.
+    // Owners do everything. Admins do everything except take admin away from someone or make owners.
+    function founder() { return 'ADVyrwkXjyQK7zUJAxqrDzHuasm2'; }
+    function roleOf(uid) { return exists(/databases/$(database)/documents/roles/$(uid)) ? get(/databases/$(database)/documents/roles/$(uid)).data.role : ''; }
+    function isOwner() { return request.auth != null && (request.auth.uid == founder() || roleOf(request.auth.uid) == 'owner'); }
+    function isAdmin() { return request.auth != null && (isOwner() || roleOf(request.auth.uid) == 'admin'); }
+    function isStaff(uid) { return uid == founder() || roleOf(uid) in ['owner', 'admin']; }
     function isBanned(uid) { return exists(/databases/$(database)/documents/bans/$(uid)); }
     function isMuted(uid) { return exists(/databases/$(database)/documents/mutes/$(uid)) && get(/databases/$(database)/documents/mutes/$(uid)).data.until > request.time.toMillis(); }
 
@@ -56,14 +61,27 @@ service cloud.firestore {
       allow delete: if request.auth != null && (resource.data.uid == request.auth.uid || isAdmin());
     }
 
-    // Bans and mutes: everyone can see them (so the app knows), only admins can change them
+    // Roles list: public (so the app shows badges). Admins can make admins; only owners can make owners
+    // or take a role away. The creator's owner role can't be changed.
+    match /roles/{uid} {
+      allow read: if true;
+      allow create: if uid != founder() && request.resource.data.keys().hasOnly(['role', 'by', 'at'])
+        && request.resource.data.by == request.auth.uid
+        && ((request.resource.data.role == 'admin' && isAdmin()) || (request.resource.data.role == 'owner' && isOwner()));
+      allow update: if uid != founder() && isOwner() && request.resource.data.keys().hasOnly(['role', 'by', 'at'])
+        && request.resource.data.role in ['admin', 'owner'];
+      allow delete: if uid != founder() && isOwner();
+    }
+
+    // Bans and mutes: everyone can see them (so the app knows), only admins can change them,
+    // and nobody can ban or mute an admin or owner (take their role away first)
     match /bans/{uid} {
       allow read: if true;
-      allow write: if isAdmin() && uid != request.auth.uid;
+      allow write: if isAdmin() && uid != request.auth.uid && !isStaff(uid);
     }
     match /mutes/{uid} {
       allow read: if true;
-      allow write: if isAdmin() && uid != request.auth.uid;
+      allow write: if isAdmin() && uid != request.auth.uid && !isStaff(uid);
     }
 
     // Player of the match fan vote: one vote per person per match, results public
