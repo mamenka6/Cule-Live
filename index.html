@@ -2382,7 +2382,7 @@ async function acctChanged() {
   await profLoad();
   if (!Acct.user) { chatStop(); Chat.msgs = null; }
   acctRefresh(true);
-  if (route().name === 'chat') { $('#view').dataset.route = ''; render(); }
+  if (['chat', 'members'].includes(route().name)) { $('#view').dataset.route = ''; render(); }
   potmRedraw(); // the fan vote shows the buttons once signed in
 }
 function acctRefresh(full = false) {
