@@ -1,7 +1,6 @@
 <!doctype html>
 <html lang="en">
 <head>
-   <meta name="google-site-verification" content="d5D7JldlcWqaZKvQvSdrm2zDqwHdf0ll8XxOq1r5a2E" />
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="manifest" href="manifest.webmanifest">
@@ -11,7 +10,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Culé Live">
 <meta name="mobile-web-app-capable" content="yes">
-<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}</style>
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}.acct-del{display:block;margin:14px auto 0;color:var(--muted,#8a93a6);font-size:.85rem;background:none;border:0;text-decoration:underline;cursor:pointer}
+</style>
 <title>Culé Live</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="description" content="Unofficial Barça fan app: live scores, lineups, stats and player ratings.">
@@ -2463,6 +2463,48 @@ async function acctForgot() {
   try { await Acct.m.sendPasswordResetEmail(Acct.auth, email); $('#acct-err').textContent = ''; toast('Check your email for a link to reset your password.'); }
   catch (e) { acctError(e); }
 }
+function delOpen(from) { // account deletion (the App Store requires it): a sheet, no browser dialogs
+  const u = Acct.user; if (!u) return;
+  const pw = (u.providerData || []).some(p => p.providerId === 'password') && !(u.providerData || []).some(p => p.providerId === 'google.com');
+  state.sheetPid = 'xi:del'; state.sheetReturn = from || null;
+  const root = $('#sheet-root');
+  root.innerHTML = `<div class="sheet-back" data-act="sheet-close"></div><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+    <div class="sheet-top"><span class="sheet-name"><b id="sheet-title">Delete your account?</b></span><button class="sheet-close" data-act="sheet-close" aria-label="Close">×</button></div>
+    <p class="help">This deletes your account for good: your profile and username, your predictions and all your chat messages. It can't be undone.</p>
+    <form id="del-form" class="acct-form" novalidate>
+      ${pw ? '<label for="del-pass">Type your password to confirm</label><input id="del-pass" type="password" autocomplete="current-password">' : '<p class="help">You\'ll be asked to sign in with Google once more to confirm.</p>'}
+      <p class="acct-err" id="del-err"></p>
+      <button class="btn btn-primary wide mod-ban" type="submit">Delete my account forever</button>
+      <button class="btn btn-ghost wide" type="button" data-act="sheet-close">Keep my account</button>
+    </form></div>`;
+  root.hidden = false; document.body.style.overflow = 'hidden';
+}
+async function acctDelete(form) {
+  const u = Acct.user, M = Acct.m, err = $('#del-err'); if (!u) return;
+  const btn = form.querySelector('button[type="submit"]'); btn.disabled = true; err.textContent = '';
+  try {
+    const pass = $('#del-pass');
+    if (pass) { if (!pass.value) { err.textContent = 'Type your password.'; btn.disabled = false; return; } await M.reauthenticateWithCredential(u, M.EmailAuthProvider.credential(u.email, pass.value)); }
+    else await M.reauthenticateWithPopup(u, new M.GoogleAuthProvider());
+    const { collection, query, where, getDocs, deleteDoc, doc } = M, uid = u.uid, db = Acct.db;
+    const del = ref => deleteDoc(ref).catch(() => {});
+    const chat = await getDocs(query(collection(db, 'chat'), where('uid', '==', uid)));
+    const preds = await getDocs(collection(db, 'users', uid, 'predictions'));
+    const refs = []; chat.forEach(d => refs.push(d.ref)); preds.forEach(d => refs.push(d.ref));
+    await Promise.all(refs.map(del));
+    if (Prof.me && Prof.me.username) await del(doc(db, 'usernames', Prof.me.username));
+    await del(doc(db, 'profiles', uid));
+    await M.deleteUser(u);
+    localPredKeys().forEach(k => { try { localStorage.removeItem('cule:pred:' + k); } catch (e) {} });
+    state.pred = {}; Prof.me = null; closeSheet(false); toast('Your account has been deleted');
+  } catch (e) {
+    btn.disabled = false;
+    const c = e && e.code;
+    err.textContent = c === 'auth/wrong-password' || c === 'auth/invalid-credential' || c === 'auth/invalid-login-credentials' ? 'Wrong password.'
+      : c === 'auth/popup-closed-by-user' || c === 'auth/cancelled-popup-request' ? '' : c === 'auth/user-mismatch' ? 'Sign in with the same Google account.'
+      : c === 'auth/network-request-failed' ? 'No internet connection. Try again.' : "Couldn't delete the account. Try again.";
+  }
+}
 async function acctSignOut() {
   try { await Acct.m.signOut(Acct.auth); } catch (e) { /* already signed out */ }
   localPredKeys().forEach(k => { try { localStorage.removeItem('cule:pred:' + k); } catch (e) {} }); // they're kept in the account
@@ -2485,7 +2527,8 @@ function accountHTML() {
       <div class="sheet-sum"><div class="kv"><b>${st.pts}</b><small>Points</small></div><div class="kv"><b>${st.n}</b><small>Predictions</small></div><div class="kv"><b>${st.exact}</b><small>Exact scores</small></div><div class="kv"><b>${st.done}</b><small>Played</small></div></div>
       ${profileRowHTML()}
       <p class="help">${Acct.syncError ? "Couldn't reach your account just now. Your predictions are safe on this device and will sync later." : 'Your predictions are saved to your account.'}</p>
-      <button class="btn btn-ghost" data-act="acct-out">Sign out</button></section>`;
+      <button class="btn btn-ghost" data-act="acct-out">Sign out</button>
+      <button class="link-btn acct-del" data-act="del-open">Delete my account</button></section>`;
   }
   const up = Acct.mode === 'up';
   return `<section class="form-card acct"><h2 class="fc-title">Account</h2>
@@ -4840,6 +4883,7 @@ document.addEventListener('click', e => {
     case 'acct-mode': Acct.mode = Acct.mode === 'up' ? 'in' : 'up'; Acct.error = ''; render(); break;
     case 'acct-forgot': acctForgot(); break;
     case 'acct-out': acctSignOut(); break;
+    case 'del-open': delOpen(b); break;
     case 'refresh-data': store.clear('cache:'); state.fixtures = null; state.cache = {}; toast('Match data refreshed'); $('#view').dataset.route = ''; render(); break;
     case 'retry': $('#view').dataset.route = ''; render(); break;
   }
@@ -4848,6 +4892,7 @@ document.addEventListener('submit', e => {
   if (e.target.id === 'acct-form') { e.preventDefault(); acctEmail(e.target); }
   if (e.target.id === 'prof-form') { e.preventDefault(); profSave(e.target); }
   if (e.target.id === 'mem-form') { e.preventDefault(); memSave(e.target); }
+  if (e.target.id === 'del-form') { e.preventDefault(); acctDelete(e.target); }
   if (e.target.id === 'chat-form') { e.preventDefault(); chatSend(e.target); }
 });
 document.addEventListener('change', e => {

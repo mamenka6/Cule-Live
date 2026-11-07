@@ -31,7 +31,7 @@ service cloud.firestore {
       allow create, update: if request.auth != null && (request.auth.uid == uid || isAdmin())
         && validProfile(request.resource.data)
         && getAfter(/databases/$(database)/documents/usernames/$(request.resource.data.username)).data.uid == uid;
-      allow delete: if request.auth != null && ((request.auth.uid == uid && resource.data.get('guest', false) == true) || isAdmin());
+      allow delete: if request.auth != null && (request.auth.uid == uid || isAdmin());  // anyone can delete their own account
     }
 
     // Usernames: one person per username. A taken name can't be claimed (that would be an update),
