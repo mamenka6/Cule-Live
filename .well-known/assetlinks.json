@@ -1,1 +1,12 @@
-
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.culelive.myapp",
+      "sha256_cert_fingerprints": [
+        "CC:22:EF:3B:26:52:32:D3:58:A4:AE:75:62:53:F3:58:5D:BC:53:55:2B:09:CF:26:EC:93:A1:C7:9B:B1:FD:20"
+      ]
+    }
+  }
+]
