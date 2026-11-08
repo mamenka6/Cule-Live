@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, shrink-to-fit=no">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#0F3C8F">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
@@ -11,6 +11,8 @@
 <meta name="apple-mobile-web-app-title" content="Culé Live">
 <meta name="mobile-web-app-capable" content="yes">
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}.acct-del{display:block;margin:14px auto 0;color:var(--muted,#8a93a6);font-size:.85rem;background:none;border:0;text-decoration:underline;cursor:pointer}
+.btn-apple{background:#fff;color:#000;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:8px}.btn-apple:hover{background:#eee}
+html,body{max-width:100%;overflow-x:hidden}
 </style>
 <title>Culé Live</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -1040,7 +1042,7 @@ const T_ROWS = [
   ['Account', 'Cuenta', 'Compte', 'الحساب'], ['Your account and preferences.', 'Tu cuenta y tus preferencias.', 'Ton compte et tes préférences.', 'حسابك وتفضيلاتك.'],
   ['Sign in to keep your predictions on all your devices.', 'Inicia sesión para guardar tus pronósticos en todos tus dispositivos.', 'Connecte-toi pour garder tes pronostics sur tous tes appareils.', 'سجّل الدخول لحفظ توقعاتك على كل أجهزتك.'],
   ['to keep your predictions on all your devices.', 'para guardar tus pronósticos en todos tus dispositivos.', 'pour garder tes pronostics sur tous tes appareils.', 'لحفظ توقعاتك على كل أجهزتك.'],
-  ['Continue with Google', 'Continuar con Google', 'Continuer avec Google', 'المتابعة باستخدام Google'], ['or', 'o', 'ou', 'أو'], ['Name', 'Nombre', 'Nom', 'الاسم'], ['Email', 'Correo', 'E-mail', 'البريد الإلكتروني'], ['Password', 'Contraseña', 'Mot de passe', 'كلمة المرور'],
+  ['Continue with Google', 'Continuar con Google', 'Continuer avec Google', 'المتابعة باستخدام Google'], ['Continue with Apple', 'Continuar con Apple', 'Continuer avec Apple', 'المتابعة باستخدام Apple'], ['or', 'o', 'ou', 'أو'], ['Name', 'Nombre', 'Nom', 'الاسم'], ['Email', 'Correo', 'E-mail', 'البريد الإلكتروني'], ['Password', 'Contraseña', 'Mot de passe', 'كلمة المرور'],
   ['At least 6 characters.', 'Mínimo 6 caracteres.', 'Au moins 6 caractères.', '6 أحرف على الأقل.'], ['Create account', 'Crear cuenta', 'Créer un compte', 'إنشاء حساب'], ['Sign in', 'Iniciar sesión', 'Se connecter', 'تسجيل الدخول'],
   ['I already have an account', 'Ya tengo cuenta', "J'ai déjà un compte", 'لدي حساب بالفعل'], ['Create an account', 'Crear una cuenta', 'Créer un compte', 'إنشاء حساب'], ['Forgot password?', '¿Olvidaste la contraseña?', 'Mot de passe oublié ?', 'نسيت كلمة المرور؟'],
   ['Sign out', 'Cerrar sesión', 'Se déconnecter', 'تسجيل الخروج'], ['Signed out', 'Sesión cerrada', 'Déconnecté', 'تم تسجيل الخروج'], ['Signed in', 'Sesión iniciada', 'Connecté', 'تم تسجيل الدخول'], ['Account created', 'Cuenta creada', 'Compte créé', 'تم إنشاء الحساب'],
@@ -2368,7 +2370,7 @@ const AUTH_MSG = {
   'auth/email-already-in-use': "There's already an account with this email. Sign in instead.",
   'auth/popup-closed-by-user': '', 'auth/cancelled-popup-request': '', 'auth/user-cancelled': '',
   'auth/unauthorized-domain': "This website isn't allowed to sign in yet. In Firebase, add it under Authentication → Settings → Authorized domains.",
-  'auth/operation-not-allowed': 'This way of signing in is turned off in Firebase.',
+  'auth/operation-not-allowed': "This way of signing in isn't ready yet. Try another way.",
   'auth/network-request-failed': 'No internet connection. Try again.', 'auth/too-many-requests': 'Too many tries. Wait a minute, then try again.',
   'auth/account-exists-with-different-credential': 'This email already signs in another way. Try Continue with Google.'
 };
@@ -2421,14 +2423,18 @@ async function guestDrop() {
   const { doc, getDoc, deleteDoc } = Acct.m;
   try { const d = await getDoc(doc(Acct.db, 'profiles', g.uid)); if (d.exists() && d.data().guest) { await deleteDoc(doc(Acct.db, 'usernames', d.data().username)).catch(() => {}); await deleteDoc(doc(Acct.db, 'profiles', g.uid)).catch(() => {}); } } catch (e) { /* leave it */ }
 }
-async function acctGoogle() {
+const APPLE_ON = false; // turn on once Sign in with Apple is set up in Firebase
+async function acctGoogle(apple = false) {
   await acctStart(); if (Acct.status !== 'ready') return;
-  const { GoogleAuthProvider, signInWithPopup, signInWithRedirect, linkWithPopup, signInWithCredential } = Acct.m, provider = new GoogleAuthProvider();
+  const { GoogleAuthProvider, OAuthProvider, signInWithPopup, signInWithRedirect, linkWithPopup, signInWithCredential } = Acct.m;
+  let provider;
+  if (apple) { provider = new OAuthProvider('apple.com'); provider.addScope('email'); provider.addScope('name'); } else provider = new GoogleAuthProvider();
+  const credFrom = e => apple ? OAuthProvider.credentialFromError(e) : GoogleAuthProvider.credentialFromError(e);
   if (Acct.anon) {
     try { const r = await linkWithPopup(Acct.anon, provider); acctUpgraded(r.user); toast('Signed in'); return; }
     catch (e) {
       if (['auth/credential-already-in-use', 'auth/email-already-in-use'].includes(e.code)) { // already has an account: switch to it
-        const cred = GoogleAuthProvider.credentialFromError(e);
+        const cred = credFrom(e);
         if (cred) { Acct.signingIn = true; await guestDrop(); try { await signInWithCredential(Acct.auth, cred); toast('Signed in'); } catch (e2) { acctError(e2); } finally { Acct.signingIn = false; } return; }
       }
       if (!['auth/popup-blocked', 'auth/operation-not-supported-in-this-environment'].includes(e.code)) { acctError(e); return; }
@@ -2465,14 +2471,14 @@ async function acctForgot() {
 }
 function delOpen(from) { // account deletion (the App Store requires it): a sheet, no browser dialogs
   const u = Acct.user; if (!u) return;
-  const pw = (u.providerData || []).some(p => p.providerId === 'password') && !(u.providerData || []).some(p => p.providerId === 'google.com');
+  const pw = (u.providerData || []).some(p => p.providerId === 'password') && !(u.providerData || []).some(p => ['google.com', 'apple.com'].includes(p.providerId));
   state.sheetPid = 'xi:del'; state.sheetReturn = from || null;
   const root = $('#sheet-root');
   root.innerHTML = `<div class="sheet-back" data-act="sheet-close"></div><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
     <div class="sheet-top"><span class="sheet-name"><b id="sheet-title">Delete your account?</b></span><button class="sheet-close" data-act="sheet-close" aria-label="Close">×</button></div>
     <p class="help">This deletes your account for good: your profile and username, your predictions and all your chat messages. It can't be undone.</p>
     <form id="del-form" class="acct-form" novalidate>
-      ${pw ? '<label for="del-pass">Type your password to confirm</label><input id="del-pass" type="password" autocomplete="current-password">' : '<p class="help">You\'ll be asked to sign in with Google once more to confirm.</p>'}
+      ${pw ? '<label for="del-pass">Type your password to confirm</label><input id="del-pass" type="password" autocomplete="current-password">' : '<p class="help">You\'ll be asked to sign in once more to confirm.</p>'}
       <p class="acct-err" id="del-err"></p>
       <button class="btn btn-primary wide mod-ban" type="submit">Delete my account forever</button>
       <button class="btn btn-ghost wide" type="button" data-act="sheet-close">Keep my account</button>
@@ -2485,7 +2491,7 @@ async function acctDelete(form) {
   try {
     const pass = $('#del-pass');
     if (pass) { if (!pass.value) { err.textContent = 'Type your password.'; btn.disabled = false; return; } await M.reauthenticateWithCredential(u, M.EmailAuthProvider.credential(u.email, pass.value)); }
-    else await M.reauthenticateWithPopup(u, new M.GoogleAuthProvider());
+    else await M.reauthenticateWithPopup(u, (u.providerData || []).some(p => p.providerId === 'apple.com') ? new M.OAuthProvider('apple.com') : new M.GoogleAuthProvider());
     const { collection, query, where, getDocs, deleteDoc, doc } = M, uid = u.uid, db = Acct.db;
     const del = ref => deleteDoc(ref).catch(() => {});
     const chat = await getDocs(query(collection(db, 'chat'), where('uid', '==', uid)));
@@ -2533,6 +2539,7 @@ function accountHTML() {
   const up = Acct.mode === 'up';
   return `<section class="form-card acct"><h2 class="fc-title">Account</h2>
     <p class="help">Sign in to keep your predictions on all your devices.</p>
+    ${APPLE_ON ? '' : '<!--'}<button class="btn btn-apple wide" data-act="acct-apple"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M16.4 12.6c0-2.6 2.1-3.8 2.2-3.9-1.2-1.8-3.1-2-3.7-2-1.6-.2-3.1.9-3.9.9-.8 0-2-.9-3.4-.9-1.7 0-3.3 1-4.2 2.6-1.8 3.1-.5 7.7 1.3 10.2.9 1.2 1.9 2.6 3.2 2.6 1.3-.1 1.8-.8 3.3-.8 1.6 0 2 .8 3.4.8 1.4 0 2.3-1.3 3.1-2.5 1-1.4 1.4-2.8 1.4-2.9-.1 0-2.7-1-2.7-4.1zM13.9 5c.7-.9 1.2-2 1.1-3.2-1 0-2.3.7-3 1.6-.7.8-1.2 2-1.1 3.1 1.2.1 2.3-.6 3-1.5z"/></svg> Continue with Apple</button>${APPLE_ON ? '' : '-->'}
     <button class="btn btn-google wide" data-act="acct-google">Continue with Google</button>
     <div class="acct-or"><span>or</span></div>
     <form id="acct-form" class="acct-form" novalidate>
@@ -4524,6 +4531,7 @@ PUSH_KINDS.forEach(([k]) => { if (Push.prefs[k] == null) Push.prefs[k] = true; }
 const pushSave = () => store.set('push', { on: Push.on, prefs: Push.prefs, synced: Push.synced, lang: Push.lang });
 let pushBusy = false;
 function pushState() {
+  if (/PWAShell/.test(navigator.userAgent)) return 'iosapp'; // inside the App Store app: iPhone apps can't use web alerts
   if (!/github\.io$/.test(location.hostname) || !('serviceWorker' in navigator)) return 'site'; // the service worker only runs on the app's website
   if (isIOS() && !isInstalled()) return 'ios'; // iPhones only allow alerts from apps added to the Home Screen
   if (!('PushManager' in window) || !('Notification' in window)) return 'unsupported';
@@ -4594,6 +4602,7 @@ async function pushSync() {
 function pushHTML() {
   const st = pushState();
   const msg = {
+    iosapp: 'Match alerts in the iPhone app are coming soon.',
     site: 'Open Culé Live from its website to turn on notifications.',
     ios: 'On iPhone, add Culé Live to your Home Screen first (Share button, then Add to Home Screen). Then open it from there and turn on notifications here.',
     unsupported: "This browser can't show notifications. Try Chrome, or install the app.",
@@ -4880,6 +4889,7 @@ document.addEventListener('click', e => {
     case 'push-test': pushTest(); break;
     case 'install': if (installPrompt) { installPrompt.prompt(); installPrompt.userChoice.finally(() => { installPrompt = null; render(); }); } break;
     case 'acct-google': acctGoogle(); break;
+    case 'acct-apple': acctGoogle(true); break;
     case 'acct-mode': Acct.mode = Acct.mode === 'up' ? 'in' : 'up'; Acct.error = ''; render(); break;
     case 'acct-forgot': acctForgot(); break;
     case 'acct-out': acctSignOut(); break;
