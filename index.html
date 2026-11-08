@@ -4316,7 +4316,9 @@ function memOpen(uid, from) {
     ${memRoleHTML(uid, self, iOwn, their)}
     ${self || staff ? (staff && !self ? `<p class="help">${their === 'owner' ? 'Owners' : 'Admins'} can't be muted or banned.</p>` : '') : `<h3>Mute</h3><div class="row">${mu ? '<button class="btn btn-ghost btn-sm" data-act="mod-unmute">Unmute</button>' : [[10, '10 min'], [60, '1 hour'], [1440, '24 hours'], [10080, '7 days']].map(([n, l]) => `<button class="btn btn-ghost btn-sm" data-act="mod-mute" data-min="${n}">${l}</button>`).join('')}</div>
     <h3>Ban</h3>${banned ? '<button class="btn btn-ghost wide" data-act="mod-unban">Unban</button>' : '<button class="btn btn-ghost wide mod-ban" data-act="mod-ban">Ban from the chat</button>'}
-    <button class="btn btn-ghost wide mod-ban" data-act="mem-wipe">Delete all their chat messages</button>`}
+    <button class="btn btn-ghost wide mod-ban" data-act="mem-wipe">Delete all their chat messages</button>
+    <h3>Delete account</h3><p class="help">Removes their profile, username, predictions and all their chat messages. If they sign in again they start as a new guest.</p>
+    <div id="mem-del-box"><button class="btn btn-ghost wide mod-ban" data-act="mem-del-ask">Delete this account</button></div>`}
   </div>`;
   root.hidden = false; document.body.style.overflow = 'hidden';
 }
@@ -4367,6 +4369,23 @@ async function memSave(form) {
     closeSheet(false); memPaint(); toast('Member saved');
   } catch (e) { err.textContent = e.code === 'taken' ? `@${un} is already taken. Try another one.` : e.code === 'permission-denied' ? 'Only admins can do that.' : "Couldn't save. Check your connection and try again."; }
   finally { btn.disabled = false; }
+}
+async function memDeleteAccount(btn) {
+  const uid = state.memUid, me = Acct.user?.uid, m = (Mem.list || []).find(x => x.uid === uid);
+  if (!uid || !m || !isAdmin(me) || uid === me || roleOf(uid)) return; // never yourself or another admin/owner
+  if (btn) btn.disabled = true;
+  try {
+    const { collection, query, where, getDocs, deleteDoc, doc } = Acct.m, db = Acct.db;
+    const del = ref => deleteDoc(ref).catch(() => {});
+    const chat = await getDocs(query(collection(db, 'chat'), where('uid', '==', uid)));
+    const refs = []; chat.forEach(d => refs.push(d.ref));
+    try { const preds = await getDocs(collection(db, 'users', uid, 'predictions')); preds.forEach(d => refs.push(d.ref)); } catch (e) { /* not allowed or none */ }
+    await Promise.all(refs.map(del));
+    if (m.username) await del(doc(db, 'usernames', m.username));
+    await deleteDoc(doc(db, 'profiles', uid));
+    Mem.list = Mem.list.filter(x => x.uid !== uid);
+    closeSheet(false); memPaint(); toast(`@${m.username} was deleted`);
+  } catch (e) { if (btn) btn.disabled = false; toast(e.code === 'permission-denied' ? 'Only admins can do that.' : "Couldn't delete. Try again."); }
 }
 async function memWipe() {
   const uid = state.memUid; if (!uid || !isAdmin(Acct.user?.uid)) return;
@@ -4806,6 +4825,9 @@ document.addEventListener('click', e => {
     case 'mod-open': modOpen(b.dataset.id, b); break;
     case 'mem-open': memOpen(b.dataset.uid, b); break;
     case 'mem-wipe': memWipe(); break;
+    case 'mem-del-ask': { const m = (Mem.list || []).find(x => x.uid === state.memUid); $('#mem-del-box').innerHTML = `<p class="help"><b>Delete @${esc(m ? m.username : '')} forever?</b> This can't be undone.</p><div class="row"><button class="btn btn-primary btn-sm mod-ban" data-act="mem-del-yes">Yes, delete</button><button class="btn btn-ghost btn-sm" data-act="mem-del-no">Cancel</button></div>`; break; }
+    case 'mem-del-no': $('#mem-del-box').innerHTML = '<button class="btn btn-ghost wide mod-ban" data-act="mem-del-ask">Delete this account</button>'; break;
+    case 'mem-del-yes': memDeleteAccount(b); break;
     case 'role-set': roleSet(b.dataset.role); break;
     case 'mem-filter': Mem.f = b.dataset.f; document.querySelectorAll('[data-act="mem-filter"]').forEach(c => c.setAttribute('aria-pressed', String(c.dataset.f === Mem.f))); memPaint(); break;
     case 'mod-del': modAct('del'); break;

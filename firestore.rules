@@ -14,6 +14,7 @@ service cloud.firestore {
     // Each person's own predictions (unchanged)
     match /users/{uid}/{document=**} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read, delete: if isAdmin() && !isStaff(uid);  // admins deleting an account
     }
 
     // Member records ("profiles"): everyone has one. Guests get "Guest 1234" (@guest1234) until they choose a name.
