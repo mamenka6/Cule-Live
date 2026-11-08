@@ -85,6 +85,60 @@ service cloud.firestore {
       allow write: if isAdmin() && uid != request.auth.uid && !isStaff(uid);
     }
 
+    // Feedback: anyone signed in (guests too) can send; only admins can read or delete it
+    match /feedback/{id} {
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasOnly(['uid', 'username', 'kind', 'text', 'platform', 'at'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.kind in ['bug', 'idea', 'other']
+        && request.resource.data.text is string && request.resource.data.text.size() >= 3 && request.resource.data.text.size() <= 1000
+        && request.resource.data.username is string && request.resource.data.username.size() <= 20
+        && request.resource.data.platform is string && request.resource.data.platform.size() <= 20
+        && request.resource.data.at is number;
+      allow read, delete: if isAdmin();
+    }
+
+    // Each player's prediction points, public so league tables can show them
+    match /stats/{uid} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['pts', 'n', 'exact', 'done', 'name', 'username', 'at'])
+        && request.resource.data.pts is int && request.resource.data.n is int
+        && request.resource.data.exact is int && request.resource.data.done is int
+        && request.resource.data.name is string && request.resource.data.name.size() <= 30
+        && request.resource.data.username is string && request.resource.data.username.size() <= 20;
+      allow delete: if isAdmin();
+    }
+
+    // Prediction leagues: signed-in people can see them, create one, join or leave by code
+    match /leagues/{code} {
+      allow read: if request.auth != null && request.auth.token.firebase.sign_in_provider != 'anonymous';
+      allow create: if request.auth != null && request.auth.token.firebase.sign_in_provider != 'anonymous'
+        && code.matches('^[A-Z0-9]{6}$')
+        && request.resource.data.keys().hasOnly(['name', 'owner', 'members', 'createdAt'])
+        && request.resource.data.owner == request.auth.uid
+        && request.resource.data.members == [request.auth.uid]
+        && request.resource.data.name is string && request.resource.data.name.size() >= 2 && request.resource.data.name.size() <= 30
+        && !request.resource.data.name.lower().matches('.*(fuck|bitch|cunt|nigger|nigga|faggot|whore|motherf|putain|salope|mierda|gilipollas|qahba|9a7ba).*');
+      allow update: if request.auth != null && request.auth.token.firebase.sign_in_provider != 'anonymous'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members'])
+        && request.resource.data.members.size() <= 50
+        && (
+          // joining: add only yourself
+          (request.resource.data.members.size() == resource.data.members.size() + 1
+            && request.resource.data.members.hasAll(resource.data.members)
+            && request.auth.uid in request.resource.data.members
+            && !(request.auth.uid in resource.data.members))
+          ||
+          // leaving: remove only yourself
+          (request.resource.data.members.size() == resource.data.members.size() - 1
+            && resource.data.members.hasAll(request.resource.data.members)
+            && request.auth.uid in resource.data.members
+            && !(request.auth.uid in request.resource.data.members))
+        );
+      allow delete: if request.auth != null && (resource.data.owner == request.auth.uid || isAdmin());
+    }
+
     // Player of the match fan vote: one vote per person per match, results public
     match /potm/{matchId}/votes/{uid} {
       allow read: if true;

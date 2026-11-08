@@ -15,6 +15,9 @@
 html,body{max-width:100%;overflow-x:hidden}
 a,button,img,.rrow,.chip{-webkit-touch-callout:none}
 nav a,nav button,.btn,.chip{-webkit-user-select:none;user-select:none}
+.fb-text{width:100%;min-height:110px;margin:10px 0 4px;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--bg,#0b1226);color:inherit;font:inherit;resize:vertical}
+.fb-list{list-style:none;padding:0;display:grid;gap:12px}.fb-top{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.fb-top small{opacity:.7}.fb-body{white-space:pre-wrap;margin:10px 0}
+.lg-link{display:inline-block;margin-top:8px}.lg-tbl td.l,.lg-tbl th.l{text-align:left}.lg-tbl small{opacity:.65}
 </style>
 <title>Culé Live</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -2535,7 +2538,7 @@ function accountHTML() {
       <div class="sheet-sum"><div class="kv"><b>${st.pts}</b><small>Points</small></div><div class="kv"><b>${st.n}</b><small>Predictions</small></div><div class="kv"><b>${st.exact}</b><small>Exact scores</small></div><div class="kv"><b>${st.done}</b><small>Played</small></div></div>
       ${profileRowHTML()}
       <p class="help">${Acct.syncError ? "Couldn't reach your account just now. Your predictions are safe on this device and will sync later." : 'Your predictions are saved to your account.'}</p>
-      <button class="btn btn-ghost" data-act="acct-out">Sign out</button>
+      <div class="row"><a class="btn btn-primary" href="#leagues">Prediction leagues</a><button class="btn btn-ghost" data-act="acct-out">Sign out</button></div>
       <button class="link-btn acct-del" data-act="del-open">Delete my account</button></section>`;
   }
   const up = Acct.mode === 'up';
@@ -3061,7 +3064,7 @@ async function savePred(f, d) {
   const k = predKey(f), rec = { b: d.b, o: d.o, at: Date.now(), opp: f[other(barcaSide(f))].name, ts: f.ts };
   store.set('pred:' + k, rec);
   if (!Acct.user) return 'local';
-  try { await cloudSetPred(k, rec); return 'cloud'; } catch (e) { return 'local-error'; }
+  try { await cloudSetPred(k, rec); statsSync(); return 'cloud'; } catch (e) { return 'local-error'; }
 }
 
 /* --- Home --- */
@@ -3148,6 +3151,7 @@ function nextCardHTML(f) {
         </div>
         <p class="help" id="pred-note-${pk}">${saved ? `Saved: Barça ${saved.b}–${saved.o} ${esc(opp.name)}` : 'Exact score earns 3 points, the right result earns 1.'}</p>
         ${acctNudgeHTML()}
+        <a class="link-btn lg-link" href="#leagues">Play against friends in a league →</a>
       </div>
     </article></section>`;
 }
@@ -4253,7 +4257,7 @@ function adminHTML() {
   const bans = Object.entries(Chat.bans), mutes = Object.entries(Chat.mutes).filter(([u]) => mutedUntil(u));
   const row = (uid, d, act, label, extra) => `<li><span><b data-notr>@${esc(d.username || uid.slice(0, 6))}</b>${extra ? `<small>${extra}</small>` : ''}</span><button class="btn btn-ghost btn-sm" data-act="${act}" data-uid="${esc(uid)}" data-name="${esc(d.username || '')}">${label}</button></li>`;
   return `<section class="form-card" id="admin-card"><h2 class="fc-title">Admin <span class="adm-tag">You</span></h2>
-    <a class="btn btn-primary wide" href="#members">${I.squad} Members</a>
+    <div class="row"><a class="btn btn-primary" href="#members">${I.squad} Members</a><a class="btn btn-ghost" href="#feedback">Feedback</a></div>
     <p class="help">You can delete any message, mute or ban people: tap Moderate under a message in the chat.</p>
     <h3 class="sec-title">Banned</h3>${bans.length ? `<ul class="injlist adm-list">${bans.map(([u, d]) => row(u, d, 'adm-unban', 'Unban')).join('')}</ul>` : '<p class="help">Nobody is banned.</p>'}
     <h3 class="sec-title">Muted</h3>${mutes.length ? `<ul class="injlist adm-list">${mutes.map(([u, d]) => row(u, d, 'adm-unmute', 'Unmute', 'until ' + fmtTime(d.until))).join('')}</ul>` : '<p class="help">Nobody is muted.</p>'}
@@ -4638,12 +4642,160 @@ function pushHTML() {
 }
 
 /* --- Settings (what everyone sees) --- */
+/* --- Feedback (anyone can send; admins read it) --- */
+const Fb = { kind: 'idea', list: null, err: '' };
+const appPlatform = () => /PWAShell/.test(navigator.userAgent) ? 'ios-app' : /Android/.test(navigator.userAgent) ? 'android' : /iPhone|iPad/.test(navigator.userAgent) ? 'iphone-web' : 'web';
+function feedbackHTML() {
+  if (Acct.status === 'off') return '';
+  const kinds = [['bug', 'Bug'], ['idea', 'Idea'], ['other', 'Other']];
+  return `<section class="form-card" id="fb-card"><h2 class="fc-title">Send feedback</h2>
+    <p class="help">Found a bug or have an idea? Tell us. Only the Culé Live team can read it.</p>
+    <div class="chips" role="group" aria-label="Type">${kinds.map(([k, l]) => `<button class="chip" data-act="fb-kind" data-k="${k}" aria-pressed="${Fb.kind === k}">${l}</button>`).join('')}</div>
+    <textarea id="fb-text" class="fb-text" maxlength="1000" rows="4" placeholder="What happened, or what would you like?"></textarea>
+    <p class="acct-err" id="fb-err"></p>
+    <button class="btn btn-primary" data-act="fb-send">Send</button></section>`;
+}
+async function fbSend(btn) {
+  const el = $('#fb-text'), err = $('#fb-err'), text = (el?.value || '').trim();
+  if (text.length < 3) { err.textContent = 'Write a few words first.'; return; }
+  if (Date.now() - store.get('fbAt', 0) < 60000) { err.textContent = 'Wait a minute before sending more.'; return; }
+  await acctStart();
+  const u = Acct.user || Acct.anon;
+  if (!u || !Acct.db) { err.textContent = "Feedback can't be sent right now. Try again later."; return; }
+  btn.disabled = true; err.textContent = '';
+  try {
+    await Acct.m.addDoc(Acct.m.collection(Acct.db, 'feedback'), { uid: u.uid, username: (Prof.me && Prof.me.username) || '', kind: Fb.kind, text: text.slice(0, 1000), platform: appPlatform(), at: Date.now() });
+    store.set('fbAt', Date.now()); el.value = ''; toast('Thanks! Your feedback was sent.');
+  } catch (e) { err.textContent = "Couldn't send. Check your connection and try again."; }
+  finally { btn.disabled = false; }
+}
+async function viewFeedback() {
+  if (Acct.start) { try { await Acct.start; } catch (e) {} }
+  modWatch(); await Promise.race([rolesReady, new Promise(r => setTimeout(r, 4000))]);
+  const back = `<a class="back" href="#options">${I.back} Settings</a>`;
+  if (!isAdmin(Acct.user?.uid)) return back + empty('Only admins can see this page.');
+  try {
+    const { collection, query, orderBy, limit, getDocs } = Acct.m;
+    const snap = await getDocs(query(collection(Acct.db, 'feedback'), orderBy('at', 'desc'), limit(150)));
+    const out = []; snap.forEach(d => out.push({ id: d.id, ...d.data() })); Fb.list = out;
+  } catch (e) { return back + empty("Feedback can't be loaded right now."); }
+  const tag = k => `<span class="tag ${k === 'bug' ? 'c-cdr' : k === 'idea' ? 'c-ucl' : 'c-oth'}">${k === 'bug' ? 'Bug' : k === 'idea' ? 'Idea' : 'Other'}</span>`;
+  return `${back}<div><h1 class="page-title">Feedback</h1><p class="page-sub"><b>${Fb.list.length}</b> <span>messages</span></p></div>
+    ${Fb.list.length ? `<ul class="fb-list">${Fb.list.map(f => `<li class="form-card fb-item" id="fb-${esc(f.id)}"><div class="fb-top">${tag(f.kind)}<small data-notr>${f.username ? '@' + esc(f.username) : 'Guest'} · ${esc(f.platform || '')} · ${fmtWhen(f.at)}</small></div>
+      <p class="fb-body" data-notr>${esc(f.text || '')}</p><button class="btn btn-ghost btn-sm" data-act="fb-del" data-id="${esc(f.id)}">Delete</button></li>`).join('')}</ul>` : empty('No feedback yet.')}`;
+}
+async function fbDelete(id) {
+  try { await Acct.m.deleteDoc(Acct.m.doc(Acct.db, 'feedback', id)); const el = $('#fb-' + CSS.escape(id)); if (el) el.remove(); toast('Deleted'); } catch (e) { toast("Couldn't delete. Try again."); }
+}
+
+/* --- Prediction leagues: play with friends using a code --- */
+const Lg = { mine: null, open: null, err: '' };
+const LG_RX = /^[A-Z0-9]{6}$/;
+const lgCode = () => { const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s = ''; const r = crypto.getRandomValues(new Uint8Array(6)); r.forEach(x => s += c[x % c.length]); return s; };
+async function statsSync() { // my points, public so league tables can show them
+  if (!Acct.user || !Acct.db || !Prof.me || Prof.me.guest) return;
+  try { if (!state.fixtures) await Data.fixtures(); } catch (e) { return; }
+  const st = predStats(), rec = { pts: st.pts, n: st.n, exact: st.exact, done: st.done, name: Prof.me.displayName, username: Prof.me.username, at: Date.now() };
+  const k = JSON.stringify([rec.pts, rec.n, rec.exact, rec.done, rec.name, rec.username]);
+  if (store.get('statsSent', '') === k) return;
+  try { await Acct.m.setDoc(Acct.m.doc(Acct.db, 'stats', Acct.user.uid), rec); store.set('statsSent', k); } catch (e) { /* try again next time */ }
+}
+async function lgLoad() {
+  const { collection, query, where, getDocs } = Acct.m;
+  try { const snap = await getDocs(query(collection(Acct.db, 'leagues'), where('members', 'array-contains', Acct.user.uid))); const out = []; snap.forEach(d => out.push({ code: d.id, ...d.data() })); Lg.mine = out.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)); Lg.err = ''; }
+  catch (e) { Lg.err = e.code || 'error'; Lg.mine = []; }
+}
+async function viewLeagues() {
+  if (Acct.start) { try { await Acct.start; } catch (e) {} }
+  const head = `<a class="back" href="#home">${I.back} Home</a><div><h1 class="page-title">Leagues</h1><p class="page-sub">Predict Barça's scores against your friends. Exact score = 3 points, right result = 1.</p></div>`;
+  if (!Acct.user) return head + `<section class="form-card"><p class="help">Sign in to create or join a league.</p><a class="btn btn-primary" href="#options">Sign in</a></section>`;
+  if (!Prof.me || Prof.me.guest) return head + `<section class="form-card"><p class="help">Choose a display name and username first, so your friends know who you are.</p><button class="btn btn-primary" data-act="prof-edit">Set up profile</button></section>`;
+  await statsSync(); await lgLoad();
+  const st = predStats();
+  return head + `<section class="form-card"><div class="sheet-sum"><div class="kv"><b>${st.pts}</b><small>Your points</small></div><div class="kv"><b>${st.n}</b><small>Predictions</small></div><div class="kv"><b>${st.exact}</b><small>Exact scores</small></div></div></section>
+    <section class="form-card"><h2 class="fc-title">Your leagues</h2>
+      ${Lg.err ? `<p class="help">Leagues can't be loaded right now.</p>` : Lg.mine.length ? `<ul class="rlist">${Lg.mine.map(l => `<li><button class="rrow" data-act="lg-open" data-code="${esc(l.code)}"><span class="nmw"><span class="nmt"><b data-notr>${esc(l.name)}</b><small>${l.members.length} ${l.members.length === 1 ? 'player' : 'players'} · code <span data-notr>${esc(l.code)}</span></small></span></span><span></span><span>${I.chev || '›'}</span></button></li>`).join('')}</ul>` : '<p class="help">You\'re not in a league yet. Create one and send the code to your friends, or join theirs.</p>'}
+    </section>
+    <section class="form-card"><h2 class="fc-title">Create a league</h2>
+      <form id="lg-create" class="acct-form" novalidate><label for="lg-name">League name</label><input id="lg-name" maxlength="30" placeholder="e.g. The Culé Squad"><p class="acct-err" id="lg-cerr"></p><button class="btn btn-primary" type="submit">Create</button></form>
+    </section>
+    <section class="form-card"><h2 class="fc-title">Join a league</h2>
+      <form id="lg-join" class="acct-form" novalidate><label for="lg-code">League code</label><input id="lg-code" maxlength="6" autocapitalize="characters" spellcheck="false" placeholder="ABC123" style="text-transform:uppercase;letter-spacing:.2em"><p class="acct-err" id="lg-jerr"></p><button class="btn btn-primary" type="submit">Join</button></form>
+    </section>`;
+}
+async function lgCreate(form) {
+  const name = $('#lg-name').value.trim().replace(/\s+/g, ' '), err = $('#lg-cerr');
+  if (name.length < 2) { err.textContent = 'Give your league a name (2 to 30 characters).'; return; }
+  if (hasSwear(name)) { err.textContent = 'Please choose a name without swear words.'; return; }
+  const btn = form.querySelector('button'); btn.disabled = true; err.textContent = '';
+  try {
+    const { runTransaction, doc } = Acct.m; let code;
+    for (let i = 0; i < 5; i++) {
+      code = lgCode();
+      const ok = await runTransaction(Acct.db, async tx => { const ref = doc(Acct.db, 'leagues', code); if ((await tx.get(ref)).exists()) return false; tx.set(ref, { name, owner: Acct.user.uid, members: [Acct.user.uid], createdAt: Date.now() }); return true; });
+      if (ok) break; code = null;
+    }
+    if (!code) throw new Error('code');
+    toast(`League created! Code: ${code}`); $('#view').dataset.route = ''; await render(); lgOpen(code);
+  } catch (e) { err.textContent = "Couldn't create the league. Try again."; btn.disabled = false; }
+}
+async function lgJoin(form) {
+  const code = $('#lg-code').value.trim().toUpperCase(), err = $('#lg-jerr');
+  if (!LG_RX.test(code)) { err.textContent = 'League codes have 6 letters and numbers.'; return; }
+  const btn = form.querySelector('button'); btn.disabled = true; err.textContent = '';
+  try {
+    const { runTransaction, doc } = Acct.m;
+    await runTransaction(Acct.db, async tx => {
+      const ref = doc(Acct.db, 'leagues', code), s = await tx.get(ref);
+      if (!s.exists()) throw Object.assign(new Error('none'), { code: 'none' });
+      const m = s.data().members || [];
+      if (m.includes(Acct.user.uid)) return;
+      if (m.length >= 50) throw Object.assign(new Error('full'), { code: 'full' });
+      tx.update(ref, { members: [...m, Acct.user.uid] });
+    });
+    toast('You joined the league'); $('#view').dataset.route = ''; await render(); lgOpen(code);
+  } catch (e) { err.textContent = e.code === 'none' ? "There's no league with that code." : e.code === 'full' ? 'That league is full (50 players).' : "Couldn't join. Try again."; btn.disabled = false; }
+}
+async function lgOpen(code, from) {
+  const l = (Lg.mine || []).find(x => x.code === code); if (!l) return;
+  state.sheetPid = 'xi:lg'; state.sheetReturn = from || null; Lg.open = code;
+  const root = $('#sheet-root');
+  const shell = body => `<div class="sheet-back" data-act="sheet-close"></div><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+    <div class="sheet-top"><span class="sheet-name"><b id="sheet-title" data-notr>${esc(l.name)}</b><small>Code <span data-notr>${esc(code)}</span> · ${l.members.length} ${l.members.length === 1 ? 'player' : 'players'}</small></span><button class="sheet-close" data-act="sheet-close" aria-label="Close">×</button></div>${body}</div>`;
+  root.innerHTML = shell('<div class="loading">Loading…</div>'); root.hidden = false; document.body.style.overflow = 'hidden';
+  const rows = await Promise.all(l.members.map(async uid => { try { const d = await Acct.m.getDoc(Acct.m.doc(Acct.db, 'stats', uid)); return d.exists() ? { uid, ...d.data() } : { uid, pts: 0, n: 0, exact: 0, name: '?', username: '' }; } catch (e) { return { uid, pts: 0, n: 0, exact: 0, name: '?', username: '' }; } }));
+  rows.sort((a, b) => b.pts - a.pts || b.exact - a.exact || b.n - a.n);
+  if (Lg.open !== code) return;
+  const me = Acct.user.uid;
+  root.innerHTML = shell(`<div class="tbl-wrap"><table class="tbl lg-tbl"><thead><tr><th>#</th><th class="l">Player</th><th>Pred</th><th>Exact</th><th>Pts</th></tr></thead><tbody>
+    ${rows.map((r, i) => `<tr class="${r.uid === me ? 'barca' : ''}"><td>${i + 1}</td><td class="l"><b data-notr>${esc(maskSwears(r.name || '?'))}</b>${r.username ? ` <small data-notr>@${esc(r.username)}</small>` : ''}</td><td>${r.n || 0}</td><td>${r.exact || 0}</td><td><b>${r.pts || 0}</b></td></tr>`).join('')}
+    </tbody></table></div>
+    <p class="help">Points update when each player opens the app.</p>
+    <div class="row"><button class="btn btn-primary" data-act="lg-share" data-code="${esc(code)}">Invite friends</button><button class="btn btn-ghost mod-ban" data-act="lg-leave" data-code="${esc(code)}">${l.owner === me ? 'Delete league' : 'Leave league'}</button></div>`);
+}
+async function lgShare(code) {
+  const l = (Lg.mine || []).find(x => x.code === code), url = location.origin + location.pathname + '#leagues';
+  const text = `Join my Culé Live prediction league "${l ? l.name : ''}"! Code: ${code}`;
+  try { if (navigator.share) { await navigator.share({ title: 'Culé Live league', text, url }); return; } } catch (e) { return; }
+  try { await navigator.clipboard.writeText(text + ' ' + url); toast('Invite copied. Paste it to your friends.'); } catch (e) { toast(`Your code is ${code}`); }
+}
+async function lgLeave(code, btn) {
+  const l = (Lg.mine || []).find(x => x.code === code); if (!l) return;
+  if (btn.dataset.sure !== '1') { btn.dataset.sure = '1'; btn.textContent = l.owner === Acct.user.uid ? 'Tap again to delete' : 'Tap again to leave'; return; }
+  try {
+    const ref = Acct.m.doc(Acct.db, 'leagues', code);
+    if (l.owner === Acct.user.uid) await Acct.m.deleteDoc(ref);
+    else await Acct.m.updateDoc(ref, { members: l.members.filter(u => u !== Acct.user.uid) });
+    closeSheet(false); toast(l.owner === Acct.user.uid ? 'League deleted' : 'You left the league'); $('#view').dataset.route = ''; render();
+  } catch (e) { toast("Couldn't do that. Try again."); }
+}
 async function viewOptions() {
   if (Acct.user && !state.fixtures) { try { await Data.fixtures(); } catch (e) { /* points need fixtures; show 0 if they can't load */ } }
   return `<div><h1 class="page-title">Settings</h1><p class="page-sub">Your account and preferences.</p></div>
     ${accountHTML()}
     ${adminHTML()}
     ${installHTML()}
+    ${feedbackHTML()}
     <section class="form-card"><h2 class="fc-title">Language</h2>
       <div class="seg lang-seg" role="group" aria-label="Language">${Object.entries(LANG_NAMES).map(([k, n]) => `<button data-act="lang" data-lang="${k}" lang="${k}" data-notr aria-pressed="${LANG === k}">${n}</button>`).join('')}</div>
     </section>
@@ -4704,9 +4856,9 @@ function viewSetup() {
 }
 
 /* ---------- 8. Buttons, router and start-up ---------- */
-const VIEWS = { home: viewHome, matches: viewMatches, table: viewTable, squad: viewSquad, options: viewOptions, dev: viewSetup, match: viewMatch, xi: viewXI, chat: viewChat, members: viewMembers };
+const VIEWS = { home: viewHome, matches: viewMatches, table: viewTable, squad: viewSquad, options: viewOptions, dev: viewSetup, match: viewMatch, xi: viewXI, chat: viewChat, members: viewMembers, leagues: viewLeagues, feedback: viewFeedback };
 const NAV = [['home', 'Home'], ['matches', 'Matches'], ['table', 'Table'], ['squad', 'Squad'], ['chat', 'Chat'], ['options', 'Settings']];
-const HIDDEN = { dev: 'dev', setup: 'options', xi: 'xi', members: 'members' }; // #dev = developer page, old #setup links go to Settings
+const HIDDEN = { dev: 'dev', setup: 'options', xi: 'xi', members: 'members', leagues: 'leagues', feedback: 'feedback' }; // #dev = developer page, old #setup links go to Settings
 function route() {
   const h = location.hash.slice(1);
   if (h.startsWith('match-')) return { name: 'match', id: h.slice(6) };
@@ -4719,8 +4871,8 @@ let renderSeq = 0;
 async function render() {
   const seq = ++renderSeq, r = route(), view = $('#view');
   if (r.name !== 'chat') { if (Chat.unsub) { Chat.unsub(); Chat.unsub = null; } if (r.name !== 'options' && r.name !== 'members') chatStop(); } // only listen while the chat (or the admin list) is open
-  if (!['match', 'xi', 'members'].includes(r.name)) state.lastTab = r.name;
-  document.querySelectorAll('.tab').forEach(t => { if (t.dataset.tab === (r.name === 'match' ? state.lastTab : r.name === 'xi' ? 'squad' : r.name === 'members' ? 'options' : r.name)) t.setAttribute('aria-current', 'page'); else t.removeAttribute('aria-current'); });
+  if (!['match', 'xi', 'members', 'leagues', 'feedback'].includes(r.name)) state.lastTab = r.name;
+  document.querySelectorAll('.tab').forEach(t => { if (t.dataset.tab === (r.name === 'match' ? state.lastTab : r.name === 'xi' ? 'squad' : ['members', 'feedback'].includes(r.name) ? 'options' : r.name === 'leagues' ? 'home' : r.name)) t.setAttribute('aria-current', 'page'); else t.removeAttribute('aria-current'); });
   const sameView = view.dataset.route === routeKey(r);
   if (!sameView) { closeSheet(false); view.innerHTML = '<div class="loading">Loading…</div>'; window.scrollTo(0, 0); }
   let html;
@@ -4918,6 +5070,12 @@ document.addEventListener('click', e => {
     case 'acct-forgot': acctForgot(); break;
     case 'acct-out': acctSignOut(); break;
     case 'del-open': delOpen(b); break;
+    case 'fb-kind': Fb.kind = b.dataset.k; document.querySelectorAll('[data-act="fb-kind"]').forEach(c => c.setAttribute('aria-pressed', String(c.dataset.k === Fb.kind))); break;
+    case 'fb-send': fbSend(b); break;
+    case 'fb-del': fbDelete(b.dataset.id); break;
+    case 'lg-open': lgOpen(b.dataset.code, b); break;
+    case 'lg-share': lgShare(b.dataset.code); break;
+    case 'lg-leave': lgLeave(b.dataset.code, b); break;
     case 'refresh-data': store.clear('cache:'); state.fixtures = null; state.cache = {}; toast('Match data refreshed'); $('#view').dataset.route = ''; render(); break;
     case 'retry': $('#view').dataset.route = ''; render(); break;
   }
@@ -4927,6 +5085,8 @@ document.addEventListener('submit', e => {
   if (e.target.id === 'prof-form') { e.preventDefault(); profSave(e.target); }
   if (e.target.id === 'mem-form') { e.preventDefault(); memSave(e.target); }
   if (e.target.id === 'del-form') { e.preventDefault(); acctDelete(e.target); }
+  if (e.target.id === 'lg-create') { e.preventDefault(); lgCreate(e.target); }
+  if (e.target.id === 'lg-join') { e.preventDefault(); lgJoin(e.target); }
   if (e.target.id === 'chat-form') { e.preventDefault(); chatSend(e.target); }
 });
 document.addEventListener('change', e => {
