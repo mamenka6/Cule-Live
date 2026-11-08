@@ -4660,7 +4660,8 @@ async function fbSend(btn) {
   if (text.length < 3) { err.textContent = 'Write a few words first.'; return; }
   if (Date.now() - store.get('fbAt', 0) < 60000) { err.textContent = 'Wait a minute before sending more.'; return; }
   await acctStart();
-  const u = Acct.user || Acct.anon;
+  let u = Acct.user || Acct.anon;
+  if (!u && Acct.m && Acct.auth) { try { u = (await Acct.m.signInAnonymously(Acct.auth)).user; } catch (e) { /* below */ } }
   if (!u || !Acct.db) { err.textContent = "Feedback can't be sent right now. Try again later."; return; }
   btn.disabled = true; err.textContent = '';
   try {
