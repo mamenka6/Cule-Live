@@ -25,6 +25,7 @@ nav a,nav button,.btn,.chip{-webkit-user-select:none;user-select:none}
 .wel-sub{color:var(--muted,#9aa4bd);margin:0 0 10px}
 .wel-or{display:flex;align-items:center;gap:10px;color:var(--muted,#9aa4bd);font-size:.85rem}.wel-or:before,.wel-or:after{content:"";flex:1;height:1px;background:rgba(255,255,255,.15)}
 .wel-note{color:var(--muted,#9aa4bd);font-size:.82rem;margin:4px 0 0}
+.guest-cta{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-top:10px;padding:12px 14px;border-radius:14px;background:rgba(90,140,255,.1);border:1px solid rgba(90,140,255,.3)}.guest-cta .help{margin:0;flex:1;min-width:180px}
 </style>
 <title>Culé Live</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -2365,7 +2366,7 @@ function acctStart() {
       Acct.status = 'ready';
       authM.onAuthStateChanged(Acct.auth, u => {
         if (u) { store.set('welcomed', 1); welcomeHide(); }
-        if (u && u.isAnonymous) { Acct.anon = u; Acct.user = null; memberEnsure(u); acctChanged(); return; } // a guest: a member, but not signed in
+        if (u && u.isAnonymous) { Acct.anon = u; Acct.user = null; memberEnsure(u); acctChanged(); guestNudgeCheck(); return; } // a guest: a member, but not signed in
         Acct.anon = null; Acct.user = u || null;
         if (u) store.set('member', 1);
         else if (!store.get('member', 0) && !store.get('welcomed', 0) && !Acct.signingIn) welcomeShow(); // brand-new visitor: ask them to sign in or continue as a guest (no guest account until they choose)
@@ -2437,19 +2438,26 @@ async function guestDrop() {
   try { const d = await getDoc(doc(Acct.db, 'profiles', g.uid)); if (d.exists() && d.data().guest) { await deleteDoc(doc(Acct.db, 'usernames', d.data().username)).catch(() => {}); await deleteDoc(doc(Acct.db, 'profiles', g.uid)).catch(() => {}); } } catch (e) { /* leave it */ }
 }
 const APPLE_ON = false; // turn on once Sign in with Apple is set up in Firebase
-function welcomeShow() {
+function guestNudgeCheck() { // count visits (a new visit after 30 min away); on a guest's 3rd visit, ask once
+  try {
+    const last = store.get('lastVisit', 0), v = store.get('visits', 0) + (Date.now() - last > 30 * 60e3 ? 1 : 0);
+    store.set('visits', v); store.set('lastVisit', Date.now());
+    if (v >= 3 && !store.get('guestNudged', 0) && Acct.anon && !Acct.user) { store.set('guestNudged', 1); setTimeout(() => { if (Acct.anon && !Acct.user) welcomeShow(true); }, 2500); }
+  } catch (e) {}
+}
+function welcomeShow(nudge = false) {
   if ($('#welcome')) return;
   const w = document.createElement('div'); w.id = 'welcome'; w.setAttribute('role', 'dialog'); w.setAttribute('aria-modal', 'true'); w.setAttribute('aria-labelledby', 'wel-title');
   w.innerHTML = `<div class="wel-card">
     <img class="wel-logo" src="icon-192.png" alt="">
-    <h1 id="wel-title" class="wel-title">Welcome to <span>Culé Live</span></h1>
-    <p class="wel-sub">Live scores, goal alerts, fan chat and prediction leagues for every Barça fan.</p>
+    <h1 id="wel-title" class="wel-title">${nudge ? 'Join the <span>Culé Live</span> fans' : 'Welcome to <span>Culé Live</span>'}</h1>
+    <p class="wel-sub">${nudge ? "Sign in to chat with other Culés, vote for the Player of the Match and play prediction leagues with your friends. You'll keep your predictions." : 'Live scores, goal alerts, fan chat and prediction leagues for every Barça fan.'}</p>
     ${APPLE_ON ? '<button class="btn btn-apple wide" data-act="wel-apple">Continue with Apple</button>' : ''}
     <button class="btn btn-google wide" data-act="wel-google">Continue with Google</button>
     <button class="btn btn-primary wide" data-act="wel-email">Sign in or sign up with email</button>
     <div class="wel-or"><span>or</span></div>
-    <button class="btn btn-ghost wide" data-act="wel-guest">Continue as guest</button>
-    <p class="wel-note">As a guest you can follow every match. Sign in any time to chat, vote and join leagues.</p>
+    ${nudge ? '<button class="btn btn-ghost wide" data-act="wel-later">Not now</button>' : `<button class="btn btn-ghost wide" data-act="wel-guest">Continue as guest</button>
+    <p class="wel-note">As a guest you can follow every match. Sign in any time to chat, vote and join leagues.</p>`}
   </div>`;
   document.body.appendChild(w); document.body.style.overflow = 'hidden';
 }
@@ -2552,7 +2560,7 @@ async function acctSignOut() {
 }
 function acctNudgeHTML() {
   if (Acct.status !== 'ready' || Acct.user) return '';
-  return '<p class="help"><a class="link-btn" href="#options">Sign in</a> to keep your predictions on all your devices.</p>';
+  return '<div class="guest-cta"><p class="help"><b>Playing as a guest.</b> Sign in to chat, vote, join leagues and keep your predictions on all your devices.</p><button class="btn btn-primary btn-sm" data-act="signin-nudge">Sign in</button></div>';
 }
 function accountHTML() {
   if (Acct.status === 'off') return '';
@@ -4248,7 +4256,7 @@ function chatPaint() {
 }
 function chatComposerPaint() { const c = $('#chat-compose'); if (c && !c.querySelector('#chat-input')) c.innerHTML = chatComposerHTML(); else if (c && (Chat.bans[Acct.user?.uid] || mutedUntil(Acct.user?.uid))) c.innerHTML = chatComposerHTML(); }
 function chatComposerHTML() {
-  if (!Acct.user) return `<div class="chat-cta"><p class="help">Sign in to chat with other Culés.</p><a class="btn btn-primary btn-sm" href="#options">Sign in</a></div>`;
+  if (!Acct.user) return `<div class="chat-cta guest-cta"><p class="help"><b>Want to join the chat?</b> Sign in to chat, vote and join leagues. Your name is set up for you.</p><button class="btn btn-primary btn-sm" data-act="signin-nudge">Sign in</button></div>`;
   if (!Prof.loaded) return '<div class="chat-cta"><p class="help">Loading your profile…</p></div>';
   if (!Prof.me || Prof.me.guest) return `<div class="chat-cta"><p class="help">Choose a display name and username to start chatting.</p><button class="btn btn-primary btn-sm" data-act="prof-edit">Set up profile</button></div>`;
   if (Chat.bans[Acct.user.uid]) return `<div class="chat-cta"><p class="help">You've been banned from the chat. You can still read it.</p></div>`;
@@ -5129,6 +5137,8 @@ document.addEventListener('click', e => {
     case 'wel-apple': acctGoogle(true); break;
     case 'wel-email': welcomeHide(); Acct.mode = 'up'; location.hash = '#options'; break;
     case 'wel-guest': welcomeGuest(b); break;
+    case 'wel-later': welcomeHide(); break;
+    case 'signin-nudge': welcomeShow(true); break;
     case 'acct-apple': acctGoogle(true); break;
     case 'acct-mode': Acct.mode = Acct.mode === 'up' ? 'in' : 'up'; Acct.error = ''; render(); break;
     case 'acct-forgot': acctForgot(); break;
