@@ -4077,8 +4077,38 @@ async function memberEnsure(u) {
 const UNAME_RX = /^[a-z0-9_.]{3,20}$/;
 async function profLoad() {
   if (!Acct.user || !Acct.m) { Prof.me = null; Prof.loaded = false; return; }
-  try { const d = await Acct.m.getDoc(Acct.m.doc(Acct.db, 'profiles', Acct.user.uid)); Prof.me = d.exists() ? d.data() : await memberEnsure(Acct.user); Prof.loaded = true; }
+  try {
+    const d = await Acct.m.getDoc(Acct.m.doc(Acct.db, 'profiles', Acct.user.uid)); Prof.me = d.exists() ? d.data() : null;
+    if (!Prof.me || Prof.me.guest) Prof.me = (await profAuto(Acct.user, Prof.me)) || Prof.me || await memberEnsure(Acct.user); // signed in but no profile yet: make one from their Google/email name
+    Prof.loaded = true;
+  }
   catch (e) { Prof.loaded = true; }
+}
+// A profile made automatically from the sign-in name ("Ahmed Benali" -> @ahmedbenali). They can change it any time with Edit profile.
+async function profAuto(u, old) {
+  if (!u || u.isAnonymous || !Acct.m || !Acct.db) return null;
+  let name = (u.displayName || (u.email || '').split('@')[0] || '').trim().replace(/\s+/g, ' ').slice(0, 30);
+  if (name.length < 2 || hasSwear(name)) name = 'Culé fan';
+  let base = name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9_.]/g, '').slice(0, 14);
+  if (base.length < 3 || GUEST_RX.test(base) || hasSwear(base)) base = 'cule' + base;
+  base = base.slice(0, 14);
+  const { doc, runTransaction } = Acct.m, ref = doc(Acct.db, 'profiles', u.uid);
+  for (let i = 0; i < 8; i++) {
+    const un = i === 0 ? base : base + Math.floor((i < 4 ? 10 : 1000) + Math.random() * (i < 4 ? 90 : 9000));
+    if (!UNAME_RX.test(un)) continue;
+    const rec = { displayName: name, username: un, guest: false, createdAt: (old && old.createdAt) || Date.now(), lastSeen: Date.now(), at: Date.now() };
+    try {
+      await runTransaction(Acct.db, async tx => {
+        const r = doc(Acct.db, 'usernames', un), sn = await tx.get(r);
+        if (sn.exists() && sn.data().uid !== u.uid) throw Object.assign(new Error('taken'), { code: 'taken' });
+        if (!sn.exists()) tx.set(r, { uid: u.uid });
+        if (old && old.username && old.username !== un) tx.delete(doc(Acct.db, 'usernames', old.username));
+        tx.set(ref, rec);
+      });
+      return rec;
+    } catch (e) { if (e.code !== 'taken') return null; }
+  }
+  return null;
 }
 function profileRowHTML() {
   const p = Prof.me;
