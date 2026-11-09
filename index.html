@@ -18,6 +18,13 @@ nav a,nav button,.btn,.chip{-webkit-user-select:none;user-select:none}
 .fb-text{width:100%;min-height:110px;margin:10px 0 4px;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--bg,#0b1226);color:inherit;font:inherit;resize:vertical}
 .fb-list{list-style:none;padding:0;display:grid;gap:12px}.fb-top{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.fb-top small{opacity:.7}.fb-body{white-space:pre-wrap;margin:10px 0}
 .lg-link{display:inline-block;margin-top:8px}.lg-tbl td.l,.lg-tbl th.l{text-align:left}.lg-tbl small{opacity:.65}
+#welcome{position:fixed;inset:0;z-index:200;background:radial-gradient(120% 80% at 50% 0%,#16306f 0%,#060b1d 70%);display:flex;align-items:center;justify-content:center;padding:24px 16px;overflow:auto}
+.wel-card{width:100%;max-width:420px;text-align:center;display:grid;gap:12px}
+.wel-logo{width:96px;height:96px;border-radius:22px;margin:0 auto 6px;box-shadow:0 12px 30px rgba(0,0,0,.45)}
+.wel-title{font-family:var(--f-display);font-weight:800;font-size:40px;line-height:1;text-transform:uppercase;margin:0}.wel-title span{color:#ffc933;display:block}
+.wel-sub{color:var(--muted,#9aa4bd);margin:0 0 10px}
+.wel-or{display:flex;align-items:center;gap:10px;color:var(--muted,#9aa4bd);font-size:.85rem}.wel-or:before,.wel-or:after{content:"";flex:1;height:1px;background:rgba(255,255,255,.15)}
+.wel-note{color:var(--muted,#9aa4bd);font-size:.82rem;margin:4px 0 0}
 </style>
 <title>Culé Live</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -2357,10 +2364,11 @@ function acctStart() {
       Acct.db = fsM.getFirestore(app);
       Acct.status = 'ready';
       authM.onAuthStateChanged(Acct.auth, u => {
+        if (u) { store.set('welcomed', 1); welcomeHide(); }
         if (u && u.isAnonymous) { Acct.anon = u; Acct.user = null; memberEnsure(u); acctChanged(); return; } // a guest: a member, but not signed in
         Acct.anon = null; Acct.user = u || null;
         if (u) store.set('member', 1);
-        else if (!store.get('member', 0) && !Acct.signingIn) authM.signInAnonymously(Acct.auth).catch(() => {}); // new visitor: becomes a guest member
+        else if (!store.get('member', 0) && !store.get('welcomed', 0) && !Acct.signingIn) welcomeShow(); // brand-new visitor: ask them to sign in or continue as a guest (no guest account until they choose)
         acctChanged();
       });
       authM.getRedirectResult(Acct.auth).catch(e => acctError(e)); // finishes a Google sign-in that used a redirect
@@ -2429,6 +2437,27 @@ async function guestDrop() {
   try { const d = await getDoc(doc(Acct.db, 'profiles', g.uid)); if (d.exists() && d.data().guest) { await deleteDoc(doc(Acct.db, 'usernames', d.data().username)).catch(() => {}); await deleteDoc(doc(Acct.db, 'profiles', g.uid)).catch(() => {}); } } catch (e) { /* leave it */ }
 }
 const APPLE_ON = false; // turn on once Sign in with Apple is set up in Firebase
+function welcomeShow() {
+  if ($('#welcome')) return;
+  const w = document.createElement('div'); w.id = 'welcome'; w.setAttribute('role', 'dialog'); w.setAttribute('aria-modal', 'true'); w.setAttribute('aria-labelledby', 'wel-title');
+  w.innerHTML = `<div class="wel-card">
+    <img class="wel-logo" src="icon-192.png" alt="">
+    <h1 id="wel-title" class="wel-title">Welcome to <span>Culé Live</span></h1>
+    <p class="wel-sub">Live scores, goal alerts, fan chat and prediction leagues for every Barça fan.</p>
+    ${APPLE_ON ? '<button class="btn btn-apple wide" data-act="wel-apple">Continue with Apple</button>' : ''}
+    <button class="btn btn-google wide" data-act="wel-google">Continue with Google</button>
+    <button class="btn btn-primary wide" data-act="wel-email">Sign in or sign up with email</button>
+    <div class="wel-or"><span>or</span></div>
+    <button class="btn btn-ghost wide" data-act="wel-guest">Continue as guest</button>
+    <p class="wel-note">As a guest you can follow every match. Sign in any time to chat, vote and join leagues.</p>
+  </div>`;
+  document.body.appendChild(w); document.body.style.overflow = 'hidden';
+}
+function welcomeHide() { const w = $('#welcome'); if (w) { w.remove(); if ($('#sheet-root')?.hidden !== false) document.body.style.overflow = ''; } }
+async function welcomeGuest(b) {
+  b.disabled = true; store.set('welcomed', 1); welcomeHide();
+  try { await acctStart(); if (Acct.m && Acct.auth && !Acct.auth.currentUser) await Acct.m.signInAnonymously(Acct.auth); } catch (e) { /* they can still use the app */ }
+}
 async function acctGoogle(apple = false) {
   await acctStart(); if (Acct.status !== 'ready') return;
   const { GoogleAuthProvider, OAuthProvider, signInWithPopup, signInWithRedirect, linkWithPopup, signInWithCredential } = Acct.m;
@@ -5066,6 +5095,10 @@ document.addEventListener('click', e => {
     case 'push-test': pushTest(); break;
     case 'install': if (installPrompt) { installPrompt.prompt(); installPrompt.userChoice.finally(() => { installPrompt = null; render(); }); } break;
     case 'acct-google': acctGoogle(); break;
+    case 'wel-google': acctGoogle(); break;
+    case 'wel-apple': acctGoogle(true); break;
+    case 'wel-email': welcomeHide(); Acct.mode = 'up'; location.hash = '#options'; break;
+    case 'wel-guest': welcomeGuest(b); break;
     case 'acct-apple': acctGoogle(true); break;
     case 'acct-mode': Acct.mode = Acct.mode === 'up' ? 'in' : 'up'; Acct.error = ''; render(); break;
     case 'acct-forgot': acctForgot(); break;
