@@ -199,7 +199,7 @@ service cloud.firestore {
 
     // Fan cards, XP, quiz points, weekly points: each person writes only their own; XP can only go up a little at a time
     function validFan(d) {
-      return d.keys().hasOnly(['ls', 'lday', 'pic', 'emoji', 'color', 'fav', 'num', 'bio', 'xp', 'qpts', 'qday', 'w0k', 'w0', 'w1k', 'w1', 'at'])
+      return d.keys().hasOnly(['inv', 'msgs', 'ls', 'lday', 'pic', 'emoji', 'color', 'fav', 'num', 'bio', 'xp', 'qpts', 'qday', 'w0k', 'w0', 'w1k', 'w1', 'at'])
         && d.get('pic', '') is string && d.get('pic', '').size() <= 80000
         && d.emoji is string && d.emoji.size() <= 8 && d.color is string && d.color.size() <= 9
         && d.fav is string && d.fav.size() <= 30 && d.bio is string && d.bio.size() <= 100
@@ -213,7 +213,7 @@ service cloud.firestore {
       allow create: if request.auth != null && request.auth.uid == uid && validFan(request.resource.data) && picOk(request.resource.data)
         && request.resource.data.xp <= 20 && request.resource.data.qpts <= 1;
       allow update: if request.auth != null && request.auth.uid == uid && validFan(request.resource.data) && picOk(request.resource.data)
-        && request.resource.data.xp >= resource.data.xp && request.resource.data.xp - resource.data.xp <= 20
+        && request.resource.data.xp >= resource.data.xp && request.resource.data.xp - resource.data.xp <= 60
         && request.resource.data.qpts >= resource.data.qpts && request.resource.data.qpts - resource.data.qpts <= 1;
       allow create, update: if isAdmin() && validFan(request.resource.data) && picOk(request.resource.data);  // admins can edit anyone's card, XP and level
       allow delete: if request.auth != null && (request.auth.uid == uid || isAdmin());
@@ -227,6 +227,27 @@ service cloud.firestore {
         && request.resource.data.uid == request.auth.uid && id == request.resource.data.m + '_' + request.auth.uid
         && request.resource.data.e in ['🔥', '💙', '😂', '👏', '😮'];
       allow delete: if request.auth != null && (resource.data.uid == request.auth.uid || isAdmin());
+    }
+
+    // Invites: a new member records who invited them (once); the inviter reads theirs to claim XP
+    match /invites/{uid} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.auth.uid == uid && request.auth.token.firebase.sign_in_provider != 'anonymous'
+        && request.resource.data.keys().hasOnly(['by', 'at']) && request.resource.data.by is string && request.resource.data.by != uid;
+      allow delete: if isAdmin();
+    }
+
+    // Mentions: owners can ping someone (premium later); only the person pinged can read and clear it
+    match /mentions/{id} {
+      allow create: if isOwner() && request.resource.data.from == request.auth.uid
+        && request.resource.data.keys().hasOnly(['to', 'from', 'name', 'text', 'at']) && request.resource.data.text.size() <= 200;
+      allow read, delete: if request.auth != null && (resource.data.to == request.auth.uid || isAdmin());
+    }
+
+    // App-wide picks by admins (fan of the week)
+    match /meta/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
     // Player of the match fan vote: one vote per person per match, results public

@@ -55,6 +55,10 @@ nav a,nav button,.btn,.chip{-webkit-user-select:none;user-select:none}
 #wd-in{text-transform:uppercase;letter-spacing:.2em}
 .gp-ph{width:150px;height:150px;margin:4px auto;border-radius:16px;overflow:hidden;background:var(--line)}.gp-ph img{width:100%;height:100%;object-fit:cover;transition:filter .4s}
 .pxi-grid{display:flex;flex-wrap:wrap;gap:6px}.pxi-h{width:100%;margin-top:6px;font-family:var(--f-label);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.sr-btn{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;color:inherit}.top-right{display:flex;align-items:center;gap:8px}
+.sr-in{width:100%;padding:13px 14px;border-radius:14px;border:1px solid var(--line);background:transparent;color:inherit;font:inherit;font-size:16px}.sr-list{display:grid;gap:8px}.sr-it{display:flex;gap:10px;align-items:center;padding:12px;width:100%;text-align:left;font:inherit;color:inherit;border:1px solid var(--line);cursor:pointer}.sr-it span{display:grid}
+.ach-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.ach{font-size:20px}.ach-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}.ach-it{border:1px solid var(--line);border-radius:12px;padding:10px;display:grid;gap:2px;opacity:.5}.ach-it.on{opacity:1;border-color:var(--gold)}.ach-it span{font-size:22px}.ach-it small{color:var(--muted)}
+.mention{color:var(--gold);font-weight:800;background:color-mix(in srgb,var(--gold) 16%,transparent);border-radius:5px;padding:0 3px}.msg.ping .msg-bubble{box-shadow:0 0 0 2px var(--gold)}
 </style>
 <title>Culé Live</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -687,7 +691,7 @@ button.rrow:hover,button.brow:hover{background:var(--surface-2)}
 <header class="topbar">
   <div class="topbar-in">
     <a class="brand" href="#home" aria-label="Culé Live, home"><span class="mark" aria-hidden="true"></span><span class="brand-name">Culé Live</span></a>
-    <span class="top-right"><span class="mode-chip" id="mode-chip">Demo data</span><a class="acct-btn" id="acct-btn" href="#options" aria-label="Sign in" hidden></a></span>
+    <span class="top-right"><a class="sr-btn" href="#search" aria-label="Search"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></a><span class="mode-chip" id="mode-chip">Demo data</span><a class="acct-btn" id="acct-btn" href="#options" aria-label="Sign in" hidden></a></span>
   </div>
 </header>
 <main id="view" class="main"></main>
@@ -3269,6 +3273,7 @@ async function viewHome() {
   if (results.length) html += formHTML(results);
   html += apSlot('home');
   html += champSlot();
+  html += fotwSlot();
   html += `<a class="card champ" href="#games"><span class="champ-c">🎮</span><span><small class="nw-tag">TODAY'S GAMES</small><b>Quiz · Wordle · Guess the player · Predict the XI</b><small>New every day. Earn XP.</small></span></a>`;
   html += await tableSnapSection();
   html += await newsHTML();
@@ -4283,8 +4288,8 @@ function chatListHTML() {
   let prevUid = null;
   return Chat.msgs.filter(m => !isBlocked(m.uid)).map(m => {
     const mine = m.uid === me, cont = m.uid === prevUid; prevUid = m.uid;
-    return `<div class="msg ${mine ? 'mine' : ''} ${cont ? 'cont' : ''} ${isAdmin(m.uid) ? 'staff' : ''}">${cont ? '' : `<div class="msg-who">${avatarHTML(m.uid, m.name, Fan.cache[m.uid])}<button class="msg-name" data-act="fan-open" data-uid="${esc(m.uid)}" data-notr>${esc(maskSwears(m.name || '?'))}</button>${crown(m.uid)}${Fan.cache[m.uid] ? ` <span class="lv-tag">Lv ${levelOf(Fan.cache[m.uid].xp).n}</span>` : ''}${roleTag(m.uid) ? ' ' + roleTag(m.uid) : ''}${m.username ? ` <small data-notr>@${esc(maskSwears(m.username))}</small>` : ''}${Chat.bans[m.uid] ? ' <span class="mod-tag">Banned</span>' : mutedUntil(m.uid) ? ' <span class="mod-tag">Muted</span>' : ''}</div>`}
-      <div class="msg-bubble"><span class="msg-text" data-notr>${esc(maskSwears(m.text || ''))}</span><span class="msg-meta">${chatTime(m.at)}${mine ? ` · <button class="msg-del" data-act="chat-del" data-id="${esc(m.id)}">Delete</button>` : isAdmin(me) ? ` · <button class="msg-del" data-act="mod-open" data-id="${esc(m.id)}">Moderate</button>` : me ? ` · <button class="msg-del" data-act="msg-menu" data-id="${esc(m.id)}">Report</button>` : ''}</span></div>${rxHTML(m)}</div>`;
+    return `<div class="msg ${mine ? 'mine' : ''} ${cont ? 'cont' : ''} ${isAdmin(m.uid) ? 'staff' : ''} ${pingsMe(m) ? 'ping' : ''}">${cont ? '' : `<div class="msg-who">${avatarHTML(m.uid, m.name, Fan.cache[m.uid])}<button class="msg-name" data-act="fan-open" data-uid="${esc(m.uid)}" data-notr>${esc(maskSwears(m.name || '?'))}</button>${crown(m.uid)}${Fan.cache[m.uid] ? ` <span class="lv-tag">Lv ${levelOf(Fan.cache[m.uid].xp).n}</span>` : ''}${roleTag(m.uid) ? ' ' + roleTag(m.uid) : ''}${m.username ? ` <small data-notr>@${esc(maskSwears(m.username))}</small>` : ''}${Chat.bans[m.uid] ? ' <span class="mod-tag">Banned</span>' : mutedUntil(m.uid) ? ' <span class="mod-tag">Muted</span>' : ''}</div>`}
+      <div class="msg-bubble"><span class="msg-text" data-notr>${msgTextHTML(m)}</span><span class="msg-meta">${chatTime(m.at)}${mine ? ` · <button class="msg-del" data-act="chat-del" data-id="${esc(m.id)}">Delete</button>` : isAdmin(me) ? ` · <button class="msg-del" data-act="mod-open" data-id="${esc(m.id)}">Moderate</button>` : me ? ` · <button class="msg-del" data-act="msg-menu" data-id="${esc(m.id)}">Report</button>` : ''}</span></div>${rxHTML(m)}</div>`;
   }).join('') + botHTML();
 }
 function chatPaint() {
@@ -4323,7 +4328,7 @@ async function chatSend(form) {
   try {
     const { addDoc, collection, serverTimestamp } = Acct.m;
     await addDoc(collection(Acct.db, 'chat'), { uid: Acct.user.uid, name: Prof.me.displayName, username: Prof.me.username, text, at: serverTimestamp() });
-    input.value = ''; Chat.lastSend = Date.now(); xpAdd(2);
+    input.value = ''; Chat.lastSend = Date.now(); xpAdd(2, 'msgs'); mentionSend(text);
     const list = $('#chat-list'); if (list) list.scrollTop = list.scrollHeight;
   } catch (e) { toast(e.code === 'permission-denied' ? "Couldn't send. Check your profile is saved." : "Couldn't send. Check your connection."); }
   finally { Chat.sending = false; input?.focus(); }
@@ -5179,7 +5184,7 @@ function botHTML() { return Chat.local.map(m => `<div class="msg bot"><div class
 async function userByName(n) { n = String(n || '').replace(/^@/, '').toLowerCase(); try { const d = await Acct.m.getDoc(Acct.m.doc(Acct.db, 'usernames', n)); return d.exists() ? d.data().uid : null; } catch (e) { return null; } }
 async function chatCommand(text) {
   const [cmd, ...rest] = text.slice(1).split(' '), arg = rest.join(' ').trim(), c = cmd.toLowerCase(), adm = isAdmin(Acct.user?.uid), me = Acct.user?.uid;
-  const help = `<b>Commands</b><br>/next · next match<br>/table · league table<br>/polls · open fan polls<br>/rules · chat rules<br>/news · latest news<br>/predict · make a prediction<br>/leagues · your leagues<br>/score · live score<br>/last · last result<br>/form · last 5 games<br>/countdown · time to kick-off<br>/me · your points<br>/top · leaderboard<br>/who @user · profile<br>/admins · staff list<br>/level · your XP<br>/champion · weekly 👑<br>/games · quiz, wordle & more<br>/card · edit fan card<br>/squad /matches /settings · go there<br><br><b>Fun</b><br>/coin · /roll 6 · /8ball question<br>/rate Pedri · /visca<br><br>/clear · hide bot messages${adm ? '<br><br><b>Admin</b><br>/poll Question | Option | Option [| …] [#home #news #matches]<br>/newpoll · poll form<br>/endpoll · end latest chat poll<br>/post · write a news post<br>/purge 10 · delete last messages<br>/setlevel @user 4 · /setxp @user 500<br>/editcard @user<br>/mute @user minutes<br>/unmute @user<br>/ban @user<br>/unban @user' : ''}`;
+  const help = `<b>Commands</b><br>/next · next match<br>/table · league table<br>/polls · open fan polls<br>/rules · chat rules<br>/news · latest news<br>/predict · make a prediction<br>/leagues · your leagues<br>/score · live score<br>/last · last result<br>/form · last 5 games<br>/countdown · time to kick-off<br>/me · your points<br>/top · leaderboard<br>/who @user · profile<br>/admins · staff list<br>/level · your XP<br>/champion · weekly 👑<br>/games · quiz, wordle & more<br>/invite · +50 XP per friend<br>/badges · achievements<br>/search<br>/card · edit fan card<br>/squad /matches /settings · go there<br><br><b>Fun</b><br>/coin · /roll 6 · /8ball question<br>/rate Pedri · /visca<br><br>/clear · hide bot messages${adm ? '<br><br><b>Admin</b><br>/poll Question | Option | Option [| …] [#home #news #matches]<br>/newpoll · poll form<br>/endpoll · end latest chat poll<br>/post · write a news post<br>/purge 10 · delete last messages<br>/setlevel @user 4 · /setxp @user 500<br>/editcard @user<br>/fotw @user reason · /fotw clear<br>/mute @user minutes<br>/unmute @user<br>/ban @user<br>/unban @user' : ''}`;
   switch (c) {
     case 'help': case 'commands': botSay(help); return;
     case 'clear': Chat.local = []; chatPaint(); return;
@@ -5214,6 +5219,9 @@ async function chatCommand(text) {
     case 'level': case 'xp': { const me = await fanMe(); if (!me) { botSay('Sign in to earn XP.'); return; } const lv = levelOf(me.xp); botSay(`<b>Level ${lv.n} · ${esc(lv.name)}</b><br>${lv.xp} XP${lv.next ? ` · ${lv.next - lv.xp} XP to next level` : ' · max level!'}`); return; }
     case 'champion': case 'king': { Champ.loaded = false; await champLoad(); botSay(Champ.uid ? `👑 Last week's champion: <b>${esc(Champ.name)}</b> with ${Champ.pts} points` : 'No champion last week yet. Predict to become one!'); return; }
     case 'card': fanEdit(); return;
+    case 'invite': inviteShare(); return;
+    case 'search': location.hash = 'search'; return;
+    case 'badges': case 'achievements': location.hash = 'options'; return;
     case 'coin': botSay(Math.random() < .5 ? '🪙 Heads' : '🪙 Tails'); return;
     case 'roll': { const n = Math.max(2, Math.min(1000, +arg || 6)); botSay(`🎲 You rolled <b>${1 + Math.floor(Math.random() * n)}</b> (1–${n})`); return; }
     case '8ball': { const a = ['Yes, definitely 💙❤️', 'Without a doubt', 'Ask again after the match', 'Not a chance', 'Flick says yes', 'Lamine will decide', "Don't count on it", 'Very likely', 'Hmm… maybe']; botSay(arg ? `🎱 ${esc(arg)}<br><b>${a[Math.floor(Math.random() * a.length)]}</b>` : 'Ask a question: /8ball Will we win the league?'); return; }
@@ -5239,6 +5247,7 @@ async function chatCommand(text) {
       const n = parseInt(v); if (isNaN(n)) { botSay(c === 'setxp' ? 'Use: /setxp @user 500' : 'Use: /setlevel @user 4'); return; }
       f.xp = c === 'setxp' ? Math.max(0, Math.min(100000, n)) : LEVELS[Math.max(1, Math.min(LEVELS.length, n)) - 1][0]; f.at = Date.now();
       try { await Acct.m.setDoc(Acct.m.doc(Acct.db, 'fan', uid), f); Fan.cache[uid] = f; botSay(`${esc(u)} is now Level ${levelOf(f.xp).n} (${f.xp} XP).`); chatPaint(); } catch (e) { botSay("Couldn't change it."); } return; }
+    case 'fotw': { const [u, ...nt] = arg.split(/\s+/); if (!u || u === 'clear') { await fotwSet(null, ''); return; } const uid = await userByName(u); if (!uid) { botSay("Can't find that user."); return; } if (await fotwSet(uid, nt.join(' '))) botSay(`🌟 ${esc(u)} is now Fan of the week.`); return; }
     case 'editcard': { const uid = await userByName(arg.split(/\s+/)[0]); if (!uid) { botSay("Can't find that user."); return; } fanEdit(uid); return; }
     case 'purge': { const n = Math.max(1, Math.min(50, +arg || 5)), ms = (Chat.msgs || []).slice(-n); let k = 0;
       for (const m of ms) { try { await Acct.m.deleteDoc(Acct.m.doc(Acct.db, 'chat', m.id)); k++; } catch (e) {} }
@@ -5265,7 +5274,7 @@ const FAN_EMOJI = ['⚽', '🔥', '💙', '❤️', '👑', '🦁', '🐐', '⭐
 const FAN_COLORS = ['#1d4ed8', '#a50044', '#edbb00', '#0f766e', '#7c3aed', '#111827'];
 const LEVELS = [[0, 'New Culé'], [50, 'Socio'], [150, 'Matchday Regular'], [350, 'Ultra'], [700, 'Camp Nou Legend'], [1200, 'Més que un fan']];
 function levelOf(xp) { xp = xp || 0; let i = 0; LEVELS.forEach(([t], k) => { if (xp >= t) i = k; }); const next = LEVELS[i + 1]; return { n: i + 1, name: LEVELS[i][1], xp, next: next ? next[0] : null, from: LEVELS[i][0] }; }
-const FAN_BASE = { ls: 0, lday: '', pic: '', emoji: '', color: '', fav: '', num: 0, bio: '', xp: 0, qpts: 0, qday: '', w0k: '', w0: 0, w1k: '', w1: 0 };
+const FAN_BASE = { inv: 0, msgs: 0, ls: 0, lday: '', pic: '', emoji: '', color: '', fav: '', num: 0, bio: '', xp: 0, qpts: 0, qday: '', w0k: '', w0: 0, w1k: '', w1: 0 };
 async function fanGet(uid) {
   if (!uid || !Acct.db) return null;
   if (Fan.cache[uid]) return Fan.cache[uid];
@@ -5284,8 +5293,8 @@ async function fanSave(patch) {
   const rec = { ...FAN_BASE }; Object.keys(FAN_BASE).forEach(k => { if (me[k] !== undefined) rec[k] = me[k]; }); Object.assign(rec, patch, { at: Date.now() });
   await Acct.m.setDoc(Acct.m.doc(Acct.db, 'fan', me.uid), rec); Object.assign(Fan.me, rec); Fan.cache[me.uid] = { ...rec }; return true;
 }
-async function xpAdd(n) {
-  try { const me = await fanMe(); if (!me) return; const before = levelOf(me.xp).n; await fanSave({ xp: (me.xp || 0) + Math.min(20, n) }); const after = levelOf(Fan.me.xp);
+async function xpAdd(n, inc) {
+  try { const me = await fanMe(); if (!me) return; const before = levelOf(me.xp).n; const patch = { xp: (me.xp || 0) + Math.min(20, n) }; if (inc) patch[inc] = (me[inc] || 0) + 1; await fanSave(patch); const after = levelOf(Fan.me.xp);
     if (after.n > before) toast(`⬆️ <span><b>Level ${after.n}!</b><br>You're now a ${esc(after.name)}</span>`, 'goal'); } catch (e) {}
 }
 const canPic = uid => isAdmin(uid); // owners + admins; later: || isPremium(uid)
@@ -5322,7 +5331,7 @@ async function fanOpen(uid) {
   if (!uid) return; state.sheetPid = 'xi:fan'; const root = $('#sheet-root');
   root.innerHTML = `<div class="sheet-back" data-act="sheet-close"></div><div class="sheet" role="dialog" aria-modal="true"><div class="loading">Loading…</div></div>`; root.hidden = false; document.body.style.overflow = 'hidden';
   const [f, pr, st] = await Promise.all([fanGet(uid), Acct.m.getDoc(Acct.m.doc(Acct.db, 'profiles', uid)).then(d => d.data() || {}).catch(() => ({})), Acct.m.getDoc(Acct.m.doc(Acct.db, 'stats', uid)).then(d => d.data() || {}).catch(() => ({}))]);
-  await champLoad(); const lv = levelOf(f.xp), pc = lv.next ? Math.round((lv.xp - lv.from) * 100 / (lv.next - lv.from)) : 100, mine = uid === Acct.user?.uid;
+  await Promise.all([champLoad(), fotwLoad()]); const lv = levelOf(f.xp), pc = lv.next ? Math.round((lv.xp - lv.from) * 100 / (lv.next - lv.from)) : 100, mine = uid === Acct.user?.uid;
   if (state.sheetPid !== 'xi:fan') return;
   root.innerHTML = `<div class="sheet-back" data-act="sheet-close"></div><div class="sheet fan-sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
     <div class="sheet-top">${avatarHTML(uid, pr.displayName, f, 'big')}<span class="sheet-name"><b id="sheet-title" data-notr>${esc(pr.displayName || 'Culé')}${crown(uid)}</b><small data-notr>@${esc(pr.username || '')}${roleOf(uid) ? ' · ' + roleOf(uid) : ''}</small></span><button class="sheet-close" data-act="sheet-close" aria-label="Close">×</button></div>
@@ -5330,9 +5339,11 @@ async function fanOpen(uid) {
     ${f.bio ? `<p class="post-body" data-notr>${esc(f.bio)}</p>` : ''}
     <div class="lvl"><div class="lvl-top"><b>Level ${lv.n} · ${esc(lv.name)}</b><small>${lv.xp} XP${lv.next ? ' / ' + lv.next : ''}</small></div><div class="lvl-bar"><span style="width:${pc}%"></span></div></div>
     <div class="sheet-sum"><div class="kv"><b>${st.pts || 0}</b><small>Points</small></div><div class="kv"><b>🔥 ${st.streak || 0}</b><small>Streak</small></div><div class="kv"><b>${f.qpts || 0}</b><small>Quiz</small></div></div>
+    ${achRow(achList(f, st, uid))}
     ${f.fav ? `<p class="help">Favourite player: <b data-notr>${esc(f.fav)}</b></p>` : ''}
     ${uid === Champ.uid ? `<p class="help">👑 Weekly champion with ${Champ.pts} points last week</p>` : ''}
-    ${mine ? '<button class="btn btn-primary wide" data-act="fan-edit">Edit my fan card</button>' : isAdmin(Acct.user?.uid) ? `<button class="btn btn-ghost wide" data-act="fan-edit" data-uid="${esc(uid)}">🛡️ Edit fan card & level (admin)</button>` : ''}</div>`;
+    ${mine ? '<button class="btn btn-primary wide" data-act="fan-edit">Edit my fan card</button>' : isAdmin(Acct.user?.uid) ? `<button class="btn btn-ghost wide" data-act="fan-edit" data-uid="${esc(uid)}">🛡️ Edit fan card & level (admin)</button>` : ''}
+    ${isAdmin(Acct.user?.uid) ? `<button class="btn btn-ghost wide" data-act="fotw" data-uid="${esc(uid)}">${Fotw.uid === uid ? 'Remove Fan of the week' : '🌟 Make Fan of the week'}</button>` : ''}</div>`;
 }
 async function fanEdit(other) {
   const adminOf = other && other !== Acct.user?.uid && isAdmin(Acct.user?.uid) ? other : null;
@@ -5453,7 +5464,8 @@ async function quizAnswer(i) {
 /* ===== Games: daily quiz, Barça Wordle, guess the player, predict the XI, login streak ===== */
 const daySeed = () => Math.floor(Date.now() / 864e5);
 async function loginTick() {
-  const me = await fanMe(); if (!me) return; const d = dayKey(); if (me.lday === d) return;
+  const me = await fanMe(); if (!me) return; mentionWatch(); if (Acct.user && !Prof.loaded) { try { await profLoad(); } catch (e) {} } inviteTick();
+  const d = dayKey(); if (me.lday === d) return;
   const y = new Date(Date.now() - 864e5).toISOString().slice(0, 10), ls = me.lday === y ? (me.ls || 0) + 1 : 1, bonus = ls % 7 === 0 ? 15 : 0;
   try { await fanSave({ lday: d, ls, xp: (me.xp || 0) + 5 + bonus }); toast(`🔥 <span><b>Day ${ls} streak!</b><br>+${5 + bonus} XP for opening the app${bonus ? ' (weekly bonus)' : ''}</span>`); } catch (e) {}
 }
@@ -5554,7 +5566,126 @@ async function viewGames() {
   PXI.sel = null;
   const [gp, px] = await Promise.all([guessHTML().catch(() => ''), pxiHTML().catch(() => '')]);
   return `<div><h1 class="page-title">Games</h1><p class="page-sub">New games every day. Earn XP and level up.</p></div>
-    ${streakHTML()}${quizHTML()}${wordleHTML()}${gp}${px}`;
+    ${streakHTML()}${quizHTML()}${wordleHTML()}${gp}${px}${inviteHTML()}`;
+}
+
+/* ===== Invite rewards, achievements, mentions, fan of the week, search ===== */
+try { const rf = (new URLSearchParams(location.search).get('ref') || '').toLowerCase(); if (/^[a-z0-9_.]{3,20}$/.test(rf)) store.set('ref', rf); } catch (e) {}
+const inviteUrl = () => location.origin + location.pathname + '?ref=' + (Prof.me?.username || '');
+async function inviteTick() {
+  const u = Acct.user, me = await fanMe(); if (!u || !me || !Prof.me || Prof.me.guest) return;
+  const { doc, getDoc, setDoc, collection, query, where, getDocs } = Acct.m;
+  const rf = store.get('ref', '');
+  if (rf && rf !== Prof.me.username && (Prof.me.createdAt || 0) > Date.now() - 2 * 864e5) { // I'm new and came from a friend's link
+    try { const by = await userByName(rf); if (by && by !== u.uid) await setDoc(doc(Acct.db, 'invites', u.uid), { by, at: Date.now() }); } catch (e) {}
+  }
+  if (rf) store.set('ref', '');
+  try { const sn = await getDocs(query(collection(Acct.db, 'invites'), where('by', '==', u.uid))); let n = sn.size;
+    while ((Fan.me.inv || 0) < n) { await fanSave({ inv: (Fan.me.inv || 0) + 1, xp: (Fan.me.xp || 0) + 50 }); toast('🎉 <span><b>A friend joined with your link!</b><br>+50 XP</span>', 'goal'); }
+  } catch (e) {}
+}
+async function inviteShare() {
+  if (!Prof.me || Prof.me.guest) { welcomeShow(true); return; }
+  const url = inviteUrl(), text = 'Join me on Culé Live, the Barça fan app: live scores, predictions, games and fan chat!';
+  try { if (navigator.share) { await navigator.share({ title: 'Culé Live', text, url }); return; } } catch (e) { return; }
+  try { await navigator.clipboard.writeText(text + ' ' + url); toast('Invite link copied. Send it to your friends.'); } catch (e) { toast(url); }
+}
+function inviteHTML() {
+  if (!Acct.user || Acct.user.isAnonymous) return '';
+  setTimeout(async () => { const me = await fanMe(), el = $('#inv-n'); if (me && el) el.textContent = `${me.inv || 0} friend${me.inv === 1 ? '' : 's'} joined · ${(me.inv || 0) * 50} XP earned`; }, 0);
+  return `<section class="card game"><small class="nw-tag">INVITE FRIENDS</small><b class="ap-q">Get +50 XP for every friend who joins</b><p class="help">Share your link. When a friend opens it and signs in for the first time, you get the XP.</p><small class="help" id="inv-n"></small><button class="btn btn-primary wide" data-act="invite">Share my invite link</button></section>`;
+}
+
+/* Achievements */
+function achList(f, st, uid) {
+  f = f || {}; st = st || {}; const lv = levelOf(f.xp).n;
+  return [
+    ['🎯', 'Sharpshooter', 'Get 1 exact score', (st.exact || 0) >= 1], ['🏹', 'Sniper', 'Get 5 exact scores', (st.exact || 0) >= 5],
+    ['🔮', 'Oracle', 'Make 10 predictions', (st.n || 0) >= 10], ['💯', 'Half century', 'Reach 50 prediction points', (st.pts || 0) >= 50],
+    ['🔥', 'On fire', 'Prediction streak of 3', (st.streak || 0) >= 3],
+    ['📅', 'Regular', '7-day login streak', (f.ls || 0) >= 7], ['🗓️', 'Die-hard', '30-day login streak', (f.ls || 0) >= 30],
+    ['🧠', 'Quiz master', '10 quiz points', (f.qpts || 0) >= 10],
+    ['💬', 'Chatterbox', 'Send 100 chat messages', (f.msgs || 0) >= 100],
+    ['🤝', 'Recruiter', 'Invite 1 friend', (f.inv || 0) >= 1], ['📣', 'Ambassador', 'Invite 5 friends', (f.inv || 0) >= 5],
+    ['⭐', 'Ultra', 'Reach Level 4', lv >= 4], ['🏟️', 'Legend', 'Reach Level 5', lv >= 5],
+    ['👑', 'Champion', 'Be the weekly champion', !!uid && uid === Champ.uid], ['🌟', 'Fan of the week', 'Get picked by the admins', !!uid && uid === Fotw.uid]
+  ].map(([e, n, d, ok]) => ({ e, n, d, ok }));
+}
+const achRow = l => { const got = l.filter(a => a.ok); return got.length ? `<div class="ach-row">${got.map(a => `<span class="ach" title="${esc(a.n)}">${a.e}</span>`).join('')}<small>${got.length}/${l.length}</small></div>` : ''; };
+function achHTML() {
+  if (!Acct.user || Acct.user.isAnonymous) return '';
+  setTimeout(async () => { const me = await fanMe(), el = $('#ach-list'); if (!me || !el) return; await Promise.all([champLoad(), fotwLoad()]);
+    const l = achList(me, { ...predStats(), streak: predStreak() }, me.uid);
+    el.innerHTML = `<p class="help">${l.filter(a => a.ok).length} of ${l.length} unlocked. They show on your fan card.</p><div class="ach-grid">${l.map(a => `<div class="ach-it ${a.ok ? 'on' : ''}"><span>${a.ok ? a.e : '🔒'}</span><b>${a.n}</b><small>${a.d}</small></div>`).join('')}</div>`; }, 0);
+  return `<section class="form-card"><h2 class="fc-title">Achievements</h2><div id="ach-list"><p class="help">Loading…</p></div></section>`;
+}
+
+/* Fan of the week (admins pick) */
+const Fotw = { uid: null, name: '', note: '', loaded: false };
+async function fotwLoad() {
+  if (Fotw.loaded || !Acct.db) return Fotw; Fotw.loaded = true;
+  try { const d = await Acct.m.getDoc(Acct.m.doc(Acct.db, 'meta', 'fotw')); if (d.exists()) Object.assign(Fotw, d.data()); } catch (e) {}
+  return Fotw;
+}
+function fotwSlot() { setTimeout(async () => { await fotwLoad(); const el = $('#fotw-slot'); if (!el || !Fotw.uid) return; const f = await fanGet(Fotw.uid);
+  el.innerHTML = `<div class="card champ" data-act="fan-open" data-uid="${esc(Fotw.uid)}">${avatarHTML(Fotw.uid, Fotw.name, f, 'big')}<span><small class="nw-tag">🌟 FAN OF THE WEEK</small><b data-notr>${esc(Fotw.name)}</b>${Fotw.note ? `<small data-notr>${esc(Fotw.note)}</small>` : ''}</span></div>`; }, 0); return '<div id="fotw-slot"></div>'; }
+async function fotwSet(uid, note) {
+  if (!isAdmin(Acct.user?.uid)) return false;
+  try { let name = ''; if (uid) name = (await Acct.m.getDoc(Acct.m.doc(Acct.db, 'profiles', uid))).data()?.displayName || 'Culé';
+    const rec = { uid: uid || null, name, note: String(note || '').slice(0, 120), by: Acct.user.uid, at: Date.now() };
+    await Acct.m.setDoc(Acct.m.doc(Acct.db, 'meta', 'fotw'), rec); Object.assign(Fotw, rec, { loaded: true }); toast(uid ? `🌟 ${esc(name)} is Fan of the week` : 'Fan of the week cleared'); return true;
+  } catch (e) { toast("Couldn't save."); return false; }
+}
+
+/* Mentions: owners for now (premium later) */
+const canMention = uid => isOwner(uid); // later: || isPremium(uid)
+const MENTION_RX = /@([a-z0-9_.]{3,20})/gi;
+function msgTextHTML(m) {
+  const t = esc(maskSwears(m.text || '')); if (!canMention(m.uid)) return t;
+  return t.replace(MENTION_RX, (x, n) => `<span class="mention">@${n}</span>`);
+}
+const pingsMe = m => canMention(m.uid) && Prof.me && !Prof.me.guest && new RegExp('@' + Prof.me.username.replace(/\./g, '\\.') + '(?![a-z0-9_.])', 'i').test(m.text || '');
+async function mentionSend(text) {
+  if (!canMention(Acct.user?.uid)) return;
+  const names = [...new Set([...text.matchAll(MENTION_RX)].map(x => x[1].toLowerCase()))].slice(0, 5);
+  for (const n of names) { try { const to = await userByName(n); if (to && to !== Acct.user.uid) await Acct.m.addDoc(Acct.m.collection(Acct.db, 'mentions'), { to, from: Acct.user.uid, name: Prof.me.displayName, text: text.slice(0, 200), at: Date.now() }); } catch (e) {} }
+}
+let mentionUnsub = null;
+function mentionWatch() {
+  if (mentionUnsub || !Acct.user || Acct.user.isAnonymous || !Acct.db) return;
+  const { collection, query, where, limit, onSnapshot, deleteDoc } = Acct.m; let shown = 0;
+  mentionUnsub = onSnapshot(query(collection(Acct.db, 'mentions'), where('to', '==', Acct.user.uid), limit(20)), sn => {
+    sn.docChanges().forEach(ch => { if (ch.type !== 'added') return; const x = ch.doc.data();
+      if (shown++ < 3) toast(`📣 <span><b>${esc(x.name || 'Someone')} mentioned you</b><br>${esc(maskSwears(x.text || '').slice(0, 90))}</span>`, 'goal');
+      deleteDoc(ch.doc.ref).catch(() => {}); });
+  }, () => { mentionUnsub = null; });
+}
+
+/* Search: players, matches, fans */
+let srTimer = null, srSeq = 0;
+async function viewSearch() {
+  if (!state.fixtures) { try { await Data.fixtures(); } catch (e) {} }
+  if (!state.squadList || !state.squadList.length) { try { await gpPlayer(); } catch (e) {} }
+  setTimeout(() => $('#sr-in')?.focus(), 50);
+  return `<div><h1 class="page-title">Search</h1><p class="page-sub">Find players, matches and fans.</p></div>
+    <input id="sr-in" class="sr-in" type="search" autocomplete="off" placeholder="Try: Pedri, Villarreal, or a username"><div id="sr-out"></div>`;
+}
+const norm = t => String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+async function searchRun(raw) {
+  const q = norm(raw).trim().replace(/^@/, ''), out = $('#sr-out'), seq = ++srSeq; if (!out) return;
+  if (q.length < 2) { out.innerHTML = ''; return; }
+  const players = (state.squadList || []).filter(p => norm(p.name).includes(q)).slice(0, 6);
+  const matches = (state.fixtures || []).filter(f => norm(f.home.name).includes(q) || norm(f.away.name).includes(q) || norm(f.comp?.name).includes(q)).sort((a, b) => Math.abs(a.ts - Date.now()) - Math.abs(b.ts - Date.now())).slice(0, 6);
+  const sec = (t, h) => h ? `<section><h2 class="month">${t}</h2><div class="sr-list">${h}</div></section>` : '';
+  const base = sec('Players', players.map(p => `<a class="card sr-it" href="#squad">${avatar(p, 'sm')}<span><b data-notr>${esc(p.name)}</b><small>${POSN[p.pos] || ''}${p.number != null ? ' · #' + p.number : ''}</small></span></a>`).join(''))
+    + sec('Matches', matches.map(f => { const done = fstat(f) === 'FT'; return `<a class="card sr-it" href="#match-${esc(f.id)}"><span><b data-notr>${esc(f.home.name)} ${done ? `${f.goals.home}–${f.goals.away}` : 'vs'} ${esc(f.away.name)}</b><small>${fmtDay(f.ts)} · ${esc(f.comp?.name || '')}</small></span></a>`; }).join(''));
+  out.innerHTML = base + '<div id="sr-fans"><p class="help">Searching fans…</p></div>';
+  let fans = [];
+  try { const { collection, query, where, limit, getDocs } = Acct.m; if (!Acct.db) await acctStart();
+    const sn = await getDocs(query(collection(Acct.db, 'profiles'), where('username', '>=', q), where('username', '<=', q + ''), limit(8))); sn.forEach(d => { const x = d.data(); if (!x.guest) fans.push({ uid: d.id, ...x }); }); } catch (e) {}
+  if (seq !== srSeq) return; const el = $('#sr-fans'); if (!el) return;
+  el.innerHTML = sec('Fans', fans.map(x => `<button class="card sr-it" data-act="fan-open" data-uid="${esc(x.uid)}">${avatarHTML(x.uid, x.displayName, Fan.cache[x.uid])}<span><b data-notr>${esc(x.displayName)}${crown(x.uid)}</b><small data-notr>@${esc(x.username)}${roleOf(x.uid) ? ' · ' + roleOf(x.uid) : ''}</small></span></button>`).join(''))
+    || (players.length || matches.length ? '' : '<p class="help">Nothing found. Fans are searched by the start of their username.</p>');
 }
 
 /* ===== Theme ===== */
@@ -5566,6 +5697,8 @@ async function viewOptions() {
   return `<div><h1 class="page-title">Settings</h1><p class="page-sub">Your account and preferences.</p></div>
     ${accountHTML()}
     ${fanCardHTML()}
+    ${achHTML()}
+    ${inviteHTML()}
     ${adminHTML()}
     ${installHTML()}
     ${themeHTML()}
@@ -5631,9 +5764,9 @@ function viewSetup() {
 }
 
 /* ---------- 8. Buttons, router and start-up ---------- */
-const VIEWS = { home: viewHome, matches: viewMatches, table: viewTable, squad: viewSquad, options: viewOptions, dev: viewSetup, match: viewMatch, xi: viewXI, chat: viewChat, news: viewNews, games: viewGames, members: viewMembers, leagues: viewLeagues, feedback: viewFeedback };
+const VIEWS = { home: viewHome, matches: viewMatches, table: viewTable, squad: viewSquad, options: viewOptions, dev: viewSetup, match: viewMatch, xi: viewXI, chat: viewChat, news: viewNews, games: viewGames, search: viewSearch, members: viewMembers, leagues: viewLeagues, feedback: viewFeedback };
 const NAV = [['home', 'Home'], ['matches', 'Matches'], ['table', 'Table'], ['squad', 'Squad'], ['news', 'News'], ['games', 'Games'], ['chat', 'Chat'], ['options', 'Settings']];
-const HIDDEN = { dev: 'dev', setup: 'options', xi: 'xi', members: 'members', leagues: 'leagues', feedback: 'feedback' }; // #dev = developer page, old #setup links go to Settings
+const HIDDEN = { dev: 'dev', setup: 'options', xi: 'xi', members: 'members', leagues: 'leagues', feedback: 'feedback', search: 'search' }; // #dev = developer page, old #setup links go to Settings
 function route() {
   const h = location.hash.slice(1);
   if (h.startsWith('match-')) return { name: 'match', id: h.slice(6) };
@@ -5869,6 +6002,8 @@ document.addEventListener('click', e => {
     case 'rx-pick': Rx.open = Rx.open === b.dataset.id ? null : b.dataset.id; chatPaint(); break;
     case 'quiz': quizAnswer(b.dataset.i); break;
     case 'gp': gpPick(b.dataset.id); break;
+    case 'invite': inviteShare(); break;
+    case 'fotw': fotwSet(Fotw.uid === b.dataset.uid ? null : b.dataset.uid, '').then(ok => { if (ok) fanOpen(b.dataset.uid); }); break;
     case 'pxi': pxiToggle(b.dataset.id); break;
     case 'pxi-save': pxiSave(); break;
     case 'ap-vote': apVote(b.dataset.id, b.dataset.i); break;
@@ -5915,7 +6050,7 @@ document.addEventListener('change', e => {
 });
 document.addEventListener('change', async e => { if (e.target.id === 'pf-imgs') postPick(e.target);
   if (e.target.id === 'ff-pic' && e.target.files[0]) { try { Fan.draft.pic = await imgShrink(e.target.files[0], 256, 0.8, 60000); $('#ff-prev').innerHTML = avatarHTML('', '', { ...Fan.draft }, 'big'); } catch (err) { toast("Couldn't use that picture."); } } });
-document.addEventListener('input', e => { if (e.target.id === 'mem-search') { Mem.q = e.target.value; memPaint(); return; } if (e.target.id === 'mem-user') { e.target.value = e.target.value.toLowerCase().replace(/\s+/g, ''); return; } if (e.target.id === 'prof-user') { unameCheck(e.target); return; } if (e.target.id === 'xi-search') { const r = $('#xi-results'); if (r) r.innerHTML = xiPickerList(e.target.value); return; } if (e.target.id === 'scrub') { state.scrubbing = true; Clock.seek(+e.target.value); } });
+document.addEventListener('input', e => { if (e.target.id === 'sr-in') { clearTimeout(srTimer); const v = e.target.value; srTimer = setTimeout(() => searchRun(v), 250); return; } if (e.target.id === 'mem-search') { Mem.q = e.target.value; memPaint(); return; } if (e.target.id === 'mem-user') { e.target.value = e.target.value.toLowerCase().replace(/\s+/g, ''); return; } if (e.target.id === 'prof-user') { unameCheck(e.target); return; } if (e.target.id === 'xi-search') { const r = $('#xi-results'); if (r) r.innerHTML = xiPickerList(e.target.value); return; } if (e.target.id === 'scrub') { state.scrubbing = true; Clock.seek(+e.target.value); } });
 document.addEventListener('pointerup', () => { state.scrubbing = false; });
 window.addEventListener('hashchange', render);
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
