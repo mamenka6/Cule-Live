@@ -40,6 +40,13 @@ nav a,nav button,.btn,.chip{-webkit-user-select:none;user-select:none}
 .ap-opts{display:grid;gap:6px}.ap-btn{width:100%;justify-content:flex-start;text-align:left}
 .ap-res{position:relative;display:flex;justify-content:space-between;gap:8px;padding:9px 12px;border:1px solid var(--line);border-radius:12px;overflow:hidden}.ap-res span,.ap-res b{position:relative}.ap-res .ap-bar{position:absolute;inset:0 auto 0 0;background:var(--blau);opacity:.22}.ap-res.on{border-color:var(--gold)}
 .msg.bot .msg-bubble{background:transparent;border:1px dashed var(--gold)}.msg.bot .msg-who b{color:var(--gold)}
+.fan-av{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;color:#fff;font-size:12px;font-weight:700;vertical-align:middle;margin-right:6px;flex:none}.fan-av.big{width:52px;height:52px;font-size:26px;margin:0}
+.msg-name{background:none;border:0;padding:0;font:inherit;font-weight:700;color:inherit;cursor:pointer}.lv-tag{font-size:10px;font-family:var(--f-label);letter-spacing:.06em;color:var(--gold);border:1px solid var(--gold);border-radius:6px;padding:0 4px;margin-left:4px}
+.rx-row{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}.msg.mine .rx-row{justify-content:flex-end}.rx{border:1px solid var(--line);background:transparent;color:inherit;border-radius:999px;padding:2px 8px;font-size:13px;cursor:pointer}.rx.on{border-color:var(--blau);background:color-mix(in srgb,var(--blau) 20%,transparent)}.rx-add{opacity:.6}.rx-pick{display:inline-flex;gap:4px}
+.lvl{flex:1;display:grid;gap:6px}.lvl-top{display:flex;justify-content:space-between;gap:8px}.lvl-bar{height:8px;border-radius:99px;background:var(--line);overflow:hidden}.lvl-bar span{display:block;height:100%;background:linear-gradient(90deg,var(--blau),var(--gold))}
+.fan-row{display:flex;gap:14px;align-items:center;margin-bottom:8px}.fan-pick{display:flex;flex-wrap:wrap;gap:6px}.fan-e{width:38px;height:38px;border-radius:10px;border:1px solid var(--line);background:transparent;font-size:18px;color:inherit;cursor:pointer}.fan-c{width:32px;height:32px;border-radius:50%;border:2px solid transparent;cursor:pointer}.fan-e.on,.fan-c.on{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold)}
+.fan-sheet .sheet-top{gap:12px}.fan-shirt{margin:6px auto;width:92px;height:92px;border-radius:18px;background:linear-gradient(90deg,#004d98 50%,#a50044 50%);display:grid;place-items:center;color:#fff;text-align:center}.fan-shirt span{font-size:38px;font-weight:800;line-height:1}.fan-shirt small{font-size:10px;letter-spacing:.1em}
+.champ{display:flex;gap:12px;align-items:center;padding:14px;margin:10px 0;cursor:pointer;border:1px solid var(--gold)}.champ-c{font-size:30px}.champ span{display:grid}.quiz{padding:14px;display:grid;gap:8px;margin:12px 0}
 </style>
 <title>Culé Live</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -2556,6 +2563,7 @@ async function acctDelete(form) {
     const refs = []; chat.forEach(d => refs.push(d.ref)); preds.forEach(d => refs.push(d.ref));
     await Promise.all(refs.map(del));
     if (Prof.me && Prof.me.username) await del(doc(db, 'usernames', Prof.me.username));
+    await del(doc(db, 'fan', uid));
     await del(doc(db, 'profiles', uid));
     await M.deleteUser(u);
     localPredKeys().forEach(k => { try { localStorage.removeItem('cule:pred:' + k); } catch (e) {} });
@@ -3113,10 +3121,10 @@ function predStats() {
   return { pts, n, done, exact };
 }
 async function savePred(f, d) {
-  const k = predKey(f), rec = { b: d.b, o: d.o, at: Date.now(), opp: f[other(barcaSide(f))].name, ts: f.ts };
+  const k = predKey(f), rec = { b: d.b, o: d.o, at: Date.now(), opp: f[other(barcaSide(f))].name, ts: f.ts }, isNew = !store.get('pred:' + k, null);
   store.set('pred:' + k, rec);
   if (!Acct.user) return 'local';
-  try { await cloudSetPred(k, rec); statsSync(); return 'cloud'; } catch (e) { return 'local-error'; }
+  try { await cloudSetPred(k, rec); statsSync(); if (isNew) xpAdd(5); return 'cloud'; } catch (e) { return 'local-error'; }
 }
 
 /* --- Home --- */
@@ -3251,6 +3259,8 @@ async function viewHome() {
   else if (!isDemo) html += empty(`No upcoming matches in the ${seasonLabel(settings.season)} data. Open any result and press <b>Replay</b> to watch it back minute by minute.`);
   if (results.length) html += formHTML(results);
   html += apSlot('home');
+  html += champSlot();
+  html += quizHTML();
   html += await tableSnapSection();
   html += await newsHTML();
   return html;
@@ -4254,7 +4264,7 @@ function chatWatch() {
     snap => { const out = []; snap.forEach(d => out.push({ id: d.id, ...d.data() })); Chat.msgs = out.reverse(); chatPaint(); },
     e => { Chat.err = e.code || 'error'; Chat.unsub = null; chatPaint(); });
 }
-function chatStop() { if (Chat.unsub) { Chat.unsub(); Chat.unsub = null; } }
+function chatStop() { if (Chat.unsub) { Chat.unsub(); Chat.unsub = null; } rxStop(); }
 const chatTime = at => { const d = at && at.toDate ? at.toDate() : at ? new Date(at) : null; if (!d) return 'now'; const sameDay = d.toDateString() === new Date().toDateString(); return sameDay ? fmtTime(+d) : `${fmtDay(+d)} ${fmtTime(+d)}`; };
 function chatListHTML() {
   if (Chat.err) return empty(Chat.err === 'permission-denied' ? "The fan chat isn't set up yet." : "The chat can't be loaded right now.");
@@ -4264,12 +4274,14 @@ function chatListHTML() {
   let prevUid = null;
   return Chat.msgs.filter(m => !isBlocked(m.uid)).map(m => {
     const mine = m.uid === me, cont = m.uid === prevUid; prevUid = m.uid;
-    return `<div class="msg ${mine ? 'mine' : ''} ${cont ? 'cont' : ''}">${cont ? '' : `<div class="msg-who"><b data-notr>${esc(maskSwears(m.name || '?'))}</b>${roleTag(m.uid) ? ' ' + roleTag(m.uid) : ''}${m.username ? ` <small data-notr>@${esc(maskSwears(m.username))}</small>` : ''}${Chat.bans[m.uid] ? ' <span class="mod-tag">Banned</span>' : mutedUntil(m.uid) ? ' <span class="mod-tag">Muted</span>' : ''}</div>`}
-      <div class="msg-bubble"><span class="msg-text" data-notr>${esc(maskSwears(m.text || ''))}</span><span class="msg-meta">${chatTime(m.at)}${mine ? ` · <button class="msg-del" data-act="chat-del" data-id="${esc(m.id)}">Delete</button>` : isAdmin(me) ? ` · <button class="msg-del" data-act="mod-open" data-id="${esc(m.id)}">Moderate</button>` : me ? ` · <button class="msg-del" data-act="msg-menu" data-id="${esc(m.id)}">Report</button>` : ''}</span></div></div>`;
+    return `<div class="msg ${mine ? 'mine' : ''} ${cont ? 'cont' : ''}">${cont ? '' : `<div class="msg-who">${avatarHTML(m.uid, m.name, Fan.cache[m.uid])}<button class="msg-name" data-act="fan-open" data-uid="${esc(m.uid)}" data-notr>${esc(maskSwears(m.name || '?'))}</button>${crown(m.uid)}${Fan.cache[m.uid] ? ` <span class="lv-tag">Lv ${levelOf(Fan.cache[m.uid].xp).n}</span>` : ''}${roleTag(m.uid) ? ' ' + roleTag(m.uid) : ''}${m.username ? ` <small data-notr>@${esc(maskSwears(m.username))}</small>` : ''}${Chat.bans[m.uid] ? ' <span class="mod-tag">Banned</span>' : mutedUntil(m.uid) ? ' <span class="mod-tag">Muted</span>' : ''}</div>`}
+      <div class="msg-bubble"><span class="msg-text" data-notr>${esc(maskSwears(m.text || ''))}</span><span class="msg-meta">${chatTime(m.at)}${mine ? ` · <button class="msg-del" data-act="chat-del" data-id="${esc(m.id)}">Delete</button>` : isAdmin(me) ? ` · <button class="msg-del" data-act="mod-open" data-id="${esc(m.id)}">Moderate</button>` : me ? ` · <button class="msg-del" data-act="msg-menu" data-id="${esc(m.id)}">Report</button>` : ''}</span></div>${rxHTML(m)}</div>`;
   }).join('') + botHTML();
 }
 function chatPaint() {
   const list = $('#chat-list'); if (!list) return;
+  const miss = [...new Set((Chat.msgs || []).map(m => m.uid))].filter(u => u && !Fan.cache[u] && !Fan.loading[u]);
+  if (miss.length) Promise.all(miss.map(fanGet)).then(() => chatPaint());
   const atBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 80;
   list.innerHTML = chatListHTML();
   if (atBottom || !list.dataset.seen) { list.scrollTop = list.scrollHeight; list.dataset.seen = '1'; }
@@ -4287,7 +4299,7 @@ async function viewChat() {
   if (Acct.status === 'off' || Acct.status === 'unavailable') return `<h1 class="page-title">Fan chat</h1>${empty("The chat isn't available here. Open the app from its website.")}`;
   if (Acct.start) { try { await Acct.start; } catch (e) { /* shown below */ } }
   if (Acct.user && !Prof.loaded) await profLoad();
-  chatWatch();
+  chatWatch(); rxWatch(); champLoad().then(() => chatPaint());
   setTimeout(chatPaint, 0);
   return `<div><h1 class="page-title">Fan chat</h1><p class="page-sub">Talk with Culés everywhere. Be kind: no swearing, insults, spam or personal details.</p></div>
     ${apSlot('chat')}<section class="chat-box card"><div id="chat-list" class="chat-list" aria-live="polite">${chatListHTML()}</div><div id="chat-compose">${chatComposerHTML()}</div></section>`;
@@ -4302,7 +4314,7 @@ async function chatSend(form) {
   try {
     const { addDoc, collection, serverTimestamp } = Acct.m;
     await addDoc(collection(Acct.db, 'chat'), { uid: Acct.user.uid, name: Prof.me.displayName, username: Prof.me.username, text, at: serverTimestamp() });
-    input.value = ''; Chat.lastSend = Date.now();
+    input.value = ''; Chat.lastSend = Date.now(); xpAdd(2);
     const list = $('#chat-list'); if (list) list.scrollTop = list.scrollHeight;
   } catch (e) { toast(e.code === 'permission-denied' ? "Couldn't send. Check your profile is saved." : "Couldn't send. Check your connection."); }
   finally { Chat.sending = false; input?.focus(); }
@@ -4791,6 +4803,7 @@ async function statsSync() { // my points, public so league tables can show them
   const st = predStats(), rec = { pts: st.pts, n: st.n, exact: st.exact, done: st.done, streak: predStreak(), name: Prof.me.displayName, username: Prof.me.username, at: Date.now() };
   const k = JSON.stringify([rec.pts, rec.n, rec.exact, rec.done, rec.streak, rec.name, rec.username]);
   if (store.get('statsSent', '') === k) return;
+  weeklySync();
   try { await Acct.m.setDoc(Acct.m.doc(Acct.db, 'stats', Acct.user.uid), rec); store.set('statsSent', k); } catch (e) { /* try again next time */ }
 }
 async function lgLoad() {
@@ -4972,7 +4985,7 @@ function pollHTML(f) {
 }
 async function pollVote(o) {
   const u = Acct.user; if (!u) { welcomeShow(true); return; }
-  try { await Acct.m.setDoc(Acct.m.doc(Acct.db, 'polls', Poll.id, 'votes', u.uid), { pick: o, at: Date.now() }); Poll.votes[o] = (Poll.votes[o] || 0) + 1; Poll.mine = o; const el = $('#poll'); if (el) el.outerHTML = pollHTML((state.fixtures || []).find(f => predKey(f) === Poll.id)); }
+  try { await Acct.m.setDoc(Acct.m.doc(Acct.db, 'polls', Poll.id, 'votes', u.uid), { pick: o, at: Date.now() }); Poll.votes[o] = (Poll.votes[o] || 0) + 1; Poll.mine = o; xpAdd(3); const el = $('#poll'); if (el) el.outerHTML = pollHTML((state.fixtures || []).find(f => predKey(f) === Poll.id)); }
   catch (e) { toast("Couldn't vote. Try again."); }
 }
 
@@ -5119,7 +5132,7 @@ async function apVote(id, i) {
   const u = Acct.user;
   if (!u || u.isAnonymous || Prof.me?.guest) { welcomeShow(true); return; }
   if (AP.mine[id] != null) return;
-  try { await Acct.m.setDoc(Acct.m.doc(Acct.db, 'apolls', id, 'votes', u.uid), { i: +i, at: Date.now() }); const c = AP.votes[id] = AP.votes[id] || {}; c[i] = (c[i] || 0) + 1; AP.mine[id] = +i; apRepaint(); }
+  try { await Acct.m.setDoc(Acct.m.doc(Acct.db, 'apolls', id, 'votes', u.uid), { i: +i, at: Date.now() }); const c = AP.votes[id] = AP.votes[id] || {}; c[i] = (c[i] || 0) + 1; AP.mine[id] = +i; apRepaint(); xpAdd(3); }
   catch (e) { toast("Couldn't vote. Try again."); }
 }
 async function apCreate(q, opts, place) {
@@ -5157,7 +5170,7 @@ function botHTML() { return Chat.local.map(m => `<div class="msg bot"><div class
 async function userByName(n) { n = String(n || '').replace(/^@/, '').toLowerCase(); try { const d = await Acct.m.getDoc(Acct.m.doc(Acct.db, 'usernames', n)); return d.exists() ? d.data().uid : null; } catch (e) { return null; } }
 async function chatCommand(text) {
   const [cmd, ...rest] = text.slice(1).split(' '), arg = rest.join(' ').trim(), c = cmd.toLowerCase(), adm = isAdmin(Acct.user?.uid), me = Acct.user?.uid;
-  const help = `<b>Commands</b><br>/next · next match<br>/table · league table<br>/polls · open fan polls<br>/rules · chat rules<br>/news · latest news<br>/predict · make a prediction<br>/leagues · your leagues<br>/score · live score<br>/last · last result<br>/form · last 5 games<br>/countdown · time to kick-off<br>/me · your points<br>/top · leaderboard<br>/who @user · profile<br>/admins · staff list<br>/squad /matches /settings · go there<br><br><b>Fun</b><br>/coin · /roll 6 · /8ball question<br>/rate Pedri · /visca<br><br>/clear · hide bot messages${adm ? '<br><br><b>Admin</b><br>/poll Question | Option | Option [| …] [#home #news #matches]<br>/newpoll · poll form<br>/endpoll · end latest chat poll<br>/post · write a news post<br>/purge 10 · delete last messages<br>/mute @user minutes<br>/unmute @user<br>/ban @user<br>/unban @user' : ''}`;
+  const help = `<b>Commands</b><br>/next · next match<br>/table · league table<br>/polls · open fan polls<br>/rules · chat rules<br>/news · latest news<br>/predict · make a prediction<br>/leagues · your leagues<br>/score · live score<br>/last · last result<br>/form · last 5 games<br>/countdown · time to kick-off<br>/me · your points<br>/top · leaderboard<br>/who @user · profile<br>/admins · staff list<br>/level · your XP<br>/champion · weekly 👑<br>/quiz · daily quiz<br>/card · edit fan card<br>/squad /matches /settings · go there<br><br><b>Fun</b><br>/coin · /roll 6 · /8ball question<br>/rate Pedri · /visca<br><br>/clear · hide bot messages${adm ? '<br><br><b>Admin</b><br>/poll Question | Option | Option [| …] [#home #news #matches]<br>/newpoll · poll form<br>/endpoll · end latest chat poll<br>/post · write a news post<br>/purge 10 · delete last messages<br>/mute @user minutes<br>/unmute @user<br>/ban @user<br>/unban @user' : ''}`;
   switch (c) {
     case 'help': case 'commands': botSay(help); return;
     case 'clear': Chat.local = []; chatPaint(); return;
@@ -5182,12 +5195,16 @@ async function chatCommand(text) {
       botSay(`<b>${esc(Prof.me?.displayName || 'You')}</b><br>${st.pts} points · ${st.exact} exact scores · ${st.n} predictions<br>🔥 Streak: ${predStreak()}`); return; }
     case 'top': case 'leaderboard': { try { const { collection, query, orderBy, limit, getDocs } = Acct.m; const sn = await getDocs(query(collection(Acct.db, 'stats'), orderBy('pts', 'desc'), limit(10))); const out = []; sn.forEach(d => out.push(d.data()));
       botSay(out.length ? `<b>🏆 Top predictors</b><br>${out.map((x, i) => `${['🥇', '🥈', '🥉'][i] || (i + 1) + '.'} ${esc(x.name)} · ${x.pts} pts`).join('<br>')}` : 'No points yet.'); } catch (e) { botSay("Couldn't load the leaderboard."); } return; }
-    case 'who': case 'profile': { const n = arg.replace(/^@/, '').toLowerCase(), uid = await userByName(n); if (!uid) { botSay(`Can't find @${esc(n)}.`); return; }
+    case 'who': case 'profile': { const n = arg.replace(/^@/, '').toLowerCase(), uid = await userByName(n); if (!uid) { botSay(`Can't find @${esc(n)}.`); return; } fanOpen(uid); return;
       try { const pr = (await Acct.m.getDoc(Acct.m.doc(Acct.db, 'profiles', uid))).data() || {}, st = (await Acct.m.getDoc(Acct.m.doc(Acct.db, 'stats', uid))).data() || {};
         botSay(`<b>${esc(pr.displayName || n)}</b> @${esc(n)}${roleOf(uid) ? ' · ' + roleOf(uid) : ''}<br>${st.pts || 0} points · 🔥 ${st.streak || 0} streak${pr.createdAt ? '<br>Joined ' + fmtDay(pr.createdAt) : ''}`); } catch (e) { botSay("Couldn't load that profile."); } return; }
     case 'admins': case 'staff': { const ids = [FOUNDER, ...Object.keys(Chat.roles || {}).filter(u => u !== FOUNDER && roleOf(u))];
       const rows = await Promise.all(ids.map(async u => { let nm = ''; try { const d = (await Acct.m.getDoc(Acct.m.doc(Acct.db, 'profiles', u))).data(); nm = d ? `${d.displayName} @${d.username}` : ''; } catch (e) {} return `${roleOf(u) === 'owner' ? '👑' : '🛡️'} ${esc(nm || 'member')}`; }));
       botSay(`<b>Staff</b><br>${rows.join('<br>')}`); return; }
+    case 'quiz': location.hash = 'home'; setTimeout(() => $('#quiz')?.scrollIntoView({ behavior: 'smooth' }), 600); return;
+    case 'level': case 'xp': { const me = await fanMe(); if (!me) { botSay('Sign in to earn XP.'); return; } const lv = levelOf(me.xp); botSay(`<b>Level ${lv.n} · ${esc(lv.name)}</b><br>${lv.xp} XP${lv.next ? ` · ${lv.next - lv.xp} XP to next level` : ' · max level!'}`); return; }
+    case 'champion': case 'king': { Champ.loaded = false; await champLoad(); botSay(Champ.uid ? `👑 Last week's champion: <b>${esc(Champ.name)}</b> with ${Champ.pts} points` : 'No champion last week yet. Predict to become one!'); return; }
+    case 'card': fanEdit(); return;
     case 'coin': botSay(Math.random() < .5 ? '🪙 Heads' : '🪙 Tails'); return;
     case 'roll': { const n = Math.max(2, Math.min(1000, +arg || 6)); botSay(`🎲 You rolled <b>${1 + Math.floor(Math.random() * n)}</b> (1–${n})`); return; }
     case '8ball': { const a = ['Yes, definitely 💙❤️', 'Without a doubt', 'Ask again after the match', 'Not a chance', 'Flick says yes', 'Lamine will decide', "Don't count on it", 'Very likely', 'Hmm… maybe']; botSay(arg ? `🎱 ${esc(arg)}<br><b>${a[Math.floor(Math.random() * a.length)]}</b>` : 'Ask a question: /8ball Will we win the league?'); return; }
@@ -5227,6 +5244,181 @@ async function chatCommand(text) {
   botSay(`Unknown command. Type <b>/help</b>.`);
 }
 
+/* ===== Fan cards, XP & levels, weekly champion, reactions, daily quiz ===== */
+const Fan = { me: null, cache: {}, loading: {} };
+const FAN_EMOJI = ['⚽', '🔥', '💙', '❤️', '👑', '🦁', '🐐', '⭐', '🧤', '🎯', '😎', '🏆'];
+const FAN_COLORS = ['#1d4ed8', '#a50044', '#edbb00', '#0f766e', '#7c3aed', '#111827'];
+const LEVELS = [[0, 'New Culé'], [50, 'Socio'], [150, 'Matchday Regular'], [350, 'Ultra'], [700, 'Camp Nou Legend'], [1200, 'Més que un fan']];
+function levelOf(xp) { xp = xp || 0; let i = 0; LEVELS.forEach(([t], k) => { if (xp >= t) i = k; }); const next = LEVELS[i + 1]; return { n: i + 1, name: LEVELS[i][1], xp, next: next ? next[0] : null, from: LEVELS[i][0] }; }
+const FAN_BASE = { emoji: '', color: '', fav: '', num: 0, bio: '', xp: 0, qpts: 0, qday: '', w0k: '', w0: 0, w1k: '', w1: 0 };
+async function fanGet(uid) {
+  if (!uid || !Acct.db) return null;
+  if (Fan.cache[uid]) return Fan.cache[uid];
+  if (!Fan.loading[uid]) Fan.loading[uid] = Acct.m.getDoc(Acct.m.doc(Acct.db, 'fan', uid)).then(d => { Fan.cache[uid] = d.exists() ? { ...FAN_BASE, ...d.data() } : { ...FAN_BASE, none: true }; return Fan.cache[uid]; }).catch(() => ({ ...FAN_BASE, none: true }));
+  return Fan.loading[uid];
+}
+async function fanMe() {
+  const u = Acct.user; if (!u || u.isAnonymous || !Acct.db) return null;
+  if (Fan.me && Fan.me.uid === u.uid) return Fan.me;
+  const d = await fanGet(u.uid); Fan.me = { ...d, uid: u.uid };
+  if (d.none) { const rec = { ...FAN_BASE, at: Date.now() }; try { await Acct.m.setDoc(Acct.m.doc(Acct.db, 'fan', u.uid), rec); Fan.me = { ...rec, uid: u.uid }; Fan.cache[u.uid] = { ...rec }; } catch (e) {} }
+  return Fan.me;
+}
+async function fanSave(patch) {
+  const me = await fanMe(); if (!me) return false;
+  const rec = { ...FAN_BASE }; Object.keys(FAN_BASE).forEach(k => { if (me[k] !== undefined) rec[k] = me[k]; }); Object.assign(rec, patch, { at: Date.now() });
+  await Acct.m.setDoc(Acct.m.doc(Acct.db, 'fan', me.uid), rec); Object.assign(Fan.me, rec); Fan.cache[me.uid] = { ...rec }; return true;
+}
+async function xpAdd(n) {
+  try { const me = await fanMe(); if (!me) return; const before = levelOf(me.xp).n; await fanSave({ xp: (me.xp || 0) + Math.min(20, n) }); const after = levelOf(Fan.me.xp);
+    if (after.n > before) toast(`⬆️ <span><b>Level ${after.n}!</b><br>You're now a ${esc(after.name)}</span>`, 'goal'); } catch (e) {}
+}
+function avatarHTML(uid, name, f, cls = '') {
+  const e = f && f.emoji, c = (f && f.color) || '#334155';
+  return `<span class="fan-av ${cls}" style="background:${esc(c)}">${e ? e : esc(((name || '?').trim()[0] || '?').toUpperCase())}</span>`;
+}
+
+/* Weekly champion (Mon–Sun, most prediction points) */
+function wkKey(t) { const d = new Date(t); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - (d.getDay() + 6) % 7); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+const Champ = { uid: null, name: '', pts: 0, wk: '', loaded: false };
+async function weeklySync() {
+  const me = await fanMe(); if (!me || !state.fixtures) return;
+  const k0 = wkKey(Date.now()), k1 = wkKey(Date.now() - 7 * 864e5); let w0 = 0, w1 = 0;
+  state.fixtures.forEach(f => { const p = getPred(f); if (!p) return; const x = predPoints(p, f); if (!x) return; const k = wkKey(f.ts); if (k === k0) w0 += x; else if (k === k1) w1 += x; });
+  if (me.w0k === k0 && me.w0 === w0 && me.w1k === k1 && me.w1 === w1) return;
+  try { await fanSave({ w0k: k0, w0, w1k: k1, w1 }); } catch (e) {}
+}
+async function champLoad() {
+  if (Champ.loaded || !Acct.db) return Champ;
+  Champ.loaded = true; const k1 = wkKey(Date.now() - 7 * 864e5); Champ.wk = k1;
+  try { const { collection, query, orderBy, limit, getDocs } = Acct.m; const sn = await getDocs(query(collection(Acct.db, 'fan'), orderBy('w1', 'desc'), limit(25)));
+    let best = null; sn.forEach(d => { const x = d.data(); if (x.w1k === k1 && x.w1 > 0 && !best) best = { uid: d.id, pts: x.w1 }; });
+    if (best) { Champ.uid = best.uid; Champ.pts = best.pts; try { Champ.name = (await Acct.m.getDoc(Acct.m.doc(Acct.db, 'profiles', best.uid))).data()?.displayName || 'A Culé'; } catch (e) {} }
+  } catch (e) {}
+  return Champ;
+}
+const crown = uid => uid && uid === Champ.uid ? ' <span title="Weekly champion">👑</span>' : '';
+function champSlot() { setTimeout(async () => { await champLoad(); const el = $('#champ-slot'); if (el && Champ.uid) el.innerHTML = `<div class="card champ" data-act="fan-open" data-uid="${esc(Champ.uid)}"><span class="champ-c">👑</span><span><small class="nw-tag">LAST WEEK'S CHAMPION</small><b data-notr>${esc(Champ.name)}</b><small>${Champ.pts} prediction points</small></span></div>`; }, 0); return '<div id="champ-slot"></div>'; }
+
+/* Fan profile sheet */
+async function fanOpen(uid) {
+  if (!uid) return; state.sheetPid = 'xi:fan'; const root = $('#sheet-root');
+  root.innerHTML = `<div class="sheet-back" data-act="sheet-close"></div><div class="sheet" role="dialog" aria-modal="true"><div class="loading">Loading…</div></div>`; root.hidden = false; document.body.style.overflow = 'hidden';
+  const [f, pr, st] = await Promise.all([fanGet(uid), Acct.m.getDoc(Acct.m.doc(Acct.db, 'profiles', uid)).then(d => d.data() || {}).catch(() => ({})), Acct.m.getDoc(Acct.m.doc(Acct.db, 'stats', uid)).then(d => d.data() || {}).catch(() => ({}))]);
+  await champLoad(); const lv = levelOf(f.xp), pc = lv.next ? Math.round((lv.xp - lv.from) * 100 / (lv.next - lv.from)) : 100, mine = uid === Acct.user?.uid;
+  if (state.sheetPid !== 'xi:fan') return;
+  root.innerHTML = `<div class="sheet-back" data-act="sheet-close"></div><div class="sheet fan-sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+    <div class="sheet-top">${avatarHTML(uid, pr.displayName, f, 'big')}<span class="sheet-name"><b id="sheet-title" data-notr>${esc(pr.displayName || 'Culé')}${crown(uid)}</b><small data-notr>@${esc(pr.username || '')}${roleOf(uid) ? ' · ' + roleOf(uid) : ''}</small></span><button class="sheet-close" data-act="sheet-close" aria-label="Close">×</button></div>
+    ${f.num ? `<div class="fan-shirt"><span>${f.num}</span><small data-notr>${esc((pr.displayName || '').split(' ')[0].toUpperCase())}</small></div>` : ''}
+    ${f.bio ? `<p class="post-body" data-notr>${esc(f.bio)}</p>` : ''}
+    <div class="lvl"><div class="lvl-top"><b>Level ${lv.n} · ${esc(lv.name)}</b><small>${lv.xp} XP${lv.next ? ' / ' + lv.next : ''}</small></div><div class="lvl-bar"><span style="width:${pc}%"></span></div></div>
+    <div class="sheet-sum"><div class="kv"><b>${st.pts || 0}</b><small>Points</small></div><div class="kv"><b>🔥 ${st.streak || 0}</b><small>Streak</small></div><div class="kv"><b>${f.qpts || 0}</b><small>Quiz</small></div></div>
+    ${f.fav ? `<p class="help">Favourite player: <b data-notr>${esc(f.fav)}</b></p>` : ''}
+    ${uid === Champ.uid ? `<p class="help">👑 Weekly champion with ${Champ.pts} points last week</p>` : ''}
+    ${mine ? '<button class="btn btn-primary wide" data-act="fan-edit">Edit my fan card</button>' : ''}</div>`;
+}
+async function fanEdit() {
+  const me = await fanMe(); if (!me) { welcomeShow(true); return; }
+  state.sheetPid = 'xi:fanedit'; const root = $('#sheet-root');
+  root.innerHTML = `<div class="sheet-back" data-act="sheet-close"></div><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+    <div class="sheet-top"><span class="sheet-name"><b id="sheet-title">Your fan card</b><small>Everyone sees this when they tap your name</small></span><button class="sheet-close" data-act="sheet-close" aria-label="Close">×</button></div>
+    <form id="fan-form" class="acct-form" novalidate>
+      <label>Avatar</label><div class="fan-pick">${['', ...FAN_EMOJI].map(e => `<button type="button" class="fan-e ${e === me.emoji ? 'on' : ''}" data-act="fan-emoji" data-e="${e}">${e || 'Aa'}</button>`).join('')}</div>
+      <label>Colour</label><div class="fan-pick">${FAN_COLORS.map(c => `<button type="button" class="fan-c ${c === me.color ? 'on' : ''}" data-act="fan-color" data-c="${c}" style="background:${c}" aria-label="colour"></button>`).join('')}</div>
+      <label for="ff-fav">Favourite player</label><input id="ff-fav" maxlength="30" value="${esc(me.fav || '')}" placeholder="e.g. Lamine Yamal">
+      <label for="ff-num">Shirt number</label><input id="ff-num" type="number" min="1" max="99" value="${me.num || ''}" placeholder="10">
+      <label for="ff-bio">Bio</label><input id="ff-bio" maxlength="100" value="${esc(me.bio || '')}" placeholder="Culé since 2009">
+      <p class="acct-err" id="ff-err"></p><button class="btn btn-primary wide" type="submit">Save</button>
+    </form></div>`;
+  root.hidden = false; document.body.style.overflow = 'hidden'; Fan.draft = { emoji: me.emoji || '', color: me.color || '' };
+}
+async function fanSubmit() {
+  const fav = $('#ff-fav').value.trim(), num = Math.max(0, Math.min(99, parseInt($('#ff-num').value) || 0)), bio = $('#ff-bio').value.trim();
+  if (hasSwear(fav + ' ' + bio)) { $('#ff-err').textContent = 'No swearing please.'; return; }
+  try { await fanSave({ emoji: Fan.draft.emoji, color: Fan.draft.color, fav, num, bio }); closeSheet(false); toast('Fan card saved'); chatPaint(); } catch (e) { $('#ff-err').textContent = "Couldn't save."; }
+}
+function fanCardHTML() {
+  if (!Acct.user || Acct.user.isAnonymous) return '';
+  setTimeout(async () => { const me = await fanMe(); const el = $('#fan-card'); if (!me || !el) return; const lv = levelOf(me.xp), pc = lv.next ? Math.round((lv.xp - lv.from) * 100 / (lv.next - lv.from)) : 100;
+    el.innerHTML = `<div class="fan-row">${avatarHTML(me.uid, Prof.me?.displayName, me, 'big')}<div class="lvl"><div class="lvl-top"><b>Level ${lv.n} · ${esc(lv.name)}</b><small>${lv.xp} XP${lv.next ? ' / ' + lv.next : ''}</small></div><div class="lvl-bar"><span style="width:${pc}%"></span></div></div></div>
+      <p class="help">Earn XP: predict +5, quiz +10, vote +3, chat +2, react +1.</p><div class="row"><button class="btn btn-primary" data-act="fan-edit">Edit fan card</button><button class="btn btn-ghost" data-act="fan-open" data-uid="${esc(me.uid)}">View</button></div>`; }, 0);
+  return `<section class="form-card"><h2 class="fc-title">Fan card & level</h2><div id="fan-card"><p class="help">Loading…</p></div></section>`;
+}
+
+/* Reactions on chat messages */
+const RX = ['🔥', '💙', '😂', '👏', '😮'];
+const Rx = { unsub: null, by: {}, mine: {}, open: null };
+function rxWatch() {
+  if (Rx.unsub || !Acct.db) return;
+  const { collection, query, orderBy, limit, onSnapshot } = Acct.m;
+  Rx.unsub = onSnapshot(query(collection(Acct.db, 'rx'), orderBy('at', 'desc'), limit(500)), sn => {
+    const by = {}, mine = {}; sn.forEach(d => { const x = d.data(); (by[x.m] = by[x.m] || {})[x.e] = (by[x.m][x.e] || 0) + 1; if (x.uid === Acct.user?.uid) mine[x.m] = x.e; });
+    Rx.by = by; Rx.mine = mine; chatPaint(); }, () => { Rx.unsub = null; });
+}
+function rxStop() { if (Rx.unsub) { Rx.unsub(); Rx.unsub = null; } }
+function rxHTML(m) {
+  const c = Rx.by[m.id] || {}, mine = Rx.mine[m.id], can = Acct.user && !Acct.user.isAnonymous && Prof.me && !Prof.me.guest;
+  const chips = RX.filter(e => c[e]).map(e => `<button class="rx ${mine === e ? 'on' : ''}" data-act="rx" data-id="${esc(m.id)}" data-e="${e}">${e} ${c[e]}</button>`).join('');
+  const pick = Rx.open === m.id ? `<span class="rx-pick">${RX.map(e => `<button class="rx" data-act="rx" data-id="${esc(m.id)}" data-e="${e}">${e}</button>`).join('')}</span>` : '';
+  return chips || can ? `<div class="rx-row">${chips}${can ? `<button class="rx rx-add" data-act="rx-pick" data-id="${esc(m.id)}" aria-label="React">☺+</button>` : ''}${pick}</div>` : '';
+}
+async function rxToggle(id, e) {
+  const u = Acct.user; if (!u || u.isAnonymous) { welcomeShow(true); return; }
+  const ref = Acct.m.doc(Acct.db, 'rx', `${id}_${u.uid}`), had = Rx.mine[id]; Rx.open = null;
+  try { if (had === e) await Acct.m.deleteDoc(ref); else { await Acct.m.setDoc(ref, { m: id, uid: u.uid, e, at: Date.now() }); if (!had) xpAdd(1); } } catch (err) { toast("Couldn't react."); }
+}
+
+/* Daily Barça quiz */
+const QUIZ = [
+  ['What year was FC Barcelona founded?', ['1899', '1902', '1888', '1910'], 0],
+  ['Who founded FC Barcelona?', ['Joan Gamper', 'Johan Cruyff', 'Josep Suñol', 'Agustí Montal'], 0],
+  ["What is the club's motto?", ['Més que un club', 'Visca Catalunya', 'Força Barça', 'Som una pinya'], 0],
+  ['What is the name of Barça\'s famous youth academy?', ['La Masia', 'La Fábrica', 'De Toekomst', 'Clairefontaine'], 0],
+  ["Who is Barça's all-time top scorer?", ['Lionel Messi', 'César Rodríguez', 'László Kubala', 'Luis Suárez'], 0],
+  ['How many Champions League / European Cups has Barça won?', ['5', '3', '4', '6'], 0],
+  ['Who scored the winner in the 1992 European Cup final at Wembley?', ['Ronald Koeman', 'Hristo Stoichkov', 'Michael Laudrup', 'Pep Guardiola'], 0],
+  ['Which coach won the sextuple in 2009?', ['Pep Guardiola', 'Frank Rijkaard', 'Tito Vilanova', 'Luis Enrique'], 0],
+  ['Which coach won the treble in 2015?', ['Luis Enrique', 'Pep Guardiola', 'Ernesto Valverde', 'Gerardo Martino'], 0],
+  ['How many trophies did Barça win in 2009?', ['6', '3', '5', '4'], 0],
+  ['What was the score of the famous comeback vs PSG in 2017?', ['6-1', '4-0', '5-1', '3-0'], 0],
+  ['What were Messi, Suárez and Neymar called together?', ['MSN', 'BBC', 'MNS', 'The Trident'], 0],
+  ['Who scored the late Stamford Bridge goal in the 2009 semi-final?', ['Andrés Iniesta', 'Xavi', 'Samuel Eto\'o', 'Thierry Henry'], 0],
+  ['Which Barça player won the Ballon d\'Or in 2005?', ['Ronaldinho', 'Deco', "Samuel Eto'o", 'Rivaldo'], 0],
+  ["How many Ballon d'Or awards did Messi win?", ['8', '7', '6', '5'], 0],
+  ['Which legend led the "Dream Team" as coach?', ['Johan Cruyff', 'Louis van Gaal', 'Bobby Robson', 'Terry Venables'], 0],
+  ['What do Barça fans call themselves?', ['Culés', 'Merengues', 'Colchoneros', 'Txuri-urdin'], 0],
+  ["What are Barça's colours called?", ['Blaugrana', 'Rojiblanco', 'Albiceleste', 'Blanquiazul'], 0],
+  ['Which team is Barça\'s rival in El Clásico?', ['Real Madrid', 'Atlético Madrid', 'Espanyol', 'Valencia'], 0],
+  ["What is the name of Barça's club anthem?", ['Cant del Barça', 'Himno del Centenario', 'Els Segadors', 'Hala Madrid'], 0],
+  ['In which year did Barça Femení win their first Champions League?', ['2021', '2019', '2022', '2023'], 0],
+  ['What nationality is coach Hansi Flick?', ['German', 'Austrian', 'Dutch', 'Swiss'], 0],
+  ['Which Brazilian scored the famous solo goal vs Compostela in 1996?', ['Ronaldo', 'Romário', 'Rivaldo', 'Ronaldinho'], 0],
+  ['Which shirt number did Messi wear for most of his Barça career?', ['10', '30', '19', '9'], 0],
+  ["Barça's stadium is called…", ['Spotify Camp Nou', 'Estadi Olímpic', 'Mestalla', 'Santiago Bernabéu'], 0],
+  ['Where did Barça play while Camp Nou was being rebuilt?', ['Montjuïc (Estadi Olímpic)', 'RCDE Stadium', 'Mini Estadi', 'Johan Cruyff Stadium'], 0],
+  ['Which region is Barcelona in?', ['Catalonia', 'Andalusia', 'Valencia', 'Aragon'], 0],
+  ['Which season did Xavi win La Liga as Barça coach?', ['2022–23', '2021–22', '2023–24', '2020–21'], 0],
+  ['Lamine Yamal came through which academy?', ['La Masia', 'Real Madrid Castilla', 'Espanyol', 'Ajax'], 0],
+  ['Who was Barça captain when they won the 2015 Champions League?', ['Xavi', 'Messi', 'Puyol', 'Iniesta'], 0]
+];
+const dayKey = () => new Date().toISOString().slice(0, 10);
+function quizToday() { const n = Math.floor(Date.now() / 864e5), q = QUIZ[n % QUIZ.length], seed = n % 4, order = [0, 1, 2, 3].map(i => (i + seed) % 4); return { q: q[0], opts: order.map(i => q[1][i]), ans: order.indexOf(q[2]) }; }
+function quizHTML() {
+  const t = quizToday(), done = store.get('quiz:' + dayKey(), null);
+  return `<section class="card quiz" id="quiz"><small class="nw-tag">DAILY BARÇA QUIZ</small><b class="ap-q">${esc(t.q)}</b><div class="ap-opts">${t.opts.map((o, i) => done == null
+    ? `<button class="btn btn-ghost ap-btn" data-act="quiz" data-i="${i}">${esc(o)}</button>`
+    : `<div class="ap-res ${i === t.ans ? 'on' : ''}"><span>${esc(o)}</span><b>${i === t.ans ? '✅' : i === done ? '❌' : ''}</b></div>`).join('')}</div>
+    <small class="help">${done == null ? 'Right answer: +10 XP and +1 quiz point. New question every day.' : done === t.ans ? 'Correct! Come back tomorrow.' : 'Not this time. New question tomorrow.'}</small></section>`;
+}
+async function quizAnswer(i) {
+  const d = dayKey(); if (store.get('quiz:' + d, null) != null) return;
+  const t = quizToday(), ok = +i === t.ans; store.set('quiz:' + d, +i);
+  const el = $('#quiz'); if (el) el.outerHTML = quizHTML();
+  const me = await fanMe(); if (!me) { if (ok) toast('Correct! Sign in to earn XP.'); return; }
+  if (me.qday === d) return;
+  try { await fanSave({ qday: d, qpts: (me.qpts || 0) + (ok ? 1 : 0), xp: (me.xp || 0) + (ok ? 10 : 2) }); toast(ok ? '✅ Correct! +10 XP' : '+2 XP for trying'); } catch (e) {}
+}
+
 /* ===== Theme ===== */
 function themeApply() { const t = store.get('theme', 'auto'); if (t === 'auto') delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = t; }
 themeApply();
@@ -5235,6 +5427,7 @@ async function viewOptions() {
   if (Acct.user && !state.fixtures) { try { await Data.fixtures(); } catch (e) { /* points need fixtures; show 0 if they can't load */ } }
   return `<div><h1 class="page-title">Settings</h1><p class="page-sub">Your account and preferences.</p></div>
     ${accountHTML()}
+    ${fanCardHTML()}
     ${adminHTML()}
     ${installHTML()}
     ${themeHTML()}
@@ -5528,6 +5721,13 @@ document.addEventListener('click', e => {
     case 'poll-vote': pollVote(b.dataset.o); break;
     case 'post-new': postNew(); break;
     case 'ap-new': apNew(b.dataset.place); break;
+    case 'fan-open': fanOpen(b.dataset.uid); break;
+    case 'fan-edit': fanEdit(); break;
+    case 'fan-emoji': Fan.draft.emoji = b.dataset.e; b.parentNode.querySelectorAll('.fan-e').forEach(x => x.classList.toggle('on', x === b)); break;
+    case 'fan-color': Fan.draft.color = b.dataset.c; b.parentNode.querySelectorAll('.fan-c').forEach(x => x.classList.toggle('on', x === b)); break;
+    case 'rx': rxToggle(b.dataset.id, b.dataset.e); break;
+    case 'rx-pick': Rx.open = Rx.open === b.dataset.id ? null : b.dataset.id; chatPaint(); break;
+    case 'quiz': quizAnswer(b.dataset.i); break;
     case 'ap-vote': apVote(b.dataset.id, b.dataset.i); break;
     case 'ap-close': apClose(b.dataset.id); break;
     case 'ap-del': apDel(b.dataset.id, b); break;
@@ -5557,6 +5757,7 @@ document.addEventListener('submit', e => {
   if (e.target.id === 'lgc-form') { e.preventDefault(); lgChatSend(e.target); }
   if (e.target.id === 'post-form') { e.preventDefault(); postPublish(e.target); }
   if (e.target.id === 'ap-form') { e.preventDefault(); apSubmit(e.target); }
+  if (e.target.id === 'fan-form') { e.preventDefault(); fanSubmit(); }
   if (e.target.id === 'chat-form') { e.preventDefault(); chatSend(e.target); }
 });
 document.addEventListener('change', e => {
