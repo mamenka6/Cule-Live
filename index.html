@@ -35,6 +35,7 @@ nav a,nav button,.btn,.chip{-webkit-user-select:none;user-select:none}
 .nw.post{width:100%;text-align:left;border:1px solid var(--line);font:inherit;cursor:pointer;margin-bottom:10px}.nw-tag{color:var(--gold)!important;font-family:var(--f-label);letter-spacing:.1em;font-size:.72rem}
 .post-imgs{display:grid;gap:8px;margin:8px 0}.post-imgs img{width:100%;border-radius:14px;display:block}.post-body{white-space:pre-wrap;line-height:1.55}
 .post-prev{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.post-prev img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px}
+.empty-card{border:1px dashed var(--line);border-radius:16px;padding:22px;text-align:center;color:var(--muted)}.empty-card b{display:block;color:var(--ink,inherit);margin-bottom:4px}
 </style>
 <title>Culé Live</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -107,8 +108,8 @@ h1,h2,h3,p{margin:0}
 .mode-chip.api{color:var(--blau);border-color:var(--blau)}
 .main{max-width:540px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px calc(96px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:22px}
 .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
-.tabbar-in{max-width:540px;margin:0 auto;display:grid;grid-template-columns:repeat(6,1fr)}
-.tab{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 0 10px;font-family:var(--f-label);font-weight:600;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.tabbar-in{max-width:540px;margin:0 auto;display:grid;grid-template-columns:repeat(7,1fr)}
+.tab{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 0 10px;font-family:var(--f-label);font-weight:600;font-size:11px;letter-spacing:.03em;text-transform:uppercase;color:var(--muted)}
 .tab svg{width:22px;height:22px}
 .tab span{max-width:100%;padding:0 2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 :root:not([lang="en"]) .tab{letter-spacing:.02em;font-size:11.5px}
@@ -1258,6 +1259,7 @@ class AppError extends Error { constructor(msg, kind = 'api') { super(msg); this
 
 // Small drawings used around the app
 const I = {
+  news: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h13v14H6a2 2 0 0 1-2-2Z"/><path d="M17 9h3v8a2 2 0 0 1-2 2"/><path d="M8 9h5M8 13h5"/></svg>',
   chat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1.1-4.6A8 8 0 1 1 21 12Z"/><path d="M8.5 11h7M8.5 14.5h4"/></svg>',
   send: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12 20 4l-4 16-4-7-8-1Z"/><path d="m12 13 8-9"/></svg>',
   share: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 8 5-5 5 5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg>',
@@ -4976,10 +4978,8 @@ async function postsLoad() {
   catch (e) { Posts.list = Posts.list || []; }
   return Posts.list;
 }
-function postsHTML(list) {
-  const adm = isAdmin(Acct.user?.uid);
-  if (!list.length && !adm) return '';
-  return `${adm ? '<button class="btn btn-primary btn-sm" data-act="post-new">+ New post</button>' : ''}<div class="news">${list.map(p => `<button class="card nw post" data-act="post-open" data-id="${esc(p.id)}">${p.cover ? `<img src="${p.cover}" alt="">` : ''}<span><small class="nw-tag">CULÉ LIVE</small><b data-notr>${esc(p.title)}</b><small data-notr>${esc(p.subject || '')}</small><small class="nw-src">${fmtDay(p.at)}${p.n > 1 ? ` · ${p.n} photos` : ''}</small></span></button>`).join('')}</div>`;
+function postsCards(list) {
+  return `<div class="news">${list.map(p => `<button class="card nw post" data-act="post-open" data-id="${esc(p.id)}">${p.cover ? `<img src="${p.cover}" alt="">` : ''}<span><small class="nw-tag">CULÉ LIVE</small><b data-notr>${esc(p.title)}</b><small data-notr>${esc(p.subject || '')}</small><small class="nw-src">${fmtDay(p.at)}${p.n > 1 ? ` · ${p.n} photos` : ''}</small></span></button>`).join('')}</div>`;
 }
 async function postOpen(id) {
   const p = (Posts.list || []).find(x => x.id === id); if (!p) return;
@@ -5042,7 +5042,7 @@ async function postPublish(form) {
     const { collection, addDoc, doc, setDoc } = Acct.m;
     const ref = await addDoc(collection(Acct.db, 'posts'), { title, subject, body, cover: PostDraft.files[0]?.thumb || '', n: PostDraft.files.length, by: Acct.user.uid, byName: Prof.me?.displayName || 'Culé Live', at: Date.now() });
     await Promise.all(PostDraft.files.map((x, i) => setDoc(doc(Acct.db, 'posts', ref.id, 'imgs', String(i)), { i, d: x.full })));
-    closeSheet(false); toast('Post published'); $('#view').dataset.route = ''; render();
+    closeSheet(false); toast('Post published'); Posts.list = null; $('#view').dataset.route = ''; render();
   } catch (e) { err.textContent = "Couldn't publish. Try fewer or smaller photos."; btn.disabled = false; btn.textContent = 'Publish'; }
 }
 async function postDelete(id, b) {
@@ -5065,8 +5065,14 @@ async function newsLoad() {
   } catch (e) { return c ? c.list : []; }
 }
 async function newsHTML() {
-  const [list, posts] = await Promise.all([newsLoad(), postsLoad()]); if (!list.length && !posts.length && !isAdmin(Acct.user?.uid)) return '';
-  return `<section aria-labelledby="news-h"><div class="sec-head"><h2 class="sec-title" id="news-h">Barça news</h2></div>${postsHTML(posts)}<div class="news">${list.map(n => `<a class="card nw" href="${esc(n.url)}" target="_blank" rel="noopener">${n.img ? `<img src="${esc(n.img)}" alt="" loading="lazy">` : ''}<span><b data-notr>${esc(n.h)}</b><small data-notr>${esc(n.d.slice(0, 120))}</small><small class="nw-src">ESPN · ${n.at ? fmtDay(Date.parse(n.at)) : ''}</small></span></a>`).join('')}</div></section>`;
+  const posts = await postsLoad(); if (!posts.length) return '';
+  return `<section aria-labelledby="news-h"><div class="sec-head"><h2 class="sec-title" id="news-h">Latest news</h2><a class="sec-link" href="#news">See all</a></div>${postsCards(posts.slice(0, 2))}</section>`;
+}
+async function viewNews() {
+  const posts = await postsLoad(), adm = isAdmin(Acct.user?.uid);
+  return `<div><h1 class="page-title">News</h1><p class="page-sub">Barça news from the Culé Live team.</p></div>
+    ${adm ? '<button class="btn btn-primary wide" data-act="post-new">+ New post</button>' : ''}
+    ${posts.length ? postsCards(posts) : '<div class="empty-card"><b>No news yet</b><p>Check back soon.</p></div>'}`;
 }
 
 /* ===== Theme ===== */
@@ -5142,8 +5148,8 @@ function viewSetup() {
 }
 
 /* ---------- 8. Buttons, router and start-up ---------- */
-const VIEWS = { home: viewHome, matches: viewMatches, table: viewTable, squad: viewSquad, options: viewOptions, dev: viewSetup, match: viewMatch, xi: viewXI, chat: viewChat, members: viewMembers, leagues: viewLeagues, feedback: viewFeedback };
-const NAV = [['home', 'Home'], ['matches', 'Matches'], ['table', 'Table'], ['squad', 'Squad'], ['chat', 'Chat'], ['options', 'Settings']];
+const VIEWS = { home: viewHome, matches: viewMatches, table: viewTable, squad: viewSquad, options: viewOptions, dev: viewSetup, match: viewMatch, xi: viewXI, chat: viewChat, news: viewNews, members: viewMembers, leagues: viewLeagues, feedback: viewFeedback };
+const NAV = [['home', 'Home'], ['matches', 'Matches'], ['table', 'Table'], ['squad', 'Squad'], ['news', 'News'], ['chat', 'Chat'], ['options', 'Settings']];
 const HIDDEN = { dev: 'dev', setup: 'options', xi: 'xi', members: 'members', leagues: 'leagues', feedback: 'feedback' }; // #dev = developer page, old #setup links go to Settings
 function route() {
   const h = location.hash.slice(1);
