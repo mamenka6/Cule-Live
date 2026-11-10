@@ -183,6 +183,20 @@ service cloud.firestore {
       }
     }
 
+    // Admin fan polls (Home / News / Matches / Chat): one vote per signed-in person
+    match /apolls/{id} {
+      allow read: if true;
+      allow create, update: if isAdmin()
+        && request.resource.data.q is string && request.resource.data.q.size() <= 120 && request.resource.data.opts.size() <= 6;
+      allow delete: if isAdmin();
+      match /votes/{uid} {
+        allow read: if true;
+        allow create: if request.auth != null && request.auth.uid == uid && request.auth.token.firebase.sign_in_provider != 'anonymous'
+          && request.resource.data.keys().hasOnly(['i', 'at']) && request.resource.data.i is int && request.resource.data.i >= 0 && request.resource.data.i < 6;
+        allow delete: if isAdmin();
+      }
+    }
+
     // Player of the match fan vote: one vote per person per match, results public
     match /potm/{matchId}/votes/{uid} {
       allow read: if true;

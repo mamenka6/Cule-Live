@@ -36,6 +36,10 @@ nav a,nav button,.btn,.chip{-webkit-user-select:none;user-select:none}
 .post-imgs{display:grid;gap:8px;margin:8px 0}.post-imgs img{width:100%;border-radius:14px;display:block}.post-body{white-space:pre-wrap;line-height:1.55}
 .post-prev{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.post-prev img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px}
 .empty-card{border:1px dashed var(--line);border-radius:16px;padding:22px;text-align:center;color:var(--muted)}.empty-card b{display:block;color:var(--ink,inherit);margin-bottom:4px}
+.ap-slot:empty{display:none}.ap-slot{display:grid;gap:10px;margin:10px 0}.ap-card{padding:14px;display:grid;gap:8px}.ap-q{font-size:1.05rem}
+.ap-opts{display:grid;gap:6px}.ap-btn{width:100%;justify-content:flex-start;text-align:left}
+.ap-res{position:relative;display:flex;justify-content:space-between;gap:8px;padding:9px 12px;border:1px solid var(--line);border-radius:12px;overflow:hidden}.ap-res span,.ap-res b{position:relative}.ap-res .ap-bar{position:absolute;inset:0 auto 0 0;background:var(--blau);opacity:.22}.ap-res.on{border-color:var(--gold)}
+.msg.bot .msg-bubble{background:transparent;border:1px dashed var(--gold)}.msg.bot .msg-who b{color:var(--gold)}
 </style>
 <title>Culé Live</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -3246,6 +3250,7 @@ async function viewHome() {
   if (next) { html = matchdayHTML(next) + html; html += nextCardHTML(next); html += pollHTML(next); setTimeout(() => pollLoad(next), 0); }
   else if (!isDemo) html += empty(`No upcoming matches in the ${seasonLabel(settings.season)} data. Open any result and press <b>Replay</b> to watch it back minute by minute.`);
   if (results.length) html += formHTML(results);
+  html += apSlot('home');
   html += await tableSnapSection();
   html += await newsHTML();
   return html;
@@ -3289,6 +3294,7 @@ async function viewMatches() {
       <button class="chip" data-act="comp" data-comp="all" aria-pressed="${state.comp === 'all'}">All</button>
       ${comps.map(c => `<button class="chip" data-act="comp" data-comp="${esc(c.id)}" aria-pressed="${state.comp === String(c.id)}">${esc(c.name)}</button>`).join('')}
     </div>
+    ${apSlot('matches')}
     ${liveNow.length ? `<section><h2 class="month">Live now</h2><div class="fxlist">${liveNow.map(fxRowHTML).join('')}</div></section>` : ''}
     ${groups.length ? groups.map(g => `<section><h2 class="month">${g.label}</h2><div class="fxlist">${g.items.map(fxRowHTML).join('')}</div></section>`).join('')
       : empty(state.matchTab === 'upcoming' ? 'No upcoming matches here.' : 'No results here yet.')}`;
@@ -4253,14 +4259,14 @@ const chatTime = at => { const d = at && at.toDate ? at.toDate() : at ? new Date
 function chatListHTML() {
   if (Chat.err) return empty(Chat.err === 'permission-denied' ? "The fan chat isn't set up yet." : "The chat can't be loaded right now.");
   if (!Chat.msgs) return '<div class="loading">Loading…</div>';
-  if (!Chat.msgs.length) return empty('No messages yet. Say hi to the other Culés!');
+  if (!Chat.msgs.length) return empty('No messages yet. Say hi to the other Culés!') + botHTML();
   const me = Acct.user?.uid;
   let prevUid = null;
   return Chat.msgs.filter(m => !isBlocked(m.uid)).map(m => {
     const mine = m.uid === me, cont = m.uid === prevUid; prevUid = m.uid;
     return `<div class="msg ${mine ? 'mine' : ''} ${cont ? 'cont' : ''}">${cont ? '' : `<div class="msg-who"><b data-notr>${esc(maskSwears(m.name || '?'))}</b>${roleTag(m.uid) ? ' ' + roleTag(m.uid) : ''}${m.username ? ` <small data-notr>@${esc(maskSwears(m.username))}</small>` : ''}${Chat.bans[m.uid] ? ' <span class="mod-tag">Banned</span>' : mutedUntil(m.uid) ? ' <span class="mod-tag">Muted</span>' : ''}</div>`}
       <div class="msg-bubble"><span class="msg-text" data-notr>${esc(maskSwears(m.text || ''))}</span><span class="msg-meta">${chatTime(m.at)}${mine ? ` · <button class="msg-del" data-act="chat-del" data-id="${esc(m.id)}">Delete</button>` : isAdmin(me) ? ` · <button class="msg-del" data-act="mod-open" data-id="${esc(m.id)}">Moderate</button>` : me ? ` · <button class="msg-del" data-act="msg-menu" data-id="${esc(m.id)}">Report</button>` : ''}</span></div></div>`;
-  }).join('');
+  }).join('') + botHTML();
 }
 function chatPaint() {
   const list = $('#chat-list'); if (!list) return;
@@ -4275,7 +4281,7 @@ function chatComposerHTML() {
   if (!Prof.me || Prof.me.guest) return `<div class="chat-cta"><p class="help">Choose a display name and username to start chatting.</p><button class="btn btn-primary btn-sm" data-act="prof-edit">Set up profile</button></div>`;
   if (Chat.bans[Acct.user.uid]) return `<div class="chat-cta"><p class="help">You've been banned from the chat. You can still read it.</p></div>`;
   const mu = mutedUntil(Acct.user.uid); if (mu) { setTimeout(chatComposerPaint, mu - Date.now() + 500); return `<div class="chat-cta"><p class="help">You're muted until ${fmtTime(mu)}${new Date(mu).toDateString() !== new Date().toDateString() ? ' on ' + fmtDay(mu) : ''}.</p></div>`; }
-  return `<form id="chat-form" class="chat-form"><input id="chat-input" maxlength="500" autocomplete="off" placeholder="Message as ${esc(Prof.me.displayName)}" aria-label="Message"><button class="btn btn-primary" type="submit" aria-label="Send">${I.send}</button></form>`;
+  return `<form id="chat-form" class="chat-form"><input id="chat-input" maxlength="500" autocomplete="off" placeholder="Message, or /help for commands" aria-label="Message"><button class="btn btn-primary" type="submit" aria-label="Send">${I.send}</button></form>`;
 }
 async function viewChat() {
   if (Acct.status === 'off' || Acct.status === 'unavailable') return `<h1 class="page-title">Fan chat</h1>${empty("The chat isn't available here. Open the app from its website.")}`;
@@ -4284,11 +4290,12 @@ async function viewChat() {
   chatWatch();
   setTimeout(chatPaint, 0);
   return `<div><h1 class="page-title">Fan chat</h1><p class="page-sub">Talk with Culés everywhere. Be kind: no swearing, insults, spam or personal details.</p></div>
-    <section class="chat-box card"><div id="chat-list" class="chat-list" aria-live="polite">${chatListHTML()}</div><div id="chat-compose">${chatComposerHTML()}</div></section>`;
+    ${apSlot('chat')}<section class="chat-box card"><div id="chat-list" class="chat-list" aria-live="polite">${chatListHTML()}</div><div id="chat-compose">${chatComposerHTML()}</div></section>`;
 }
 async function chatSend(form) {
   const input = $('#chat-input'), text = (input?.value || '').trim().slice(0, 500);
   if (!text || Chat.sending || !Prof.me || Prof.me.guest) return;
+  if (text.startsWith('/')) { input.value = ''; await chatCommand(text); return; }
   if (hasSwear(text)) { toast("Swearing isn't allowed in the chat. Please change your message."); input?.focus(); return; }
   if (Date.now() - Chat.lastSend < 3000) { toast('Slow down a little'); return; }
   Chat.sending = true;
@@ -5071,8 +5078,121 @@ async function newsHTML() {
 async function viewNews() {
   const posts = await postsLoad(), adm = isAdmin(Acct.user?.uid);
   return `<div><h1 class="page-title">News</h1><p class="page-sub">Barça news from the Culé Live team.</p></div>
-    ${adm ? '<button class="btn btn-primary wide" data-act="post-new">+ New post</button>' : ''}
+    ${adm ? '<div class="row"><button class="btn btn-primary" data-act="post-new">+ New post</button><button class="btn btn-ghost" data-act="ap-new" data-place="news">+ New poll</button></div>' : ''}
+    ${apSlot('news')}
     ${posts.length ? postsCards(posts) : '<div class="empty-card"><b>No news yet</b><p>Check back soon.</p></div>'}`;
+}
+
+/* ===== Admin fan polls (Home / News / Matches / Chat) + chat commands ===== */
+const AP = { list: null, votes: {}, mine: {} };
+const AP_PLACES = [['home', 'Home'], ['news', 'News'], ['matches', 'Matches'], ['chat', 'Chat']];
+async function apLoad() {
+  if (!Acct.db) { try { await acctStart(); } catch (e) {} }
+  if (!Acct.db) return [];
+  const { collection, query, orderBy, limit, getDocs } = Acct.m;
+  try {
+    const sn = await getDocs(query(collection(Acct.db, 'apolls'), orderBy('at', 'desc'), limit(15)));
+    const out = []; sn.forEach(d => out.push({ id: d.id, ...d.data() })); AP.list = out;
+    await Promise.all(out.map(async p => {
+      const vs = await getDocs(collection(Acct.db, 'apolls', p.id, 'votes')); const c = {}; let mine = null;
+      vs.forEach(d => { const i = d.data().i; c[i] = (c[i] || 0) + 1; if (d.id === Acct.user?.uid) mine = i; });
+      AP.votes[p.id] = c; AP.mine[p.id] = mine;
+    }));
+  } catch (e) { AP.list = AP.list || []; }
+  return AP.list;
+}
+function apCardHTML(p) {
+  const c = AP.votes[p.id] || {}, total = Object.values(c).reduce((a, b) => a + b, 0), mine = AP.mine[p.id], show = mine != null || !p.open, adm = isAdmin(Acct.user?.uid);
+  return `<div class="card ap-card" id="ap-${esc(p.id)}"><small class="nw-tag">FAN POLL${p.open ? '' : ' · CLOSED'}</small><b class="ap-q" data-notr>${esc(p.q)}</b>
+    <div class="ap-opts">${p.opts.map((o, i) => { const pc = total ? Math.round((c[i] || 0) * 100 / total) : 0;
+      return show ? `<div class="ap-res ${mine === i ? 'on' : ''}"><span class="ap-bar" style="width:${pc}%"></span><span data-notr>${esc(o)}</span><b>${pc}%</b></div>`
+        : `<button class="btn btn-ghost ap-btn" data-act="ap-vote" data-id="${esc(p.id)}" data-i="${i}" data-notr>${esc(o)}</button>`; }).join('')}</div>
+    <small class="help">${total} vote${total === 1 ? '' : 's'}${adm ? ` · <button class="msg-del" data-act="ap-close" data-id="${esc(p.id)}">${p.open ? 'End poll' : 'Reopen'}</button> · <button class="msg-del" data-act="ap-del" data-id="${esc(p.id)}">Delete</button>` : ''}</small></div>`;
+}
+function apSlot(place) { setTimeout(() => apFill(place), 0); return `<div class="ap-slot" data-place="${place}"></div>`; }
+async function apFill(place) {
+  if (!AP.list) await apLoad();
+  document.querySelectorAll(`.ap-slot[data-place="${place}"]`).forEach(el => { el.innerHTML = (AP.list || []).filter(p => p.place === place).slice(0, 3).map(apCardHTML).join(''); });
+}
+function apRepaint() { AP_PLACES.forEach(([k]) => apFill(k)); }
+async function apVote(id, i) {
+  const u = Acct.user;
+  if (!u || u.isAnonymous || Prof.me?.guest) { welcomeShow(true); return; }
+  if (AP.mine[id] != null) return;
+  try { await Acct.m.setDoc(Acct.m.doc(Acct.db, 'apolls', id, 'votes', u.uid), { i: +i, at: Date.now() }); const c = AP.votes[id] = AP.votes[id] || {}; c[i] = (c[i] || 0) + 1; AP.mine[id] = +i; apRepaint(); }
+  catch (e) { toast("Couldn't vote. Try again."); }
+}
+async function apCreate(q, opts, place) {
+  const ref = await Acct.m.addDoc(Acct.m.collection(Acct.db, 'apolls'), { q, opts, place, open: true, by: Acct.user.uid, at: Date.now() });
+  AP.list = [{ id: ref.id, q, opts, place, open: true, at: Date.now() }, ...(AP.list || [])]; AP.votes[ref.id] = {}; AP.mine[ref.id] = null; apRepaint(); return ref.id;
+}
+async function apClose(id) { const p = (AP.list || []).find(x => x.id === id); if (!p) return; try { await Acct.m.updateDoc(Acct.m.doc(Acct.db, 'apolls', id), { open: !p.open }); p.open = !p.open; apRepaint(); } catch (e) { toast("Couldn't change it."); } }
+async function apDel(id, b) {
+  if (b && b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = 'Tap again'; return; }
+  try { await Acct.m.deleteDoc(Acct.m.doc(Acct.db, 'apolls', id)); AP.list = (AP.list || []).filter(x => x.id !== id); apRepaint(); toast('Poll deleted'); } catch (e) { toast("Couldn't delete."); }
+}
+function apNew(place) {
+  state.sheetPid = 'xi:apnew'; const root = $('#sheet-root');
+  root.innerHTML = `<div class="sheet-back" data-act="sheet-close"></div><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+    <div class="sheet-top"><span class="sheet-name"><b id="sheet-title">New fan poll</b><small>Everyone signed in can vote once</small></span><button class="sheet-close" data-act="sheet-close" aria-label="Close">×</button></div>
+    <form id="ap-form" class="acct-form" novalidate>
+      <label for="ap-q">Question</label><input id="ap-q" maxlength="120" placeholder="e.g. Who will be the best vs Villarreal?">
+      <label>Options (2 to 6)</label>${[1, 2, 3, 4, 5, 6].map(n => `<input class="ap-o" maxlength="40" placeholder="Option ${n}${n > 2 ? ' (optional)' : ''}">`).join('')}
+      <label for="ap-place">Show it on</label><select id="ap-place">${AP_PLACES.map(([k, l]) => `<option value="${k}" ${k === (place || 'home') ? 'selected' : ''}>${l}</option>`).join('')}</select>
+      <p class="acct-err" id="ap-err"></p><button class="btn btn-primary wide" type="submit">Create poll</button>
+    </form></div>`;
+  root.hidden = false; document.body.style.overflow = 'hidden';
+}
+async function apSubmit(form) {
+  const q = $('#ap-q').value.trim(), opts = [...form.querySelectorAll('.ap-o')].map(x => x.value.trim()).filter(Boolean), place = $('#ap-place').value;
+  if (q.length < 3) { $('#ap-err').textContent = 'Add a question.'; return; }
+  if (opts.length < 2) { $('#ap-err').textContent = 'Add at least 2 options.'; return; }
+  try { await apCreate(q, opts, place); closeSheet(false); toast(`Poll is live on ${place}`); } catch (e) { $('#ap-err').textContent = "Couldn't create it."; }
+}
+
+/* Chat commands: replies only you can see */
+Chat.local = [];
+function botSay(html) { Chat.local.push({ html, at: Date.now() }); chatPaint(); }
+function botHTML() { return Chat.local.map(m => `<div class="msg bot"><div class="msg-who"><b>Culé Bot</b> <small>only you can see this</small></div><div class="msg-bubble"><span class="msg-text">${m.html}</span></div></div>`).join(''); }
+async function userByName(n) { n = String(n || '').replace(/^@/, '').toLowerCase(); try { const d = await Acct.m.getDoc(Acct.m.doc(Acct.db, 'usernames', n)); return d.exists() ? d.data().uid : null; } catch (e) { return null; } }
+async function chatCommand(text) {
+  const [cmd, ...rest] = text.slice(1).split(' '), arg = rest.join(' ').trim(), c = cmd.toLowerCase(), adm = isAdmin(Acct.user?.uid), me = Acct.user?.uid;
+  const help = `<b>Commands</b><br>/next · next match<br>/table · league table<br>/polls · open fan polls<br>/rules · chat rules<br>/news · latest news<br>/predict · make a prediction<br>/leagues · your leagues<br>/clear · hide bot messages${adm ? '<br><br><b>Admin</b><br>/poll Question | Option | Option [| …] [#home #news #matches]<br>/newpoll · poll form<br>/endpoll · end latest chat poll<br>/post · write a news post<br>/mute @user minutes<br>/unmute @user<br>/ban @user<br>/unban @user' : ''}`;
+  switch (c) {
+    case 'help': case 'commands': botSay(help); return;
+    case 'clear': Chat.local = []; chatPaint(); return;
+    case 'rules': botSay('Be kind. No swearing, insults, spam, links to scams or personal details. Admins can mute or ban.'); return;
+    case 'next': { const f = (state.fixtures || await Data.fixtures().catch(() => [])).filter(x => fstat(x) === 'NS' && x.ts > Date.now()).sort((a, b) => a.ts - b.ts)[0];
+      botSay(f ? `Next: <b>${esc(f.home.name)} vs ${esc(f.away.name)}</b><br>${fmtDay(f.ts)} at ${fmtTime(f.ts)} · ${esc(f.comp?.name || '')}` : 'No upcoming match found.'); return; }
+    case 'table': location.hash = 'table'; return;
+    case 'news': location.hash = 'news'; return;
+    case 'leagues': location.hash = 'leagues'; return;
+    case 'predict': location.hash = 'home'; return;
+    case 'polls': { await apLoad(); const open = (AP.list || []).filter(p => p.open); botSay(open.length ? open.map(p => `• <b>${esc(p.q)}</b> (${p.place})`).join('<br>') : 'No open polls right now.'); return; }
+  }
+  if (!adm) { botSay(`Unknown command. Type <b>/help</b>.`); return; }
+  switch (c) {
+    case 'newpoll': apNew('chat'); return;
+    case 'post': postNew(); return;
+    case 'poll': {
+      let place = 'chat'; const m = arg.match(/#(home|news|matches|chat)\b/i); const body = arg.replace(/#(home|news|matches|chat)\b/ig, '').trim(); if (m) place = m[1].toLowerCase();
+      const parts = body.split('|').map(x => x.trim()).filter(Boolean);
+      if (parts.length < 3) { botSay('Use: /poll Who will be best? | Lamine | Pedri | Raphinha'); return; }
+      try { await apCreate(parts[0].slice(0, 120), parts.slice(1, 7).map(x => x.slice(0, 40)), place); botSay(`Poll created on <b>${place}</b>.`); } catch (e) { botSay("Couldn't create the poll."); } return; }
+    case 'endpoll': { await apLoad(); const p = (AP.list || []).find(x => x.place === 'chat' && x.open); if (!p) { botSay('No open chat poll.'); return; } await apClose(p.id); botSay('Poll ended.'); return; }
+    case 'mute': case 'unmute': case 'ban': case 'unban': {
+      const [u, mins] = arg.split(/\s+/), uid = await userByName(u);
+      if (!uid) { botSay(`Can't find ${esc(u || 'that user')}.`); return; }
+      if (uid === me || isAdmin(uid)) { botSay("You can't do that to an admin or yourself."); return; }
+      const { doc, setDoc, deleteDoc } = Acct.m, name = u.replace(/^@/, '');
+      try {
+        if (c === 'mute') { const n = Math.max(1, Math.min(10080, +mins || 60)); await setDoc(doc(Acct.db, 'mutes', uid), { until: Date.now() + n * 60e3, by: me, at: Date.now(), username: name }); botSay(`@${esc(name)} muted for ${n} min.`); }
+        if (c === 'unmute') { await deleteDoc(doc(Acct.db, 'mutes', uid)); botSay(`@${esc(name)} unmuted.`); }
+        if (c === 'ban') { await setDoc(doc(Acct.db, 'bans', uid), { by: me, at: Date.now(), username: name }); botSay(`@${esc(name)} banned.`); }
+        if (c === 'unban') { await deleteDoc(doc(Acct.db, 'bans', uid)); botSay(`@${esc(name)} unbanned.`); }
+      } catch (e) { botSay("Couldn't do that."); } return; }
+  }
+  botSay(`Unknown command. Type <b>/help</b>.`);
 }
 
 /* ===== Theme ===== */
@@ -5375,6 +5495,10 @@ document.addEventListener('click', e => {
     case 'share-pred-next': shareCard('pred', 0, b.dataset.fid); break;
     case 'poll-vote': pollVote(b.dataset.o); break;
     case 'post-new': postNew(); break;
+    case 'ap-new': apNew(b.dataset.place); break;
+    case 'ap-vote': apVote(b.dataset.id, b.dataset.i); break;
+    case 'ap-close': apClose(b.dataset.id); break;
+    case 'ap-del': apDel(b.dataset.id, b); break;
     case 'post-open': postOpen(b.dataset.id); break;
     case 'post-del': postDelete(b.dataset.id, b); break;
     case 'theme': store.set('theme', b.dataset.t); themeApply(); document.querySelectorAll('[data-act="theme"]').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.t === b.dataset.t))); break;
@@ -5400,6 +5524,7 @@ document.addEventListener('submit', e => {
   if (e.target.id === 'lg-join') { e.preventDefault(); lgJoin(e.target); }
   if (e.target.id === 'lgc-form') { e.preventDefault(); lgChatSend(e.target); }
   if (e.target.id === 'post-form') { e.preventDefault(); postPublish(e.target); }
+  if (e.target.id === 'ap-form') { e.preventDefault(); apSubmit(e.target); }
   if (e.target.id === 'chat-form') { e.preventDefault(); chatSend(e.target); }
 });
 document.addEventListener('change', e => {
