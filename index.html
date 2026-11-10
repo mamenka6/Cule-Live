@@ -48,6 +48,7 @@ nav a,nav button,.btn,.chip{-webkit-user-select:none;user-select:none}
 .fan-sheet .sheet-top{gap:12px}.fan-shirt{margin:6px auto;width:92px;height:92px;border-radius:18px;background:linear-gradient(90deg,#004d98 50%,#a50044 50%);display:grid;place-items:center;color:#fff;text-align:center}.fan-shirt span{font-size:38px;font-weight:800;line-height:1}.fan-shirt small{font-size:10px;letter-spacing:.1em}
 .champ{display:flex;gap:12px;align-items:center;padding:14px;margin:10px 0;cursor:pointer;border:1px solid var(--gold)}.champ-c{font-size:30px}.champ span{display:grid}.quiz{padding:14px;display:grid;gap:8px;margin:12px 0}
 .fan-av img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block}.fan-av{overflow:hidden}
+.msg.staff .msg-text{color:#ef4444;font-weight:700}
 </style>
 <title>Culé Live</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -4275,7 +4276,7 @@ function chatListHTML() {
   let prevUid = null;
   return Chat.msgs.filter(m => !isBlocked(m.uid)).map(m => {
     const mine = m.uid === me, cont = m.uid === prevUid; prevUid = m.uid;
-    return `<div class="msg ${mine ? 'mine' : ''} ${cont ? 'cont' : ''}">${cont ? '' : `<div class="msg-who">${avatarHTML(m.uid, m.name, Fan.cache[m.uid])}<button class="msg-name" data-act="fan-open" data-uid="${esc(m.uid)}" data-notr>${esc(maskSwears(m.name || '?'))}</button>${crown(m.uid)}${Fan.cache[m.uid] ? ` <span class="lv-tag">Lv ${levelOf(Fan.cache[m.uid].xp).n}</span>` : ''}${roleTag(m.uid) ? ' ' + roleTag(m.uid) : ''}${m.username ? ` <small data-notr>@${esc(maskSwears(m.username))}</small>` : ''}${Chat.bans[m.uid] ? ' <span class="mod-tag">Banned</span>' : mutedUntil(m.uid) ? ' <span class="mod-tag">Muted</span>' : ''}</div>`}
+    return `<div class="msg ${mine ? 'mine' : ''} ${cont ? 'cont' : ''} ${isAdmin(m.uid) ? 'staff' : ''}">${cont ? '' : `<div class="msg-who">${avatarHTML(m.uid, m.name, Fan.cache[m.uid])}<button class="msg-name" data-act="fan-open" data-uid="${esc(m.uid)}" data-notr>${esc(maskSwears(m.name || '?'))}</button>${crown(m.uid)}${Fan.cache[m.uid] ? ` <span class="lv-tag">Lv ${levelOf(Fan.cache[m.uid].xp).n}</span>` : ''}${roleTag(m.uid) ? ' ' + roleTag(m.uid) : ''}${m.username ? ` <small data-notr>@${esc(maskSwears(m.username))}</small>` : ''}${Chat.bans[m.uid] ? ' <span class="mod-tag">Banned</span>' : mutedUntil(m.uid) ? ' <span class="mod-tag">Muted</span>' : ''}</div>`}
       <div class="msg-bubble"><span class="msg-text" data-notr>${esc(maskSwears(m.text || ''))}</span><span class="msg-meta">${chatTime(m.at)}${mine ? ` · <button class="msg-del" data-act="chat-del" data-id="${esc(m.id)}">Delete</button>` : isAdmin(me) ? ` · <button class="msg-del" data-act="mod-open" data-id="${esc(m.id)}">Moderate</button>` : me ? ` · <button class="msg-del" data-act="msg-menu" data-id="${esc(m.id)}">Report</button>` : ''}</span></div>${rxHTML(m)}</div>`;
   }).join('') + botHTML();
 }
