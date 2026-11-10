@@ -206,8 +206,8 @@ service cloud.firestore {
         && d.num is int && d.num >= 0 && d.num <= 99 && d.xp is int && d.qpts is int
         && d.w0 is int && d.w0 <= 60 && d.w1 is int && d.w1 <= 60;
     }
-    // Profile pictures: only owners for now (premium later). Anyone can remove theirs.
-    function picOk(d) { return d.get('pic', '') == '' || isOwner() || (resource != null && d.get('pic', '') == resource.data.get('pic', '')); }
+    // Profile pictures: owners and admins for now (premium later). Anyone can remove theirs.
+    function picOk(d) { return d.get('pic', '') == '' || isAdmin() || (resource != null && d.get('pic', '') == resource.data.get('pic', '')); }
     match /fan/{uid} {
       allow read: if true;
       allow create: if request.auth != null && request.auth.uid == uid && validFan(request.resource.data) && picOk(request.resource.data)

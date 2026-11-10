@@ -5280,7 +5280,7 @@ async function xpAdd(n) {
   try { const me = await fanMe(); if (!me) return; const before = levelOf(me.xp).n; await fanSave({ xp: (me.xp || 0) + Math.min(20, n) }); const after = levelOf(Fan.me.xp);
     if (after.n > before) toast(`⬆️ <span><b>Level ${after.n}!</b><br>You're now a ${esc(after.name)}</span>`, 'goal'); } catch (e) {}
 }
-const canPic = uid => isOwner(uid); // later: || isPremium(uid)
+const canPic = uid => isAdmin(uid); // owners + admins; later: || isPremium(uid)
 function avatarHTML(uid, name, f, cls = '') {
   const e = f && f.emoji, c = (f && f.color) || '#334155';
   if (f && f.pic) return `<span class="fan-av ${cls}" style="background:${esc(c)}"><img src="${f.pic}" alt=""></span>`;
