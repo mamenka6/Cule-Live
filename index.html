@@ -49,6 +49,12 @@ nav a,nav button,.btn,.chip{-webkit-user-select:none;user-select:none}
 .champ{display:flex;gap:12px;align-items:center;padding:14px;margin:10px 0;cursor:pointer;border:1px solid var(--gold)}.champ-c{font-size:30px}.champ span{display:grid}.quiz{padding:14px;display:grid;gap:8px;margin:12px 0}
 .fan-av img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block}.fan-av{overflow:hidden}
 .msg.staff .msg-text{color:#ef4444;font-weight:700}
+.game{padding:14px;display:grid;gap:8px;margin:12px 0}.ls-top{display:flex;gap:12px;align-items:center}.ls-fire{font-size:34px}.ls-top span{display:grid}.ls-top b{font-size:1.3rem}
+.ls-week{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}.ls-week span{text-align:center;padding:6px 0;border-radius:10px;border:1px solid var(--line);font-size:13px}.ls-week span.on{background:var(--gold);color:#111;border-color:var(--gold);font-weight:700}
+.wd-grid{display:grid;gap:5px;justify-content:center}.wd-row{display:flex;gap:5px}.wd-c{width:34px;height:38px;display:grid;place-items:center;border:2px solid var(--line);border-radius:6px;font-weight:800;font-size:17px}.wd-c.g{background:#16a34a;border-color:#16a34a;color:#fff}.wd-c.y{background:#ca8a04;border-color:#ca8a04;color:#fff}.wd-c.x{background:#3f3f46;border-color:#3f3f46;color:#fff}
+#wd-in{text-transform:uppercase;letter-spacing:.2em}
+.gp-ph{width:150px;height:150px;margin:4px auto;border-radius:16px;overflow:hidden;background:var(--line)}.gp-ph img{width:100%;height:100%;object-fit:cover;transition:filter .4s}
+.pxi-grid{display:flex;flex-wrap:wrap;gap:6px}.pxi-h{width:100%;margin-top:6px;font-family:var(--f-label);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 </style>
 <title>Culé Live</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -121,8 +127,8 @@ h1,h2,h3,p{margin:0}
 .mode-chip.api{color:var(--blau);border-color:var(--blau)}
 .main{max-width:540px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px calc(96px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:22px}
 .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
-.tabbar-in{max-width:540px;margin:0 auto;display:grid;grid-template-columns:repeat(7,1fr)}
-.tab{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 0 10px;font-family:var(--f-label);font-weight:600;font-size:11px;letter-spacing:.03em;text-transform:uppercase;color:var(--muted)}
+.tabbar-in{max-width:540px;margin:0 auto;display:grid;grid-template-columns:repeat(8,1fr)}
+.tab{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 0 10px;font-family:var(--f-label);font-weight:600;font-size:9.5px;letter-spacing:0;text-transform:uppercase;color:var(--muted)}
 .tab svg{width:22px;height:22px}
 .tab span{max-width:100%;padding:0 2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 :root:not([lang="en"]) .tab{letter-spacing:.02em;font-size:11.5px}
@@ -1272,6 +1278,7 @@ class AppError extends Error { constructor(msg, kind = 'api') { super(msg); this
 
 // Small drawings used around the app
 const I = {
+  games: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="11" rx="5"/><path d="M7 11v3M5.5 12.5h3"/><circle cx="15.5" cy="12" r=".6" fill="currentColor"/><circle cx="17.5" cy="14" r=".6" fill="currentColor"/></svg>',
   news: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h13v14H6a2 2 0 0 1-2-2Z"/><path d="M17 9h3v8a2 2 0 0 1-2 2"/><path d="M8 9h5M8 13h5"/></svg>',
   chat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1.1-4.6A8 8 0 1 1 21 12Z"/><path d="M8.5 11h7M8.5 14.5h4"/></svg>',
   send: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12 20 4l-4 16-4-7-8-1Z"/><path d="m12 13 8-9"/></svg>',
@@ -3262,7 +3269,7 @@ async function viewHome() {
   if (results.length) html += formHTML(results);
   html += apSlot('home');
   html += champSlot();
-  html += quizHTML();
+  html += `<a class="card champ" href="#games"><span class="champ-c">🎮</span><span><small class="nw-tag">TODAY'S GAMES</small><b>Quiz · Wordle · Guess the player · Predict the XI</b><small>New every day. Earn XP.</small></span></a>`;
   html += await tableSnapSection();
   html += await newsHTML();
   return html;
@@ -5172,7 +5179,7 @@ function botHTML() { return Chat.local.map(m => `<div class="msg bot"><div class
 async function userByName(n) { n = String(n || '').replace(/^@/, '').toLowerCase(); try { const d = await Acct.m.getDoc(Acct.m.doc(Acct.db, 'usernames', n)); return d.exists() ? d.data().uid : null; } catch (e) { return null; } }
 async function chatCommand(text) {
   const [cmd, ...rest] = text.slice(1).split(' '), arg = rest.join(' ').trim(), c = cmd.toLowerCase(), adm = isAdmin(Acct.user?.uid), me = Acct.user?.uid;
-  const help = `<b>Commands</b><br>/next · next match<br>/table · league table<br>/polls · open fan polls<br>/rules · chat rules<br>/news · latest news<br>/predict · make a prediction<br>/leagues · your leagues<br>/score · live score<br>/last · last result<br>/form · last 5 games<br>/countdown · time to kick-off<br>/me · your points<br>/top · leaderboard<br>/who @user · profile<br>/admins · staff list<br>/level · your XP<br>/champion · weekly 👑<br>/quiz · daily quiz<br>/card · edit fan card<br>/squad /matches /settings · go there<br><br><b>Fun</b><br>/coin · /roll 6 · /8ball question<br>/rate Pedri · /visca<br><br>/clear · hide bot messages${adm ? '<br><br><b>Admin</b><br>/poll Question | Option | Option [| …] [#home #news #matches]<br>/newpoll · poll form<br>/endpoll · end latest chat poll<br>/post · write a news post<br>/purge 10 · delete last messages<br>/setlevel @user 4 · /setxp @user 500<br>/editcard @user<br>/mute @user minutes<br>/unmute @user<br>/ban @user<br>/unban @user' : ''}`;
+  const help = `<b>Commands</b><br>/next · next match<br>/table · league table<br>/polls · open fan polls<br>/rules · chat rules<br>/news · latest news<br>/predict · make a prediction<br>/leagues · your leagues<br>/score · live score<br>/last · last result<br>/form · last 5 games<br>/countdown · time to kick-off<br>/me · your points<br>/top · leaderboard<br>/who @user · profile<br>/admins · staff list<br>/level · your XP<br>/champion · weekly 👑<br>/games · quiz, wordle & more<br>/card · edit fan card<br>/squad /matches /settings · go there<br><br><b>Fun</b><br>/coin · /roll 6 · /8ball question<br>/rate Pedri · /visca<br><br>/clear · hide bot messages${adm ? '<br><br><b>Admin</b><br>/poll Question | Option | Option [| …] [#home #news #matches]<br>/newpoll · poll form<br>/endpoll · end latest chat poll<br>/post · write a news post<br>/purge 10 · delete last messages<br>/setlevel @user 4 · /setxp @user 500<br>/editcard @user<br>/mute @user minutes<br>/unmute @user<br>/ban @user<br>/unban @user' : ''}`;
   switch (c) {
     case 'help': case 'commands': botSay(help); return;
     case 'clear': Chat.local = []; chatPaint(); return;
@@ -5203,7 +5210,7 @@ async function chatCommand(text) {
     case 'admins': case 'staff': { const ids = [FOUNDER, ...Object.keys(Chat.roles || {}).filter(u => u !== FOUNDER && roleOf(u))];
       const rows = await Promise.all(ids.map(async u => { let nm = ''; try { const d = (await Acct.m.getDoc(Acct.m.doc(Acct.db, 'profiles', u))).data(); nm = d ? `${d.displayName} @${d.username}` : ''; } catch (e) {} return `${roleOf(u) === 'owner' ? '👑' : '🛡️'} ${esc(nm || 'member')}`; }));
       botSay(`<b>Staff</b><br>${rows.join('<br>')}`); return; }
-    case 'quiz': location.hash = 'home'; setTimeout(() => $('#quiz')?.scrollIntoView({ behavior: 'smooth' }), 600); return;
+    case 'quiz': case 'games': case 'wordle': location.hash = 'games'; return;
     case 'level': case 'xp': { const me = await fanMe(); if (!me) { botSay('Sign in to earn XP.'); return; } const lv = levelOf(me.xp); botSay(`<b>Level ${lv.n} · ${esc(lv.name)}</b><br>${lv.xp} XP${lv.next ? ` · ${lv.next - lv.xp} XP to next level` : ' · max level!'}`); return; }
     case 'champion': case 'king': { Champ.loaded = false; await champLoad(); botSay(Champ.uid ? `👑 Last week's champion: <b>${esc(Champ.name)}</b> with ${Champ.pts} points` : 'No champion last week yet. Predict to become one!'); return; }
     case 'card': fanEdit(); return;
@@ -5258,7 +5265,7 @@ const FAN_EMOJI = ['⚽', '🔥', '💙', '❤️', '👑', '🦁', '🐐', '⭐
 const FAN_COLORS = ['#1d4ed8', '#a50044', '#edbb00', '#0f766e', '#7c3aed', '#111827'];
 const LEVELS = [[0, 'New Culé'], [50, 'Socio'], [150, 'Matchday Regular'], [350, 'Ultra'], [700, 'Camp Nou Legend'], [1200, 'Més que un fan']];
 function levelOf(xp) { xp = xp || 0; let i = 0; LEVELS.forEach(([t], k) => { if (xp >= t) i = k; }); const next = LEVELS[i + 1]; return { n: i + 1, name: LEVELS[i][1], xp, next: next ? next[0] : null, from: LEVELS[i][0] }; }
-const FAN_BASE = { pic: '', emoji: '', color: '', fav: '', num: 0, bio: '', xp: 0, qpts: 0, qday: '', w0k: '', w0: 0, w1k: '', w1: 0 };
+const FAN_BASE = { ls: 0, lday: '', pic: '', emoji: '', color: '', fav: '', num: 0, bio: '', xp: 0, qpts: 0, qday: '', w0k: '', w0: 0, w1k: '', w1: 0 };
 async function fanGet(uid) {
   if (!uid || !Acct.db) return null;
   if (Fan.cache[uid]) return Fan.cache[uid];
@@ -5443,6 +5450,113 @@ async function quizAnswer(i) {
   try { await fanSave({ qday: d, qpts: (me.qpts || 0) + (ok ? 1 : 0), xp: (me.xp || 0) + (ok ? 10 : 2) }); toast(ok ? '✅ Correct! +10 XP' : '+2 XP for trying'); } catch (e) {}
 }
 
+/* ===== Games: daily quiz, Barça Wordle, guess the player, predict the XI, login streak ===== */
+const daySeed = () => Math.floor(Date.now() / 864e5);
+async function loginTick() {
+  const me = await fanMe(); if (!me) return; const d = dayKey(); if (me.lday === d) return;
+  const y = new Date(Date.now() - 864e5).toISOString().slice(0, 10), ls = me.lday === y ? (me.ls || 0) + 1 : 1, bonus = ls % 7 === 0 ? 15 : 0;
+  try { await fanSave({ lday: d, ls, xp: (me.xp || 0) + 5 + bonus }); toast(`🔥 <span><b>Day ${ls} streak!</b><br>+${5 + bonus} XP for opening the app${bonus ? ' (weekly bonus)' : ''}</span>`); } catch (e) {}
+}
+function streakHTML() {
+  setTimeout(async () => { const me = await fanMe(); const el = $('#ls-card'); if (!el) return;
+    if (!me) { el.innerHTML = '<p class="help">Sign in to build a daily streak and earn XP.</p>'; return; }
+    const n = me.ls || 0; el.innerHTML = `<div class="ls-top"><span class="ls-fire">🔥</span><span><b>${n} day${n === 1 ? '' : 's'}</b><small>Daily login streak</small></span></div>
+      <div class="ls-week">${[1, 2, 3, 4, 5, 6, 7].map(i => `<span class="${i <= (n % 7 || (n ? 7 : 0)) ? 'on' : ''}">${i === 7 ? '🎁' : i}</span>`).join('')}</div>
+      <small class="help">+5 XP every day you open the app. Day 7 bonus: +15 XP. Miss a day and it resets.</small>`; }, 0);
+  return `<section class="card game" id="ls-card"><p class="help">Loading…</p></section>`;
+}
+
+/* Barça Wordle */
+const WORDS = ['PEDRI', 'YAMAL', 'GAVI', 'OLMO', 'KOUNDE', 'CUBARSI', 'MESSI', 'XAVI', 'INIESTA', 'PUYOL', 'NEYMAR', 'SUAREZ', 'BUSQUETS', 'PIQUE', 'ALBA', 'HENRY', 'RIVALDO', 'KOEMAN', 'CRUYFF', 'LAUDRUP', 'RAPHINHA', 'FERMIN', 'VALDES', 'ABIDAL', 'ALVES', 'DECO', 'RONALDO', 'KUBALA', 'GUARDIOLA', 'STOICHKOV'];
+const wdWord = () => WORDS[(daySeed() * 7) % WORDS.length];
+function wdScore(g, a) {
+  const res = Array(g.length).fill('x'), left = {};
+  [...a].forEach((ch, i) => { if (g[i] === ch) res[i] = 'g'; else left[ch] = (left[ch] || 0) + 1; });
+  [...g].forEach((ch, i) => { if (res[i] !== 'g' && left[ch]) { res[i] = 'y'; left[ch]--; } });
+  return res;
+}
+function wordleHTML() {
+  const a = wdWord(), st = store.get('wd:' + dayKey(), { g: [] }), won = st.g.includes(a), lost = !won && st.g.length >= 6;
+  const rows = [...st.g, ...Array(Math.max(0, 6 - st.g.length)).fill('')].map(g => `<div class="wd-row">${[...Array(a.length)].map((_, i) => { const r = g ? wdScore(g, a)[i] : ''; return `<span class="wd-c ${r}">${g ? g[i] : ''}</span>`; }).join('')}</div>`).join('');
+  return `<section class="card game" id="wordle"><small class="nw-tag">BARÇA WORDLE</small><b class="ap-q">Guess today's Barça player (${a.length} letters)</b>
+    <p class="help">Current and legends, surname only. 🟩 right spot · 🟨 wrong spot · ⬛ not in the name.</p>
+    <div class="wd-grid">${rows}</div>
+    ${won ? `<p class="help">🎉 Got it in ${st.g.length}! +10 XP. New player tomorrow.</p>` : lost ? `<p class="help">It was <b>${a}</b>. New player tomorrow.</p>`
+      : `<form id="wd-form" class="chat-form"><input id="wd-in" maxlength="${a.length}" autocomplete="off" autocapitalize="characters" placeholder="${a.length} letters"><button class="btn btn-primary" type="submit">Guess</button></form>`}</section>`;
+}
+function wdGuess() {
+  const a = wdWord(), inp = $('#wd-in'), g = (inp.value || '').toUpperCase().replace(/[^A-Z]/g, '');
+  if (g.length !== a.length) { toast(`Needs ${a.length} letters`); return; }
+  const k = 'wd:' + dayKey(), st = store.get(k, { g: [] }); if (st.g.length >= 6 || st.g.includes(a)) return;
+  st.g.push(g); store.set(k, st); $('#wordle').outerHTML = wordleHTML(); $('#wd-in')?.focus();
+  if (g === a) xpAdd(10);
+}
+
+/* Guess the player */
+async function gpPlayer() {
+  if (!state.squadList || !state.squadList.length) { try { state.squadList = await Data.squad(); if (settings.mode === 'real' && settings.server) photosFor({ ...BARCA }, state.squadList, true); } catch (e) { state.squadList = []; } }
+  const l = (state.squadList || []).filter(p => p.name); if (l.length < 4) return null;
+  const n = daySeed(), ans = l[(n * 13) % l.length], others = l.filter(p => p !== ans), opts = [ans];
+  for (let i = 0; opts.length < 4 && i < 50; i++) { const o = others[(n * 7 + i * 5) % others.length]; if (!opts.includes(o)) opts.push(o); }
+  const sh = opts.map((p, i) => [p, (i * 37 + n) % 11]).sort((x, y) => x[1] - y[1]).map(x => x[0]);
+  return { ans, opts: sh };
+}
+const POSN = { G: 'Goalkeeper', D: 'Defender', M: 'Midfielder', F: 'Forward' };
+async function guessHTML() {
+  const g = await gpPlayer(); if (!g) return '';
+  const st = store.get('gp:' + dayKey(), { w: [] }), won = st.w.includes(g.ans.id), out = !won && st.w.length >= 3, done = won || out, blur = done ? 0 : [16, 10, 5][st.w.length];
+  const clues = [`Position: <b>${POSN[g.ans.pos] || '?'}</b>`, g.ans.number != null ? `Shirt number: <b>${g.ans.number}</b>` : `Age: <b>${g.ans.age || '?'}</b>`, `Starts with <b>${esc(g.ans.name[0])}</b>`].slice(0, st.w.length + 1);
+  return `<section class="card game" id="guess"><small class="nw-tag">GUESS THE PLAYER</small><b class="ap-q">Who is this Barça player?</b>
+    ${g.ans.photo ? `<div class="gp-ph"><img src="${esc(g.ans.photo)}" alt="" referrerpolicy="no-referrer" style="filter:blur(${blur}px)"></div>` : ''}
+    <p class="help">${clues.join(' · ')}</p>
+    <div class="ap-opts">${g.opts.map(p => done || st.w.includes(p.id)
+      ? `<div class="ap-res ${p.id === g.ans.id ? 'on' : ''}"><span>${esc(p.name)}</span><b>${p.id === g.ans.id ? '✅' : st.w.includes(p.id) ? '❌' : ''}</b></div>`
+      : `<button class="btn btn-ghost ap-btn" data-act="gp" data-id="${esc(p.id)}">${esc(p.name)}</button>`).join('')}</div>
+    <small class="help">${won ? `Correct! +${[10, 6, 3][st.w.length - 1] || 3} XP` : out ? 'Out of tries. New player tomorrow.' : `${3 - st.w.length} tries left · the picture gets clearer each try`}</small></section>`;
+}
+async function gpPick(id) {
+  const g = await gpPlayer(); if (!g) return; const k = 'gp:' + dayKey(), st = store.get(k, { w: [] });
+  if (st.w.includes(g.ans.id) || st.w.length >= 3 || st.w.includes(id)) return;
+  st.w.push(id); store.set(k, st); if (id === g.ans.id) xpAdd([10, 6, 3][st.w.length - 1] || 3);
+  const el = $('#guess'); if (el) el.outerHTML = await guessHTML();
+}
+
+/* Predict the starting XI */
+const surname = n => String(n || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').split(/[\s,]+/).filter(Boolean).pop() || '';
+async function pxiHTML() {
+  const fx = state.fixtures || await Data.fixtures().catch(() => []);
+  const f = fx.filter(x => fstat(x) === 'NS' && x.ts > Date.now()).sort((a, b) => a.ts - b.ts)[0];
+  if (!state.squadList || !state.squadList.length) await gpPlayer();
+  const sq = (state.squadList || []).filter(p => p.name);
+  // score past picks once lineups are known
+  let res = '';
+  for (const x of fx.filter(x => fstat(x) === 'FT').sort((a, b) => b.ts - a.ts).slice(0, 3)) {
+    const k = 'pxi:' + predKey(x), p = store.get(k, null); if (!p) continue;
+    if (p.score == null) { try { const m = await Data.match(x.id), side = barcaSide(x), xi = m.lineups?.[side]?.xi; if (xi?.length) { const real = new Set(xi.map(q => surname(q.name))); p.score = p.names.filter(n => real.has(surname(n))).length; store.set(k, p); if (p.score) xpAdd(p.score); } } catch (e) {} }
+    if (p.score != null) { res = `<p class="help">Last match vs ${esc(x[other(barcaSide(x))].name)}: you got <b>${p.score}/11</b> right (+${p.score} XP)</p>`; break; }
+  }
+  if (!f || !sq.length) return `<section class="card game"><small class="nw-tag">PREDICT THE XI</small>${res || '<p class="help">No upcoming match to predict.</p>'}</section>`;
+  const k = 'pxi:' + predKey(f), saved = store.get(k, null), pick = new Set(PXI.sel || saved?.ids || []); PXI.sel = [...pick]; PXI.f = f;
+  return `<section class="card game" id="pxi"><small class="nw-tag">PREDICT THE XI</small><b class="ap-q">Who starts vs ${esc(f[other(barcaSide(f))].name)}?</b>
+    <p class="help">Pick 11. +1 XP for every player you get right once the lineups are out. ${saved ? '✅ Saved, you can still change it before kick-off.' : ''}</p>${res}
+    <div class="pxi-grid">${['G', 'D', 'M', 'F'].map(ps => `<small class="pxi-h">${POSN[ps]}s</small>${sq.filter(p => p.pos === ps).map(p => `<button class="chip" data-act="pxi" data-id="${esc(p.id)}" aria-pressed="${pick.has(p.id)}">${p.number != null ? p.number + ' · ' : ''}${esc(shortPlayer(p.name))}</button>`).join('')}`).join('')}</div>
+    <button class="btn btn-primary wide" data-act="pxi-save" ${pick.size === 11 ? '' : 'disabled'}>Save my XI (${pick.size}/11)</button></section>`;
+}
+const PXI = { sel: null, f: null };
+async function pxiToggle(id) { const s = new Set(PXI.sel || []); if (s.has(id)) s.delete(id); else if (s.size < 11) s.add(id); else { toast('You already picked 11'); return; } PXI.sel = [...s]; const el = $('#pxi'); if (el) el.outerHTML = await pxiHTML(); }
+async function pxiSave() {
+  const f = PXI.f; if (!f || (PXI.sel || []).length !== 11) return;
+  const names = PXI.sel.map(id => (state.squadList || []).find(p => p.id === id)?.name || ''), k = 'pxi:' + predKey(f), isNew = !store.get(k, null);
+  store.set(k, { ids: PXI.sel, names }); toast('Your XI is saved'); if (isNew) xpAdd(3); const el = $('#pxi'); if (el) el.outerHTML = await pxiHTML();
+}
+
+async function viewGames() {
+  PXI.sel = null;
+  const [gp, px] = await Promise.all([guessHTML().catch(() => ''), pxiHTML().catch(() => '')]);
+  return `<div><h1 class="page-title">Games</h1><p class="page-sub">New games every day. Earn XP and level up.</p></div>
+    ${streakHTML()}${quizHTML()}${wordleHTML()}${gp}${px}`;
+}
+
 /* ===== Theme ===== */
 function themeApply() { const t = store.get('theme', 'auto'); if (t === 'auto') delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = t; }
 themeApply();
@@ -5517,8 +5631,8 @@ function viewSetup() {
 }
 
 /* ---------- 8. Buttons, router and start-up ---------- */
-const VIEWS = { home: viewHome, matches: viewMatches, table: viewTable, squad: viewSquad, options: viewOptions, dev: viewSetup, match: viewMatch, xi: viewXI, chat: viewChat, news: viewNews, members: viewMembers, leagues: viewLeagues, feedback: viewFeedback };
-const NAV = [['home', 'Home'], ['matches', 'Matches'], ['table', 'Table'], ['squad', 'Squad'], ['news', 'News'], ['chat', 'Chat'], ['options', 'Settings']];
+const VIEWS = { home: viewHome, matches: viewMatches, table: viewTable, squad: viewSquad, options: viewOptions, dev: viewSetup, match: viewMatch, xi: viewXI, chat: viewChat, news: viewNews, games: viewGames, members: viewMembers, leagues: viewLeagues, feedback: viewFeedback };
+const NAV = [['home', 'Home'], ['matches', 'Matches'], ['table', 'Table'], ['squad', 'Squad'], ['news', 'News'], ['games', 'Games'], ['chat', 'Chat'], ['options', 'Settings']];
 const HIDDEN = { dev: 'dev', setup: 'options', xi: 'xi', members: 'members', leagues: 'leagues', feedback: 'feedback' }; // #dev = developer page, old #setup links go to Settings
 function route() {
   const h = location.hash.slice(1);
@@ -5531,6 +5645,7 @@ const routeKey = r => r.name + (r.id ? ':' + r.id : '');
 let renderSeq = 0;
 async function render() {
   const seq = ++renderSeq, r = route(), view = $('#view');
+  if (Acct.user && !Acct.user.isAnonymous && !Fan.ticked) { Fan.ticked = true; setTimeout(loginTick, 1500); }
   if (r.name !== 'chat') { if (Chat.unsub) { Chat.unsub(); Chat.unsub = null; } if (r.name !== 'options' && r.name !== 'members') chatStop(); } // only listen while the chat (or the admin list) is open
   if (!['match', 'xi', 'members', 'leagues', 'feedback'].includes(r.name)) state.lastTab = r.name;
   document.querySelectorAll('.tab').forEach(t => { if (t.dataset.tab === (r.name === 'match' ? state.lastTab : r.name === 'xi' ? 'squad' : ['members', 'feedback'].includes(r.name) ? 'options' : r.name === 'leagues' ? 'home' : r.name)) t.setAttribute('aria-current', 'page'); else t.removeAttribute('aria-current'); });
@@ -5753,6 +5868,9 @@ document.addEventListener('click', e => {
     case 'rx': rxToggle(b.dataset.id, b.dataset.e); break;
     case 'rx-pick': Rx.open = Rx.open === b.dataset.id ? null : b.dataset.id; chatPaint(); break;
     case 'quiz': quizAnswer(b.dataset.i); break;
+    case 'gp': gpPick(b.dataset.id); break;
+    case 'pxi': pxiToggle(b.dataset.id); break;
+    case 'pxi-save': pxiSave(); break;
     case 'ap-vote': apVote(b.dataset.id, b.dataset.i); break;
     case 'ap-close': apClose(b.dataset.id); break;
     case 'ap-del': apDel(b.dataset.id, b); break;
@@ -5783,6 +5901,7 @@ document.addEventListener('submit', e => {
   if (e.target.id === 'post-form') { e.preventDefault(); postPublish(e.target); }
   if (e.target.id === 'ap-form') { e.preventDefault(); apSubmit(e.target); }
   if (e.target.id === 'fan-form') { e.preventDefault(); fanSubmit(); }
+  if (e.target.id === 'wd-form') { e.preventDefault(); wdGuess(); }
   if (e.target.id === 'chat-form') { e.preventDefault(); chatSend(e.target); }
 });
 document.addEventListener('change', e => {

@@ -199,12 +199,12 @@ service cloud.firestore {
 
     // Fan cards, XP, quiz points, weekly points: each person writes only their own; XP can only go up a little at a time
     function validFan(d) {
-      return d.keys().hasOnly(['pic', 'emoji', 'color', 'fav', 'num', 'bio', 'xp', 'qpts', 'qday', 'w0k', 'w0', 'w1k', 'w1', 'at'])
+      return d.keys().hasOnly(['ls', 'lday', 'pic', 'emoji', 'color', 'fav', 'num', 'bio', 'xp', 'qpts', 'qday', 'w0k', 'w0', 'w1k', 'w1', 'at'])
         && d.get('pic', '') is string && d.get('pic', '').size() <= 80000
         && d.emoji is string && d.emoji.size() <= 8 && d.color is string && d.color.size() <= 9
         && d.fav is string && d.fav.size() <= 30 && d.bio is string && d.bio.size() <= 100
         && d.num is int && d.num >= 0 && d.num <= 99 && d.xp is int && d.qpts is int
-        && d.w0 is int && d.w0 <= 60 && d.w1 is int && d.w1 <= 60;
+        && d.get('ls', 0) is int && d.w0 is int && d.w0 <= 60 && d.w1 is int && d.w1 <= 60;
     }
     // Profile pictures: owners and admins for now (premium later). Anyone can remove theirs.
     function picOk(d) { return d.get('pic', '') == '' || isAdmin() || (resource != null && d.get('pic', '') == resource.data.get('pic', '')); }
