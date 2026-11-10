@@ -199,20 +199,23 @@ service cloud.firestore {
 
     // Fan cards, XP, quiz points, weekly points: each person writes only their own; XP can only go up a little at a time
     function validFan(d) {
-      return d.keys().hasOnly(['emoji', 'color', 'fav', 'num', 'bio', 'xp', 'qpts', 'qday', 'w0k', 'w0', 'w1k', 'w1', 'at'])
+      return d.keys().hasOnly(['pic', 'emoji', 'color', 'fav', 'num', 'bio', 'xp', 'qpts', 'qday', 'w0k', 'w0', 'w1k', 'w1', 'at'])
+        && d.get('pic', '') is string && d.get('pic', '').size() <= 80000
         && d.emoji is string && d.emoji.size() <= 8 && d.color is string && d.color.size() <= 9
         && d.fav is string && d.fav.size() <= 30 && d.bio is string && d.bio.size() <= 100
         && d.num is int && d.num >= 0 && d.num <= 99 && d.xp is int && d.qpts is int
         && d.w0 is int && d.w0 <= 60 && d.w1 is int && d.w1 <= 60;
     }
+    // Profile pictures: only owners for now (premium later). Anyone can remove theirs.
+    function picOk(d) { return d.get('pic', '') == '' || isOwner() || (resource != null && d.get('pic', '') == resource.data.get('pic', '')); }
     match /fan/{uid} {
       allow read: if true;
-      allow create: if request.auth != null && request.auth.uid == uid && validFan(request.resource.data)
+      allow create: if request.auth != null && request.auth.uid == uid && validFan(request.resource.data) && picOk(request.resource.data)
         && request.resource.data.xp <= 20 && request.resource.data.qpts <= 1;
-      allow update: if request.auth != null && request.auth.uid == uid && validFan(request.resource.data)
+      allow update: if request.auth != null && request.auth.uid == uid && validFan(request.resource.data) && picOk(request.resource.data)
         && request.resource.data.xp >= resource.data.xp && request.resource.data.xp - resource.data.xp <= 20
         && request.resource.data.qpts >= resource.data.qpts && request.resource.data.qpts - resource.data.qpts <= 1;
-      allow create, update: if isAdmin() && validFan(request.resource.data);  // admins can edit anyone's card, XP and level
+      allow create, update: if isAdmin() && validFan(request.resource.data) && picOk(request.resource.data);  // admins can edit anyone's card, XP and level
       allow delete: if request.auth != null && (request.auth.uid == uid || isAdmin());
     }
 

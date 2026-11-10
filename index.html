@@ -47,6 +47,7 @@ nav a,nav button,.btn,.chip{-webkit-user-select:none;user-select:none}
 .fan-row{display:flex;gap:14px;align-items:center;margin-bottom:8px}.fan-pick{display:flex;flex-wrap:wrap;gap:6px}.fan-e{width:38px;height:38px;border-radius:10px;border:1px solid var(--line);background:transparent;font-size:18px;color:inherit;cursor:pointer}.fan-c{width:32px;height:32px;border-radius:50%;border:2px solid transparent;cursor:pointer}.fan-e.on,.fan-c.on{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold)}
 .fan-sheet .sheet-top{gap:12px}.fan-shirt{margin:6px auto;width:92px;height:92px;border-radius:18px;background:linear-gradient(90deg,#004d98 50%,#a50044 50%);display:grid;place-items:center;color:#fff;text-align:center}.fan-shirt span{font-size:38px;font-weight:800;line-height:1}.fan-shirt small{font-size:10px;letter-spacing:.1em}
 .champ{display:flex;gap:12px;align-items:center;padding:14px;margin:10px 0;cursor:pointer;border:1px solid var(--gold)}.champ-c{font-size:30px}.champ span{display:grid}.quiz{padding:14px;display:grid;gap:8px;margin:12px 0}
+.fan-av img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block}.fan-av{overflow:hidden}
 </style>
 <title>Culé Live</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -5256,7 +5257,7 @@ const FAN_EMOJI = ['⚽', '🔥', '💙', '❤️', '👑', '🦁', '🐐', '⭐
 const FAN_COLORS = ['#1d4ed8', '#a50044', '#edbb00', '#0f766e', '#7c3aed', '#111827'];
 const LEVELS = [[0, 'New Culé'], [50, 'Socio'], [150, 'Matchday Regular'], [350, 'Ultra'], [700, 'Camp Nou Legend'], [1200, 'Més que un fan']];
 function levelOf(xp) { xp = xp || 0; let i = 0; LEVELS.forEach(([t], k) => { if (xp >= t) i = k; }); const next = LEVELS[i + 1]; return { n: i + 1, name: LEVELS[i][1], xp, next: next ? next[0] : null, from: LEVELS[i][0] }; }
-const FAN_BASE = { emoji: '', color: '', fav: '', num: 0, bio: '', xp: 0, qpts: 0, qday: '', w0k: '', w0: 0, w1k: '', w1: 0 };
+const FAN_BASE = { pic: '', emoji: '', color: '', fav: '', num: 0, bio: '', xp: 0, qpts: 0, qday: '', w0k: '', w0: 0, w1k: '', w1: 0 };
 async function fanGet(uid) {
   if (!uid || !Acct.db) return null;
   if (Fan.cache[uid]) return Fan.cache[uid];
@@ -5279,8 +5280,10 @@ async function xpAdd(n) {
   try { const me = await fanMe(); if (!me) return; const before = levelOf(me.xp).n; await fanSave({ xp: (me.xp || 0) + Math.min(20, n) }); const after = levelOf(Fan.me.xp);
     if (after.n > before) toast(`⬆️ <span><b>Level ${after.n}!</b><br>You're now a ${esc(after.name)}</span>`, 'goal'); } catch (e) {}
 }
+const canPic = uid => isOwner(uid); // later: || isPremium(uid)
 function avatarHTML(uid, name, f, cls = '') {
   const e = f && f.emoji, c = (f && f.color) || '#334155';
+  if (f && f.pic) return `<span class="fan-av ${cls}" style="background:${esc(c)}"><img src="${f.pic}" alt=""></span>`;
   return `<span class="fan-av ${cls}" style="background:${esc(c)}">${e ? e : esc(((name || '?').trim()[0] || '?').toUpperCase())}</span>`;
 }
 
@@ -5331,7 +5334,8 @@ async function fanEdit(other) {
   root.innerHTML = `<div class="sheet-back" data-act="sheet-close"></div><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
     <div class="sheet-top"><span class="sheet-name"><b id="sheet-title">${adminOf ? 'Edit fan card (admin)' : 'Your fan card'}</b><small>${adminOf ? 'Changes show for everyone straight away' : 'Everyone sees this when they tap your name'}</small></span><button class="sheet-close" data-act="sheet-close" aria-label="Close">×</button></div>
     <form id="fan-form" class="acct-form" novalidate>
-      <label>Avatar</label><div class="fan-pick">${['', ...FAN_EMOJI].map(e => `<button type="button" class="fan-e ${e === me.emoji ? 'on' : ''}" data-act="fan-emoji" data-e="${e}">${e || 'Aa'}</button>`).join('')}</div>
+      ${canPic(Acct.user?.uid) ? `<label for="ff-pic">Profile picture</label><div class="fan-row"><span id="ff-prev">${avatarHTML(me.uid, '', me, 'big')}</span><input id="ff-pic" type="file" accept="image/*"><button type="button" class="btn btn-ghost btn-sm" data-act="fan-pic-del">Remove</button></div>` : ''}
+      <label>Avatar emoji</label><div class="fan-pick">${['', ...FAN_EMOJI].map(e => `<button type="button" class="fan-e ${e === me.emoji ? 'on' : ''}" data-act="fan-emoji" data-e="${e}">${e || 'Aa'}</button>`).join('')}</div>
       <label>Colour</label><div class="fan-pick">${FAN_COLORS.map(c => `<button type="button" class="fan-c ${c === me.color ? 'on' : ''}" data-act="fan-color" data-c="${c}" style="background:${c}" aria-label="colour"></button>`).join('')}</div>
       <label for="ff-fav">Favourite player</label><input id="ff-fav" maxlength="30" value="${esc(me.fav || '')}" placeholder="e.g. Lamine Yamal">
       <label for="ff-num">Shirt number</label><input id="ff-num" type="number" min="1" max="99" value="${me.num || ''}" placeholder="10">
@@ -5343,18 +5347,18 @@ async function fanEdit(other) {
       <p class="acct-err" id="ff-err"></p><button class="btn btn-primary wide" type="submit">Save</button>
     </form></div>`;
   if (adminOf) { const lv = $('#ff-lvl'), xp = $('#ff-xp'); lv.onchange = () => { xp.value = lv.value; }; Fan.editBase = me; }
-  root.hidden = false; document.body.style.overflow = 'hidden'; Fan.draft = { emoji: me.emoji || '', color: me.color || '' };
+  root.hidden = false; document.body.style.overflow = 'hidden'; Fan.draft = { emoji: me.emoji || '', color: me.color || '', pic: me.pic || '' };
 }
 async function fanSubmit() {
   const fav = $('#ff-fav').value.trim(), num = Math.max(0, Math.min(99, parseInt($('#ff-num').value) || 0)), bio = $('#ff-bio').value.trim();
   if (hasSwear(fav + ' ' + bio)) { $('#ff-err').textContent = 'No swearing please.'; return; }
   if (Fan.editing) {
     const uid = Fan.editing, b = Fan.editBase || {}, rec = { ...FAN_BASE }; Object.keys(FAN_BASE).forEach(k => { if (b[k] !== undefined) rec[k] = b[k]; });
-    Object.assign(rec, { emoji: Fan.draft.emoji, color: Fan.draft.color, fav, num, bio, xp: Math.max(0, Math.min(100000, parseInt($('#ff-xp').value) || 0)), qpts: Math.max(0, Math.min(10000, parseInt($('#ff-qp').value) || 0)), at: Date.now() });
+    Object.assign(rec, { pic: Fan.draft.pic, emoji: Fan.draft.emoji, color: Fan.draft.color, fav, num, bio, xp: Math.max(0, Math.min(100000, parseInt($('#ff-xp').value) || 0)), qpts: Math.max(0, Math.min(10000, parseInt($('#ff-qp').value) || 0)), at: Date.now() });
     try { await Acct.m.setDoc(Acct.m.doc(Acct.db, 'fan', uid), rec); Fan.cache[uid] = { ...rec }; Fan.editing = null; toast('Fan card updated'); chatPaint(); fanOpen(uid); } catch (e) { $('#ff-err').textContent = "Couldn't save."; }
     return;
   }
-  try { await fanSave({ emoji: Fan.draft.emoji, color: Fan.draft.color, fav, num, bio }); closeSheet(false); toast('Fan card saved'); chatPaint(); } catch (e) { $('#ff-err').textContent = "Couldn't save."; }
+  try { await fanSave({ pic: Fan.draft.pic, emoji: Fan.draft.emoji, color: Fan.draft.color, fav, num, bio }); closeSheet(false); toast('Fan card saved'); chatPaint(); } catch (e) { $('#ff-err').textContent = "Couldn't save."; }
 }
 function fanCardHTML() {
   if (!Acct.user || Acct.user.isAnonymous) return '';
@@ -5742,6 +5746,7 @@ document.addEventListener('click', e => {
     case 'ap-new': apNew(b.dataset.place); break;
     case 'fan-open': fanOpen(b.dataset.uid); break;
     case 'fan-edit': fanEdit(b.dataset.uid); break;
+    case 'fan-pic-del': Fan.draft.pic = ''; $('#ff-prev').innerHTML = avatarHTML('', '', { ...Fan.draft }, 'big'); break;
     case 'fan-emoji': Fan.draft.emoji = b.dataset.e; b.parentNode.querySelectorAll('.fan-e').forEach(x => x.classList.toggle('on', x === b)); break;
     case 'fan-color': Fan.draft.color = b.dataset.c; b.parentNode.querySelectorAll('.fan-c').forEach(x => x.classList.toggle('on', x === b)); break;
     case 'rx': rxToggle(b.dataset.id, b.dataset.e); break;
@@ -5788,7 +5793,8 @@ document.addEventListener('change', e => {
   if (t.dataset.push) { Push.prefs[t.dataset.push] = t.checked; pushPrefs(); }
   if (t.id === 'scrub') state.scrubbing = false;
 });
-document.addEventListener('change', e => { if (e.target.id === 'pf-imgs') postPick(e.target); });
+document.addEventListener('change', async e => { if (e.target.id === 'pf-imgs') postPick(e.target);
+  if (e.target.id === 'ff-pic' && e.target.files[0]) { try { Fan.draft.pic = await imgShrink(e.target.files[0], 256, 0.8, 60000); $('#ff-prev').innerHTML = avatarHTML('', '', { ...Fan.draft }, 'big'); } catch (err) { toast("Couldn't use that picture."); } } });
 document.addEventListener('input', e => { if (e.target.id === 'mem-search') { Mem.q = e.target.value; memPaint(); return; } if (e.target.id === 'mem-user') { e.target.value = e.target.value.toLowerCase().replace(/\s+/g, ''); return; } if (e.target.id === 'prof-user') { unameCheck(e.target); return; } if (e.target.id === 'xi-search') { const r = $('#xi-results'); if (r) r.innerHTML = xiPickerList(e.target.value); return; } if (e.target.id === 'scrub') { state.scrubbing = true; Clock.seek(+e.target.value); } });
 document.addEventListener('pointerup', () => { state.scrubbing = false; });
 window.addEventListener('hashchange', render);
