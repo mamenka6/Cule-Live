@@ -59,6 +59,12 @@ nav a,nav button,.btn,.chip{-webkit-user-select:none;user-select:none}
 .sr-in{width:100%;padding:13px 14px;border-radius:14px;border:1px solid var(--line);background:transparent;color:inherit;font:inherit;font-size:16px}.sr-list{display:grid;gap:8px}.sr-it{display:flex;gap:10px;align-items:center;padding:12px;width:100%;text-align:left;font:inherit;color:inherit;border:1px solid var(--line);cursor:pointer}.sr-it span{display:grid}
 .ach-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.ach{font-size:20px}.ach-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}.ach-it{border:1px solid var(--line);border-radius:12px;padding:10px;display:grid;gap:2px;opacity:.5}.ach-it.on{opacity:1;border-color:var(--gold)}.ach-it span{font-size:22px}.ach-it small{color:var(--muted)}
 .mention{color:var(--gold);font-weight:800;background:color-mix(in srgb,var(--gold) 16%,transparent);border-radius:5px;padding:0 3px}.msg.ping .msg-bubble{box-shadow:0 0 0 2px var(--gold)}
+.lu-pitch{aspect-ratio:68/128;max-width:480px}
+.lu-pitch .pl{width:78px}
+.lu-pitch .rt{top:-12px;left:auto;right:-16px;height:17px;min-width:26px;font-size:11.5px;box-shadow:0 1px 4px rgba(0,0,0,.4)}
+.lu-pitch .pl-dot.has-ph .rt{left:auto;right:-14px}
+.lu-pitch .pl-name{font-size:11px;max-width:78px;background:rgba(5,10,24,.55);border-radius:6px;padding:0 5px;line-height:1.5}
+.lu-pitch .pl-evs{bottom:-3px;right:auto;left:-10px}
 </style>
 <title>Culé Live</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -3434,7 +3440,7 @@ function sidePlayers(m, st, side) {
     const rightFirst = !m.lineups[side].leftFirst;
     const x = (side === 'home') === rightFirst ? 100 - xr : xr;
     const span = R > 1 ? (p._r - 1) / (R - 1) : 0;
-    const y = side === 'home' ? 89 - span * 33 : 11 + span * 33;
+    const y = side === 'home' ? 90 - span * 35 : 10 + span * 35;
     const r = st.ratings[p.id], icons = playerIcons(st, p.id);
     return `<button class="pl ${isB ? 't-fcb' : 't-opp'}" data-act="player" data-pid="${esc(p.id)}" aria-label="${esc(p.name)}${r != null ? ', rating ' + r.toFixed(1) : ''}" style="left:${x.toFixed(1)}%;top:${y.toFixed(1)}%"><span class="pl-dot ${p.photo ? 'has-ph' : ''}">${p.photo ? `<img class="ph" src="${esc(p.photo)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ''}<span class="pl-no">${p.number ?? ''}</span>${r != null ? rtBadge(r) : ''}${icons ? `<span class="pl-evs">${icons}</span>` : ''}</span><span class="pl-name">${p.photo && p.number != null ? `<b class="pl-nn">${p.number}</b> ` : ''}${esc(shortPlayer(p.name))}</span></button>`;
   }).join('');
@@ -3488,7 +3494,7 @@ function lineupsHTML(m, st) {
   if (!m.lineups && m.source === 'real') return empty(m.status === 'NS' ? 'Lineups are usually announced about an hour before kick-off.' : m.hlDown ? hlDownMsg(m) : "This match's lineups aren't in the saved data. The app saves the last five matches.");
   if (!m.lineups) return empty(m.status === 'NS' ? 'Lineups are usually announced about an hour before kick-off.' : settings.mode === 'demo' ? 'In demo mode only the live Clásico has full lineups. Real matches get them from API-Football.' : "Lineups aren't available for this match.");
   return `<div class="lu-head"><span>${badge(m.home, 'sm')}${esc(m.lineups.home.formation)}${avgBadge(teamAvg(m, st, 'home'))}</span><span>${avgBadge(teamAvg(m, st, 'away'))}${esc(m.lineups.away.formation)}${badge(m.away, 'sm')}</span></div>
-    <div class="pitch" role="group" aria-label="Starting lineups on the pitch">
+    <div class="pitch lu-pitch" role="group" aria-label="Starting lineups on the pitch">
       <span class="ln outline"></span><span class="ln half"></span><span class="ln circle"></span>
       <span class="ln box top"></span><span class="ln box bottom"></span><span class="ln six top"></span><span class="ln six bottom"></span>
       <span class="pitch-label top">${esc(m.away.name)}</span>
