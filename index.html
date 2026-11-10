@@ -5157,7 +5157,7 @@ function botHTML() { return Chat.local.map(m => `<div class="msg bot"><div class
 async function userByName(n) { n = String(n || '').replace(/^@/, '').toLowerCase(); try { const d = await Acct.m.getDoc(Acct.m.doc(Acct.db, 'usernames', n)); return d.exists() ? d.data().uid : null; } catch (e) { return null; } }
 async function chatCommand(text) {
   const [cmd, ...rest] = text.slice(1).split(' '), arg = rest.join(' ').trim(), c = cmd.toLowerCase(), adm = isAdmin(Acct.user?.uid), me = Acct.user?.uid;
-  const help = `<b>Commands</b><br>/next · next match<br>/table · league table<br>/polls · open fan polls<br>/rules · chat rules<br>/news · latest news<br>/predict · make a prediction<br>/leagues · your leagues<br>/clear · hide bot messages${adm ? '<br><br><b>Admin</b><br>/poll Question | Option | Option [| …] [#home #news #matches]<br>/newpoll · poll form<br>/endpoll · end latest chat poll<br>/post · write a news post<br>/mute @user minutes<br>/unmute @user<br>/ban @user<br>/unban @user' : ''}`;
+  const help = `<b>Commands</b><br>/next · next match<br>/table · league table<br>/polls · open fan polls<br>/rules · chat rules<br>/news · latest news<br>/predict · make a prediction<br>/leagues · your leagues<br>/score · live score<br>/last · last result<br>/form · last 5 games<br>/countdown · time to kick-off<br>/me · your points<br>/top · leaderboard<br>/who @user · profile<br>/admins · staff list<br>/squad /matches /settings · go there<br><br><b>Fun</b><br>/coin · /roll 6 · /8ball question<br>/rate Pedri · /visca<br><br>/clear · hide bot messages${adm ? '<br><br><b>Admin</b><br>/poll Question | Option | Option [| …] [#home #news #matches]<br>/newpoll · poll form<br>/endpoll · end latest chat poll<br>/post · write a news post<br>/purge 10 · delete last messages<br>/mute @user minutes<br>/unmute @user<br>/ban @user<br>/unban @user' : ''}`;
   switch (c) {
     case 'help': case 'commands': botSay(help); return;
     case 'clear': Chat.local = []; chatPaint(); return;
@@ -5168,6 +5168,35 @@ async function chatCommand(text) {
     case 'news': location.hash = 'news'; return;
     case 'leagues': location.hash = 'leagues'; return;
     case 'predict': location.hash = 'home'; return;
+    case 'score': case 'live': { const fx = state.fixtures || await Data.fixtures().catch(() => []); const f = fx.find(isLiveF);
+      if (!f) { botSay('No Barça match is live right now. Try <b>/next</b>.'); return; } const v = fxView(f);
+      botSay(`🔴 LIVE ${esc(v.minute || '')}<br><b>${esc(f.home.name)} ${v.score.home ?? 0}–${v.score.away ?? 0} ${esc(f.away.name)}</b>`); return; }
+    case 'last': { const f = (state.fixtures || await Data.fixtures().catch(() => [])).filter(x => fstat(x) === 'FT').sort((a, b) => b.ts - a.ts)[0];
+      botSay(f ? `Last match (${fmtDay(f.ts)}):<br><b>${esc(f.home.name)} ${f.goals.home}–${f.goals.away} ${esc(f.away.name)}</b> · ${({ W: 'Win ✅', D: 'Draw 🤝', L: 'Loss ❌' })[resultOf(f, f.goals)] || ''}` : 'No results yet.'); return; }
+    case 'form': { const r = (state.fixtures || await Data.fixtures().catch(() => [])).filter(x => fstat(x) === 'FT').sort((a, b) => b.ts - a.ts).slice(0, 5);
+      botSay(r.length ? `Last ${r.length}: ${r.map(f => ({ W: '🟢', D: '🟡', L: '🔴' })[resultOf(f, f.goals)]).join(' ')}<br>${r.map(f => resultOf(f, f.goals)).join(' ')}` : 'No results yet.'); return; }
+    case 'countdown': { const f = (state.fixtures || await Data.fixtures().catch(() => [])).filter(x => fstat(x) === 'NS' && x.ts > Date.now()).sort((a, b) => a.ts - b.ts)[0];
+      if (!f) { botSay('No upcoming match.'); return; } const ms = f.ts - Date.now(), d = Math.floor(ms / 864e5), h = Math.floor(ms / 36e5) % 24, mi = Math.floor(ms / 6e4) % 60;
+      botSay(`⏳ ${d ? d + 'd ' : ''}${h}h ${mi}m until <b>${esc(f.home.name)} vs ${esc(f.away.name)}</b>`); return; }
+    case 'me': case 'points': { if (!state.fixtures) await Data.fixtures().catch(() => {}); const st = predStats();
+      botSay(`<b>${esc(Prof.me?.displayName || 'You')}</b><br>${st.pts} points · ${st.exact} exact scores · ${st.n} predictions<br>🔥 Streak: ${predStreak()}`); return; }
+    case 'top': case 'leaderboard': { try { const { collection, query, orderBy, limit, getDocs } = Acct.m; const sn = await getDocs(query(collection(Acct.db, 'stats'), orderBy('pts', 'desc'), limit(10))); const out = []; sn.forEach(d => out.push(d.data()));
+      botSay(out.length ? `<b>🏆 Top predictors</b><br>${out.map((x, i) => `${['🥇', '🥈', '🥉'][i] || (i + 1) + '.'} ${esc(x.name)} · ${x.pts} pts`).join('<br>')}` : 'No points yet.'); } catch (e) { botSay("Couldn't load the leaderboard."); } return; }
+    case 'who': case 'profile': { const n = arg.replace(/^@/, '').toLowerCase(), uid = await userByName(n); if (!uid) { botSay(`Can't find @${esc(n)}.`); return; }
+      try { const pr = (await Acct.m.getDoc(Acct.m.doc(Acct.db, 'profiles', uid))).data() || {}, st = (await Acct.m.getDoc(Acct.m.doc(Acct.db, 'stats', uid))).data() || {};
+        botSay(`<b>${esc(pr.displayName || n)}</b> @${esc(n)}${roleOf(uid) ? ' · ' + roleOf(uid) : ''}<br>${st.pts || 0} points · 🔥 ${st.streak || 0} streak${pr.createdAt ? '<br>Joined ' + fmtDay(pr.createdAt) : ''}`); } catch (e) { botSay("Couldn't load that profile."); } return; }
+    case 'admins': case 'staff': { const ids = [FOUNDER, ...Object.keys(Chat.roles || {}).filter(u => u !== FOUNDER && roleOf(u))];
+      const rows = await Promise.all(ids.map(async u => { let nm = ''; try { const d = (await Acct.m.getDoc(Acct.m.doc(Acct.db, 'profiles', u))).data(); nm = d ? `${d.displayName} @${d.username}` : ''; } catch (e) {} return `${roleOf(u) === 'owner' ? '👑' : '🛡️'} ${esc(nm || 'member')}`; }));
+      botSay(`<b>Staff</b><br>${rows.join('<br>')}`); return; }
+    case 'coin': botSay(Math.random() < .5 ? '🪙 Heads' : '🪙 Tails'); return;
+    case 'roll': { const n = Math.max(2, Math.min(1000, +arg || 6)); botSay(`🎲 You rolled <b>${1 + Math.floor(Math.random() * n)}</b> (1–${n})`); return; }
+    case '8ball': { const a = ['Yes, definitely 💙❤️', 'Without a doubt', 'Ask again after the match', 'Not a chance', 'Flick says yes', 'Lamine will decide', "Don't count on it", 'Very likely', 'Hmm… maybe']; botSay(arg ? `🎱 ${esc(arg)}<br><b>${a[Math.floor(Math.random() * a.length)]}</b>` : 'Ask a question: /8ball Will we win the league?'); return; }
+    case 'rate': botSay(arg ? `I rate <b>${esc(arg.slice(0, 40))}</b> ${1 + Math.floor(Math.random() * 10)}/10` : 'Use: /rate Pedri'); return;
+    case 'visca': case 'barca': botSay('💙❤️ <b>VISCA EL BARÇA!</b> 💙❤️<br>Més que un club'); return;
+    case 'squad': location.hash = 'squad'; return;
+    case 'matches': case 'fixtures': location.hash = 'matches'; return;
+    case 'settings': location.hash = 'options'; return;
+    case 'feedback': location.hash = 'feedback'; return;
     case 'polls': { await apLoad(); const open = (AP.list || []).filter(p => p.open); botSay(open.length ? open.map(p => `• <b>${esc(p.q)}</b> (${p.place})`).join('<br>') : 'No open polls right now.'); return; }
   }
   if (!adm) { botSay(`Unknown command. Type <b>/help</b>.`); return; }
@@ -5179,6 +5208,9 @@ async function chatCommand(text) {
       const parts = body.split('|').map(x => x.trim()).filter(Boolean);
       if (parts.length < 3) { botSay('Use: /poll Who will be best? | Lamine | Pedri | Raphinha'); return; }
       try { await apCreate(parts[0].slice(0, 120), parts.slice(1, 7).map(x => x.slice(0, 40)), place); botSay(`Poll created on <b>${place}</b>.`); } catch (e) { botSay("Couldn't create the poll."); } return; }
+    case 'purge': { const n = Math.max(1, Math.min(50, +arg || 5)), ms = (Chat.msgs || []).slice(-n); let k = 0;
+      for (const m of ms) { try { await Acct.m.deleteDoc(Acct.m.doc(Acct.db, 'chat', m.id)); k++; } catch (e) {} }
+      botSay(`🧹 Deleted ${k} message${k === 1 ? '' : 's'}.`); return; }
     case 'endpoll': { await apLoad(); const p = (AP.list || []).find(x => x.place === 'chat' && x.open); if (!p) { botSay('No open chat poll.'); return; } await apClose(p.id); botSay('Poll ended.'); return; }
     case 'mute': case 'unmute': case 'ban': case 'unban': {
       const [u, mins] = arg.split(/\s+/), uid = await userByName(u);
