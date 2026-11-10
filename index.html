@@ -32,6 +32,9 @@ nav a,nav button,.btn,.chip{-webkit-user-select:none;user-select:none}
 .poll .pl-opt{display:block;width:100%;text-align:left;margin:6px 0;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--surface-2);color:inherit;font:inherit;cursor:pointer}
 .pl-row{position:relative;display:flex;justify-content:space-between;margin:6px 0;padding:12px 14px;border-radius:12px;background:var(--surface-2);overflow:hidden}.pl-row i{position:absolute;left:0;top:0;bottom:0;background:var(--tint-blau);z-index:0}.pl-row span,.pl-row b{position:relative;z-index:1}.pl-row.me{outline:2px solid var(--blau)}
 .news{display:grid;gap:10px}.nw{display:flex;gap:12px;align-items:center;padding:10px;text-decoration:none;color:inherit}.nw img{width:96px;height:64px;object-fit:cover;border-radius:10px;flex:none}.nw span{display:grid;gap:4px}.nw small{color:var(--muted)}.nw-src{font-size:.75rem}
+.nw.post{width:100%;text-align:left;border:1px solid var(--line);font:inherit;cursor:pointer;margin-bottom:10px}.nw-tag{color:var(--gold)!important;font-family:var(--f-label);letter-spacing:.1em;font-size:.72rem}
+.post-imgs{display:grid;gap:8px;margin:8px 0}.post-imgs img{width:100%;border-radius:14px;display:block}.post-body{white-space:pre-wrap;line-height:1.55}
+.post-prev{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.post-prev img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px}
 </style>
 <title>Culé Live</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -4964,6 +4967,92 @@ async function pollVote(o) {
   catch (e) { toast("Couldn't vote. Try again."); }
 }
 
+/* ===== Culé Live news posts (admins write; title, subject, text, photos) ===== */
+const Posts = { list: null };
+async function postsLoad() {
+  if (!Acct.db) { try { await acctStart(); } catch (e) {} }
+  if (!Acct.db) return [];
+  try { const { collection, query, orderBy, limit, getDocs } = Acct.m; const sn = await getDocs(query(collection(Acct.db, 'posts'), orderBy('at', 'desc'), limit(20))); const out = []; sn.forEach(d => out.push({ id: d.id, ...d.data() })); Posts.list = out; }
+  catch (e) { Posts.list = Posts.list || []; }
+  return Posts.list;
+}
+function postsHTML(list) {
+  const adm = isAdmin(Acct.user?.uid);
+  if (!list.length && !adm) return '';
+  return `${adm ? '<button class="btn btn-primary btn-sm" data-act="post-new">+ New post</button>' : ''}<div class="news">${list.map(p => `<button class="card nw post" data-act="post-open" data-id="${esc(p.id)}">${p.cover ? `<img src="${p.cover}" alt="">` : ''}<span><small class="nw-tag">CULÉ LIVE</small><b data-notr>${esc(p.title)}</b><small data-notr>${esc(p.subject || '')}</small><small class="nw-src">${fmtDay(p.at)}${p.n > 1 ? ` · ${p.n} photos` : ''}</small></span></button>`).join('')}</div>`;
+}
+async function postOpen(id) {
+  const p = (Posts.list || []).find(x => x.id === id); if (!p) return;
+  state.sheetPid = 'xi:post'; const root = $('#sheet-root');
+  const shell = imgs => `<div class="sheet-back" data-act="sheet-close"></div><div class="sheet post-sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+    <div class="sheet-top"><span class="sheet-name"><b id="sheet-title" data-notr>${esc(p.title)}</b><small data-notr>${esc(p.subject || '')}</small></span><button class="sheet-close" data-act="sheet-close" aria-label="Close">×</button></div>
+    <div class="post-imgs">${imgs}</div>
+    <p class="post-body" data-notr>${esc(p.body || '')}</p>
+    <p class="help">${esc(p.byName || 'Culé Live')} · ${fmtWhen(p.at)}</p>
+    ${isAdmin(Acct.user?.uid) ? `<button class="btn btn-ghost btn-sm mod-ban" data-act="post-del" data-id="${esc(id)}">Delete post</button>` : ''}</div>`;
+  root.innerHTML = shell(p.cover ? `<img src="${p.cover}" alt="">` : ''); root.hidden = false; document.body.style.overflow = 'hidden';
+  if (p.n) {
+    try { const sn = await Acct.m.getDocs(Acct.m.collection(Acct.db, 'posts', id, 'imgs')); const ims = []; sn.forEach(d => ims.push(d.data())); ims.sort((a, b) => a.i - b.i);
+      const box = root.querySelector('.post-imgs'); if (box) box.innerHTML = ims.map(x => `<img src="${x.d}" alt="" loading="lazy">`).join(''); } catch (e) {}
+  }
+}
+const PostDraft = { files: [] };
+function postNew() {
+  PostDraft.files = []; state.sheetPid = 'xi:postnew'; const root = $('#sheet-root');
+  root.innerHTML = `<div class="sheet-back" data-act="sheet-close"></div><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+    <div class="sheet-top"><span class="sheet-name"><b id="sheet-title">New post</b><small>Shows in Barça news for everyone</small></span><button class="sheet-close" data-act="sheet-close" aria-label="Close">×</button></div>
+    <form id="post-form" class="acct-form" novalidate>
+      <label for="pf-title">Title</label><input id="pf-title" maxlength="90" placeholder="e.g. Fermín's brace sinks Atleti">
+      <label for="pf-sub">Subject</label><input id="pf-sub" maxlength="140" placeholder="One line about the story">
+      <label for="pf-body">Text</label><textarea id="pf-body" class="fb-text" maxlength="5000" rows="7" placeholder="Write the story…"></textarea>
+      <label for="pf-imgs">Photos (up to 6)</label><input id="pf-imgs" type="file" accept="image/*" multiple>
+      <div class="post-prev" id="pf-prev"></div>
+      <p class="acct-err" id="pf-err"></p>
+      <button class="btn btn-primary wide" type="submit">Publish</button>
+    </form></div>`;
+  root.hidden = false; document.body.style.overflow = 'hidden';
+}
+function imgShrink(file, max, q, limit) {
+  return new Promise((res, rej) => {
+    const url = URL.createObjectURL(file), im = new Image();
+    im.onload = () => {
+      let w = im.width, h = im.height, s = Math.min(1, max / Math.max(w, h)), out;
+      for (let k = 0; k < 6; k++) {
+        const c = document.createElement('canvas'); c.width = Math.round(w * s); c.height = Math.round(h * s);
+        c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); out = c.toDataURL('image/jpeg', q);
+        if (out.length < limit) break; s *= 0.8; q = Math.max(0.5, q - 0.08);
+      }
+      URL.revokeObjectURL(url); res(out);
+    };
+    im.onerror = () => { URL.revokeObjectURL(url); rej(new Error('bad image')); }; im.src = url;
+  });
+}
+async function postPick(input) {
+  const files = [...input.files].slice(0, 6), prev = $('#pf-prev'); PostDraft.files = [];
+  prev.innerHTML = '<div class="loading">Preparing photos…</div>';
+  for (const f of files) { try { PostDraft.files.push({ full: await imgShrink(f, 1400, 0.82, 700000), thumb: PostDraft.files.length ? null : await imgShrink(f, 520, 0.7, 90000) }); } catch (e) {} }
+  prev.innerHTML = PostDraft.files.map(x => `<img src="${x.full}" alt="">`).join('');
+}
+async function postPublish(form) {
+  const title = $('#pf-title').value.trim(), subject = $('#pf-sub').value.trim(), body = $('#pf-body').value.trim(), err = $('#pf-err');
+  if (title.length < 3) { err.textContent = 'Add a title.'; return; }
+  if (!body && !PostDraft.files.length) { err.textContent = 'Add some text or a photo.'; return; }
+  const btn = form.querySelector('button[type="submit"]'); btn.disabled = true; btn.textContent = 'Publishing…'; err.textContent = '';
+  try {
+    const { collection, addDoc, doc, setDoc } = Acct.m;
+    const ref = await addDoc(collection(Acct.db, 'posts'), { title, subject, body, cover: PostDraft.files[0]?.thumb || '', n: PostDraft.files.length, by: Acct.user.uid, byName: Prof.me?.displayName || 'Culé Live', at: Date.now() });
+    await Promise.all(PostDraft.files.map((x, i) => setDoc(doc(Acct.db, 'posts', ref.id, 'imgs', String(i)), { i, d: x.full })));
+    closeSheet(false); toast('Post published'); $('#view').dataset.route = ''; render();
+  } catch (e) { err.textContent = "Couldn't publish. Try fewer or smaller photos."; btn.disabled = false; btn.textContent = 'Publish'; }
+}
+async function postDelete(id, b) {
+  if (b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = 'Tap again to delete'; return; }
+  try {
+    const p = (Posts.list || []).find(x => x.id === id);
+    await Promise.all(Array.from({ length: p?.n || 0 }, (_, i) => Acct.m.deleteDoc(Acct.m.doc(Acct.db, 'posts', id, 'imgs', String(i))).catch(() => {})));
+    await Acct.m.deleteDoc(Acct.m.doc(Acct.db, 'posts', id)); closeSheet(false); toast('Post deleted'); $('#view').dataset.route = ''; render();
+  } catch (e) { toast("Couldn't delete."); }
+}
 /* ===== Barça news (ESPN) ===== */
 async function newsLoad() {
   const k = 'news:' + Math.floor(Date.now() / 1800e3), c = store.get('newsC', null);
@@ -4976,8 +5065,8 @@ async function newsLoad() {
   } catch (e) { return c ? c.list : []; }
 }
 async function newsHTML() {
-  const list = await newsLoad(); if (!list.length) return '';
-  return `<section aria-labelledby="news-h"><div class="sec-head"><h2 class="sec-title" id="news-h">Barça news</h2></div><div class="news">${list.map(n => `<a class="card nw" href="${esc(n.url)}" target="_blank" rel="noopener">${n.img ? `<img src="${esc(n.img)}" alt="" loading="lazy">` : ''}<span><b data-notr>${esc(n.h)}</b><small data-notr>${esc(n.d.slice(0, 120))}</small><small class="nw-src">ESPN · ${n.at ? fmtDay(Date.parse(n.at)) : ''}</small></span></a>`).join('')}</div></section>`;
+  const [list, posts] = await Promise.all([newsLoad(), postsLoad()]); if (!list.length && !posts.length && !isAdmin(Acct.user?.uid)) return '';
+  return `<section aria-labelledby="news-h"><div class="sec-head"><h2 class="sec-title" id="news-h">Barça news</h2></div>${postsHTML(posts)}<div class="news">${list.map(n => `<a class="card nw" href="${esc(n.url)}" target="_blank" rel="noopener">${n.img ? `<img src="${esc(n.img)}" alt="" loading="lazy">` : ''}<span><b data-notr>${esc(n.h)}</b><small data-notr>${esc(n.d.slice(0, 120))}</small><small class="nw-src">ESPN · ${n.at ? fmtDay(Date.parse(n.at)) : ''}</small></span></a>`).join('')}</div></section>`;
 }
 
 /* ===== Theme ===== */
@@ -5279,6 +5368,9 @@ document.addEventListener('click', e => {
     case 'unblock': unblockUser(b.dataset.uid); break;
     case 'share-pred-next': shareCard('pred', 0, b.dataset.fid); break;
     case 'poll-vote': pollVote(b.dataset.o); break;
+    case 'post-new': postNew(); break;
+    case 'post-open': postOpen(b.dataset.id); break;
+    case 'post-del': postDelete(b.dataset.id, b); break;
     case 'theme': store.set('theme', b.dataset.t); themeApply(); document.querySelectorAll('[data-act="theme"]').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.t === b.dataset.t))); break;
     case 'lg-join-pending': { const c = store.get('pendingJoin', ''); store.set('pendingJoin', ''); const fake = { querySelector: () => b }; const inp = $('#lg-code'); if (inp) { inp.value = c; lgJoin(fake); } break; }
     case 'fb-kind': Fb.kind = b.dataset.k; document.querySelectorAll('[data-act="fb-kind"]').forEach(c => c.setAttribute('aria-pressed', String(c.dataset.k === Fb.kind))); break;
@@ -5301,6 +5393,7 @@ document.addEventListener('submit', e => {
   if (e.target.id === 'lg-create') { e.preventDefault(); lgCreate(e.target); }
   if (e.target.id === 'lg-join') { e.preventDefault(); lgJoin(e.target); }
   if (e.target.id === 'lgc-form') { e.preventDefault(); lgChatSend(e.target); }
+  if (e.target.id === 'post-form') { e.preventDefault(); postPublish(e.target); }
   if (e.target.id === 'chat-form') { e.preventDefault(); chatSend(e.target); }
 });
 document.addEventListener('change', e => {
@@ -5312,6 +5405,7 @@ document.addEventListener('change', e => {
   if (t.dataset.push) { Push.prefs[t.dataset.push] = t.checked; pushPrefs(); }
   if (t.id === 'scrub') state.scrubbing = false;
 });
+document.addEventListener('change', e => { if (e.target.id === 'pf-imgs') postPick(e.target); });
 document.addEventListener('input', e => { if (e.target.id === 'mem-search') { Mem.q = e.target.value; memPaint(); return; } if (e.target.id === 'mem-user') { e.target.value = e.target.value.toLowerCase().replace(/\s+/g, ''); return; } if (e.target.id === 'prof-user') { unameCheck(e.target); return; } if (e.target.id === 'xi-search') { const r = $('#xi-results'); if (r) r.innerHTML = xiPickerList(e.target.value); return; } if (e.target.id === 'scrub') { state.scrubbing = true; Clock.seek(+e.target.value); } });
 document.addEventListener('pointerup', () => { state.scrubbing = false; });
 window.addEventListener('hashchange', render);

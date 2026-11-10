@@ -170,6 +170,19 @@ service cloud.firestore {
       allow delete: if isAdmin() || (request.auth != null && resource.data.uid == request.auth.uid);
     }
 
+    // News posts by admins (photos stored as compressed images in /imgs)
+    match /posts/{id} {
+      allow read: if true;
+      allow create, update: if isAdmin()
+        && request.resource.data.title is string && request.resource.data.title.size() <= 90
+        && request.resource.data.body is string && request.resource.data.body.size() <= 5000;
+      allow delete: if isAdmin();
+      match /imgs/{n} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+    }
+
     // Player of the match fan vote: one vote per person per match, results public
     match /potm/{matchId}/votes/{uid} {
       allow read: if true;
