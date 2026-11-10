@@ -5170,7 +5170,7 @@ function botHTML() { return Chat.local.map(m => `<div class="msg bot"><div class
 async function userByName(n) { n = String(n || '').replace(/^@/, '').toLowerCase(); try { const d = await Acct.m.getDoc(Acct.m.doc(Acct.db, 'usernames', n)); return d.exists() ? d.data().uid : null; } catch (e) { return null; } }
 async function chatCommand(text) {
   const [cmd, ...rest] = text.slice(1).split(' '), arg = rest.join(' ').trim(), c = cmd.toLowerCase(), adm = isAdmin(Acct.user?.uid), me = Acct.user?.uid;
-  const help = `<b>Commands</b><br>/next · next match<br>/table · league table<br>/polls · open fan polls<br>/rules · chat rules<br>/news · latest news<br>/predict · make a prediction<br>/leagues · your leagues<br>/score · live score<br>/last · last result<br>/form · last 5 games<br>/countdown · time to kick-off<br>/me · your points<br>/top · leaderboard<br>/who @user · profile<br>/admins · staff list<br>/level · your XP<br>/champion · weekly 👑<br>/quiz · daily quiz<br>/card · edit fan card<br>/squad /matches /settings · go there<br><br><b>Fun</b><br>/coin · /roll 6 · /8ball question<br>/rate Pedri · /visca<br><br>/clear · hide bot messages${adm ? '<br><br><b>Admin</b><br>/poll Question | Option | Option [| …] [#home #news #matches]<br>/newpoll · poll form<br>/endpoll · end latest chat poll<br>/post · write a news post<br>/purge 10 · delete last messages<br>/mute @user minutes<br>/unmute @user<br>/ban @user<br>/unban @user' : ''}`;
+  const help = `<b>Commands</b><br>/next · next match<br>/table · league table<br>/polls · open fan polls<br>/rules · chat rules<br>/news · latest news<br>/predict · make a prediction<br>/leagues · your leagues<br>/score · live score<br>/last · last result<br>/form · last 5 games<br>/countdown · time to kick-off<br>/me · your points<br>/top · leaderboard<br>/who @user · profile<br>/admins · staff list<br>/level · your XP<br>/champion · weekly 👑<br>/quiz · daily quiz<br>/card · edit fan card<br>/squad /matches /settings · go there<br><br><b>Fun</b><br>/coin · /roll 6 · /8ball question<br>/rate Pedri · /visca<br><br>/clear · hide bot messages${adm ? '<br><br><b>Admin</b><br>/poll Question | Option | Option [| …] [#home #news #matches]<br>/newpoll · poll form<br>/endpoll · end latest chat poll<br>/post · write a news post<br>/purge 10 · delete last messages<br>/setlevel @user 4 · /setxp @user 500<br>/editcard @user<br>/mute @user minutes<br>/unmute @user<br>/ban @user<br>/unban @user' : ''}`;
   switch (c) {
     case 'help': case 'commands': botSay(help); return;
     case 'clear': Chat.local = []; chatPaint(); return;
@@ -5225,6 +5225,12 @@ async function chatCommand(text) {
       const parts = body.split('|').map(x => x.trim()).filter(Boolean);
       if (parts.length < 3) { botSay('Use: /poll Who will be best? | Lamine | Pedri | Raphinha'); return; }
       try { await apCreate(parts[0].slice(0, 120), parts.slice(1, 7).map(x => x.slice(0, 40)), place); botSay(`Poll created on <b>${place}</b>.`); } catch (e) { botSay("Couldn't create the poll."); } return; }
+    case 'setxp': case 'setlevel': { const [u, v] = arg.split(/\s+/), uid = await userByName(u); if (!uid) { botSay(`Can't find ${esc(u || 'that user')}.`); return; }
+      const f = { ...FAN_BASE }; delete Fan.cache[uid]; delete Fan.loading[uid]; const cur = await fanGet(uid); Object.keys(FAN_BASE).forEach(k => { if (cur[k] !== undefined) f[k] = cur[k]; });
+      const n = parseInt(v); if (isNaN(n)) { botSay(c === 'setxp' ? 'Use: /setxp @user 500' : 'Use: /setlevel @user 4'); return; }
+      f.xp = c === 'setxp' ? Math.max(0, Math.min(100000, n)) : LEVELS[Math.max(1, Math.min(LEVELS.length, n)) - 1][0]; f.at = Date.now();
+      try { await Acct.m.setDoc(Acct.m.doc(Acct.db, 'fan', uid), f); Fan.cache[uid] = f; botSay(`${esc(u)} is now Level ${levelOf(f.xp).n} (${f.xp} XP).`); chatPaint(); } catch (e) { botSay("Couldn't change it."); } return; }
+    case 'editcard': { const uid = await userByName(arg.split(/\s+/)[0]); if (!uid) { botSay("Can't find that user."); return; } fanEdit(uid); return; }
     case 'purge': { const n = Math.max(1, Math.min(50, +arg || 5)), ms = (Chat.msgs || []).slice(-n); let k = 0;
       for (const m of ms) { try { await Acct.m.deleteDoc(Acct.m.doc(Acct.db, 'chat', m.id)); k++; } catch (e) {} }
       botSay(`🧹 Deleted ${k} message${k === 1 ? '' : 's'}.`); return; }
@@ -5315,26 +5321,39 @@ async function fanOpen(uid) {
     <div class="sheet-sum"><div class="kv"><b>${st.pts || 0}</b><small>Points</small></div><div class="kv"><b>🔥 ${st.streak || 0}</b><small>Streak</small></div><div class="kv"><b>${f.qpts || 0}</b><small>Quiz</small></div></div>
     ${f.fav ? `<p class="help">Favourite player: <b data-notr>${esc(f.fav)}</b></p>` : ''}
     ${uid === Champ.uid ? `<p class="help">👑 Weekly champion with ${Champ.pts} points last week</p>` : ''}
-    ${mine ? '<button class="btn btn-primary wide" data-act="fan-edit">Edit my fan card</button>' : ''}</div>`;
+    ${mine ? '<button class="btn btn-primary wide" data-act="fan-edit">Edit my fan card</button>' : isAdmin(Acct.user?.uid) ? `<button class="btn btn-ghost wide" data-act="fan-edit" data-uid="${esc(uid)}">🛡️ Edit fan card & level (admin)</button>` : ''}</div>`;
 }
-async function fanEdit() {
-  const me = await fanMe(); if (!me) { welcomeShow(true); return; }
+async function fanEdit(other) {
+  const adminOf = other && other !== Acct.user?.uid && isAdmin(Acct.user?.uid) ? other : null;
+  let me; if (adminOf) { delete Fan.cache[adminOf]; delete Fan.loading[adminOf]; me = { ...(await fanGet(adminOf)), uid: adminOf }; } else me = await fanMe();
+  if (!me) { welcomeShow(true); return; } Fan.editing = adminOf;
   state.sheetPid = 'xi:fanedit'; const root = $('#sheet-root');
   root.innerHTML = `<div class="sheet-back" data-act="sheet-close"></div><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
-    <div class="sheet-top"><span class="sheet-name"><b id="sheet-title">Your fan card</b><small>Everyone sees this when they tap your name</small></span><button class="sheet-close" data-act="sheet-close" aria-label="Close">×</button></div>
+    <div class="sheet-top"><span class="sheet-name"><b id="sheet-title">${adminOf ? 'Edit fan card (admin)' : 'Your fan card'}</b><small>${adminOf ? 'Changes show for everyone straight away' : 'Everyone sees this when they tap your name'}</small></span><button class="sheet-close" data-act="sheet-close" aria-label="Close">×</button></div>
     <form id="fan-form" class="acct-form" novalidate>
       <label>Avatar</label><div class="fan-pick">${['', ...FAN_EMOJI].map(e => `<button type="button" class="fan-e ${e === me.emoji ? 'on' : ''}" data-act="fan-emoji" data-e="${e}">${e || 'Aa'}</button>`).join('')}</div>
       <label>Colour</label><div class="fan-pick">${FAN_COLORS.map(c => `<button type="button" class="fan-c ${c === me.color ? 'on' : ''}" data-act="fan-color" data-c="${c}" style="background:${c}" aria-label="colour"></button>`).join('')}</div>
       <label for="ff-fav">Favourite player</label><input id="ff-fav" maxlength="30" value="${esc(me.fav || '')}" placeholder="e.g. Lamine Yamal">
       <label for="ff-num">Shirt number</label><input id="ff-num" type="number" min="1" max="99" value="${me.num || ''}" placeholder="10">
       <label for="ff-bio">Bio</label><input id="ff-bio" maxlength="100" value="${esc(me.bio || '')}" placeholder="Culé since 2009">
+      ${adminOf ? `<label for="ff-lvl">Level</label><select id="ff-lvl">${LEVELS.map(([t, n], i) => `<option value="${t}" ${levelOf(me.xp).n === i + 1 ? 'selected' : ''}>Level ${i + 1} · ${n} (${t} XP)</option>`).join('')}</select>
+      <label for="ff-xp">XP (exact)</label><input id="ff-xp" type="number" min="0" max="100000" value="${me.xp || 0}">
+      <label for="ff-qp">Quiz points</label><input id="ff-qp" type="number" min="0" max="10000" value="${me.qpts || 0}">
+      <p class="help">Picking a level sets the XP to the start of that level. Typing XP sets it exactly.</p>` : ''}
       <p class="acct-err" id="ff-err"></p><button class="btn btn-primary wide" type="submit">Save</button>
     </form></div>`;
+  if (adminOf) { const lv = $('#ff-lvl'), xp = $('#ff-xp'); lv.onchange = () => { xp.value = lv.value; }; Fan.editBase = me; }
   root.hidden = false; document.body.style.overflow = 'hidden'; Fan.draft = { emoji: me.emoji || '', color: me.color || '' };
 }
 async function fanSubmit() {
   const fav = $('#ff-fav').value.trim(), num = Math.max(0, Math.min(99, parseInt($('#ff-num').value) || 0)), bio = $('#ff-bio').value.trim();
   if (hasSwear(fav + ' ' + bio)) { $('#ff-err').textContent = 'No swearing please.'; return; }
+  if (Fan.editing) {
+    const uid = Fan.editing, b = Fan.editBase || {}, rec = { ...FAN_BASE }; Object.keys(FAN_BASE).forEach(k => { if (b[k] !== undefined) rec[k] = b[k]; });
+    Object.assign(rec, { emoji: Fan.draft.emoji, color: Fan.draft.color, fav, num, bio, xp: Math.max(0, Math.min(100000, parseInt($('#ff-xp').value) || 0)), qpts: Math.max(0, Math.min(10000, parseInt($('#ff-qp').value) || 0)), at: Date.now() });
+    try { await Acct.m.setDoc(Acct.m.doc(Acct.db, 'fan', uid), rec); Fan.cache[uid] = { ...rec }; Fan.editing = null; toast('Fan card updated'); chatPaint(); fanOpen(uid); } catch (e) { $('#ff-err').textContent = "Couldn't save."; }
+    return;
+  }
   try { await fanSave({ emoji: Fan.draft.emoji, color: Fan.draft.color, fav, num, bio }); closeSheet(false); toast('Fan card saved'); chatPaint(); } catch (e) { $('#ff-err').textContent = "Couldn't save."; }
 }
 function fanCardHTML() {
@@ -5722,7 +5741,7 @@ document.addEventListener('click', e => {
     case 'post-new': postNew(); break;
     case 'ap-new': apNew(b.dataset.place); break;
     case 'fan-open': fanOpen(b.dataset.uid); break;
-    case 'fan-edit': fanEdit(); break;
+    case 'fan-edit': fanEdit(b.dataset.uid); break;
     case 'fan-emoji': Fan.draft.emoji = b.dataset.e; b.parentNode.querySelectorAll('.fan-e').forEach(x => x.classList.toggle('on', x === b)); break;
     case 'fan-color': Fan.draft.color = b.dataset.c; b.parentNode.querySelectorAll('.fan-c').forEach(x => x.classList.toggle('on', x === b)); break;
     case 'rx': rxToggle(b.dataset.id, b.dataset.e); break;
