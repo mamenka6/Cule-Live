@@ -102,7 +102,7 @@ service cloud.firestore {
     match /stats/{uid} {
       allow read: if true;
       allow write: if request.auth != null && request.auth.uid == uid
-        && request.resource.data.keys().hasOnly(['pts', 'n', 'exact', 'done', 'name', 'username', 'at'])
+        && request.resource.data.keys().hasOnly(['pts', 'n', 'exact', 'done', 'streak', 'name', 'username', 'at'])
         && request.resource.data.pts is int && request.resource.data.n is int
         && request.resource.data.exact is int && request.resource.data.done is int
         && request.resource.data.name is string && request.resource.data.name.size() <= 30
@@ -137,6 +137,37 @@ service cloud.firestore {
             && !(request.auth.uid in request.resource.data.members))
         );
       allow delete: if request.auth != null && (resource.data.owner == request.auth.uid || isAdmin());
+    }
+
+    // Reported chat messages: signed-in people report, admins read and clear
+    match /reports/{id} {
+      allow create: if request.auth != null && request.auth.token.firebase.sign_in_provider != 'anonymous'
+        && request.resource.data.keys().hasOnly(['msgId', 'uid', 'username', 'text', 'reason', 'by', 'at'])
+        && request.resource.data.by == request.auth.uid
+        && request.resource.data.text is string && request.resource.data.text.size() <= 500
+        && request.resource.data.reason is string && request.resource.data.reason.size() <= 40;
+      allow read, delete: if isAdmin();
+    }
+
+    // Fan polls: one vote per signed-in person per match
+    match /polls/{pid}/votes/{uid} {
+      allow read: if true;
+      allow create, update: if request.auth != null && request.auth.uid == uid && request.auth.token.firebase.sign_in_provider != 'anonymous'
+        && request.resource.data.keys().hasOnly(['pick', 'at'])
+        && request.resource.data.pick is string && request.resource.data.pick.size() <= 40;
+    }
+
+    // League chat: only members of that league can read or post
+    match /leagues/{code}/chat/{id} {
+      function member() { return request.auth != null && request.auth.uid in get(/databases/$(database)/documents/leagues/$(code)).data.members; }
+      allow read: if member();
+      allow create: if member()
+        && request.resource.data.keys().hasOnly(['uid', 'name', 'text', 'at'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.text is string && request.resource.data.text.size() >= 1 && request.resource.data.text.size() <= 300
+        && !request.resource.data.text.lower().matches('.*(fuck|bitch|cunt|nigger|nigga|faggot|whore|motherf|putain|salope|mierda|gilipollas|qahba|9a7ba).*')
+        && request.resource.data.at == request.time;
+      allow delete: if isAdmin() || (request.auth != null && resource.data.uid == request.auth.uid);
     }
 
     // Player of the match fan vote: one vote per person per match, results public

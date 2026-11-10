@@ -26,6 +26,12 @@ nav a,nav button,.btn,.chip{-webkit-user-select:none;user-select:none}
 .wel-or{display:flex;align-items:center;gap:10px;color:var(--muted,#9aa4bd);font-size:.85rem}.wel-or:before,.wel-or:after{content:"";flex:1;height:1px;background:rgba(255,255,255,.15)}
 .wel-note{color:var(--muted,#9aa4bd);font-size:.82rem;margin:4px 0 0}
 .guest-cta{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-top:10px;padding:12px 14px;border-radius:14px;background:rgba(90,140,255,.1);border:1px solid rgba(90,140,255,.3)}.guest-cta .help{margin:0;flex:1;min-width:180px}
+.mday{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0 0 14px;padding:12px 16px;border-radius:14px;background:linear-gradient(90deg,var(--stripe-a),var(--stripe-b));color:#fff}.mday b{font-family:var(--f-label);letter-spacing:.08em;color:#FFC933}
+.badges{display:flex;flex-wrap:wrap;gap:8px}.bdg{padding:6px 12px;border-radius:999px;background:var(--surface-2);border:1px solid var(--line);font-weight:600;font-size:.9rem}
+.lgc{max-height:260px;overflow:auto;padding:6px 2px;margin-bottom:8px}
+.poll .pl-opt{display:block;width:100%;text-align:left;margin:6px 0;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--surface-2);color:inherit;font:inherit;cursor:pointer}
+.pl-row{position:relative;display:flex;justify-content:space-between;margin:6px 0;padding:12px 14px;border-radius:12px;background:var(--surface-2);overflow:hidden}.pl-row i{position:absolute;left:0;top:0;bottom:0;background:var(--tint-blau);z-index:0}.pl-row span,.pl-row b{position:relative;z-index:1}.pl-row.me{outline:2px solid var(--blau)}
+.news{display:grid;gap:10px}.nw{display:flex;gap:12px;align-items:center;padding:10px;text-decoration:none;color:inherit}.nw img{width:96px;height:64px;object-fit:cover;border-radius:10px;flex:none}.nw span{display:grid;gap:4px}.nw small{color:var(--muted)}.nw-src{font-size:.75rem}
 </style>
 <title>Culé Live</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -3187,6 +3193,7 @@ function nextCardHTML(f) {
           <button class="btn btn-primary btn-sm" data-act="pred-save" data-id="${pk}" data-fid="${esc(f.id)}">Save</button>
         </div>
         <p class="help" id="pred-note-${pk}">${saved ? `Saved: Barça ${saved.b}–${saved.o} ${esc(opp.name)}` : 'Exact score earns 3 points, the right result earns 1.'}</p>
+        ${saved ? `<button class="btn btn-ghost btn-sm" data-act="share-pred-next" data-fid="${esc(f.id)}">${I.share} Share my prediction</button>` : ''}
         ${acctNudgeHTML()}
         <a class="link-btn lg-link" href="#leagues">Play against friends in a league →</a>
       </div>
@@ -3231,10 +3238,11 @@ async function viewHome() {
   }
   const next = list.filter(f => fstat(f) === 'NS' && f.ts > Date.now() - 2 * 3600e3).sort((a, b) => a.ts - b.ts)[0];
   const results = list.filter(f => fstat(f) === 'FT' && f.id !== DEMO_LIVE.id).sort((a, b) => b.ts - a.ts);
-  if (next) html += nextCardHTML(next);
+  if (next) { html = matchdayHTML(next) + html; html += nextCardHTML(next); html += pollHTML(next); setTimeout(() => pollLoad(next), 0); }
   else if (!isDemo) html += empty(`No upcoming matches in the ${seasonLabel(settings.season)} data. Open any result and press <b>Replay</b> to watch it back minute by minute.`);
   if (results.length) html += formHTML(results);
   html += await tableSnapSection();
+  html += await newsHTML();
   return html;
 }
 
@@ -3703,9 +3711,9 @@ async function drawCard(kind, m, st, extra) {
   g.fillStyle = 'rgba(255,255,255,.55)'; g.font = `500 34px ${B}`; g.fillText('mamenka6.github.io/Cule-Live', W / 2, H - 90);
   return c;
 }
-async function shareCard(kind, idx) {
+async function shareCard(kind, idx, id) {
   try {
-    const m = await Data.match(route().id), st = mcStateOf(m);
+    const m = await Data.match(id || route().id), st = mcStateOf(m);
     const extra = {};
     if (kind === 'goal') { extra.e = prep(m).events[idx]; const R = state.replay; if (R && R.idx === idx) { extra.shot = R.s; extra.info = R.info; } if (!extra.e) return; }
     if (kind === 'pred') { extra.p = getPred(m); if (!extra.p) return; extra.pts = predPoints(extra.p, m); }
@@ -3982,6 +3990,7 @@ function refreshSheet() { // redraw an open match player card (e.g. once photos 
   if (state.sheetPid && !/^(season|goal|xi):/.test(String(state.sheetPid)) && $('#sheet-root') && !$('#sheet-root').hidden) openPlayer(state.sheetPid, state.sheetReturn);
 }
 function closeSheet(restoreFocus = true) {
+  lgChatStop();
   if (!state.sheetPid) return;
   state.sheetPid = null;
   const root = $('#sheet-root'); root.hidden = true; root.innerHTML = ''; document.body.style.overflow = '';
@@ -4242,10 +4251,10 @@ function chatListHTML() {
   if (!Chat.msgs.length) return empty('No messages yet. Say hi to the other Culés!');
   const me = Acct.user?.uid;
   let prevUid = null;
-  return Chat.msgs.map(m => {
+  return Chat.msgs.filter(m => !isBlocked(m.uid)).map(m => {
     const mine = m.uid === me, cont = m.uid === prevUid; prevUid = m.uid;
     return `<div class="msg ${mine ? 'mine' : ''} ${cont ? 'cont' : ''}">${cont ? '' : `<div class="msg-who"><b data-notr>${esc(maskSwears(m.name || '?'))}</b>${roleTag(m.uid) ? ' ' + roleTag(m.uid) : ''}${m.username ? ` <small data-notr>@${esc(maskSwears(m.username))}</small>` : ''}${Chat.bans[m.uid] ? ' <span class="mod-tag">Banned</span>' : mutedUntil(m.uid) ? ' <span class="mod-tag">Muted</span>' : ''}</div>`}
-      <div class="msg-bubble"><span class="msg-text" data-notr>${esc(maskSwears(m.text || ''))}</span><span class="msg-meta">${chatTime(m.at)}${mine ? ` · <button class="msg-del" data-act="chat-del" data-id="${esc(m.id)}">Delete</button>` : isAdmin(me) ? ` · <button class="msg-del" data-act="mod-open" data-id="${esc(m.id)}">Moderate</button>` : ''}</span></div></div>`;
+      <div class="msg-bubble"><span class="msg-text" data-notr>${esc(maskSwears(m.text || ''))}</span><span class="msg-meta">${chatTime(m.at)}${mine ? ` · <button class="msg-del" data-act="chat-del" data-id="${esc(m.id)}">Delete</button>` : isAdmin(me) ? ` · <button class="msg-del" data-act="mod-open" data-id="${esc(m.id)}">Moderate</button>` : me ? ` · <button class="msg-del" data-act="msg-menu" data-id="${esc(m.id)}">Report</button>` : ''}</span></div></div>`;
   }).join('');
 }
 function chatPaint() {
@@ -4324,7 +4333,7 @@ function adminHTML() {
   const bans = Object.entries(Chat.bans), mutes = Object.entries(Chat.mutes).filter(([u]) => mutedUntil(u));
   const row = (uid, d, act, label, extra) => `<li><span><b data-notr>@${esc(d.username || uid.slice(0, 6))}</b>${extra ? `<small>${extra}</small>` : ''}</span><button class="btn btn-ghost btn-sm" data-act="${act}" data-uid="${esc(uid)}" data-name="${esc(d.username || '')}">${label}</button></li>`;
   return `<section class="form-card" id="admin-card"><h2 class="fc-title">Admin <span class="adm-tag">You</span></h2>
-    <div class="row"><a class="btn btn-primary" href="#members">${I.squad} Members</a><a class="btn btn-ghost" href="#feedback">Feedback</a></div>
+    <div class="row"><a class="btn btn-primary" href="#members">${I.squad} Members</a><a class="btn btn-ghost" href="#feedback">Reports & feedback</a></div>
     <p class="help">You can delete any message, mute or ban people: tap Moderate under a message in the chat.</p>
     <h3 class="sec-title">Banned</h3>${bans.length ? `<ul class="injlist adm-list">${bans.map(([u, d]) => row(u, d, 'adm-unban', 'Unban')).join('')}</ul>` : '<p class="help">Nobody is banned.</p>'}
     <h3 class="sec-title">Muted</h3>${mutes.length ? `<ul class="injlist adm-list">${mutes.map(([u, d]) => row(u, d, 'adm-unmute', 'Unmute', 'until ' + fmtTime(d.until))).join('')}</ul>` : '<p class="help">Nobody is muted.</p>'}
@@ -4748,7 +4757,10 @@ async function viewFeedback() {
     const out = []; snap.forEach(d => out.push({ id: d.id, ...d.data() })); Fb.list = out;
   } catch (e) { return back + empty("Feedback can't be loaded right now."); }
   const tag = k => `<span class="tag ${k === 'bug' ? 'c-cdr' : k === 'idea' ? 'c-ucl' : 'c-oth'}">${k === 'bug' ? 'Bug' : k === 'idea' ? 'Idea' : 'Other'}</span>`;
-  return `${back}<div><h1 class="page-title">Feedback</h1><p class="page-sub"><b>${Fb.list.length}</b> <span>messages</span></p></div>
+  let reps = [];
+  try { const { collection, query, orderBy, limit, getDocs } = Acct.m; const sn = await getDocs(query(collection(Acct.db, 'reports'), orderBy('at', 'desc'), limit(100))); sn.forEach(d => reps.push({ id: d.id, ...d.data() })); } catch (e) {}
+  const repHTML = `<h2 class="sec-title">Reported messages (${reps.length})</h2>${reps.length ? `<ul class="fb-list">${reps.map(r => `<li class="form-card fb-item" id="rep-${esc(r.id)}"><div class="fb-top"><span class="tag c-cdr">${esc(r.reason || 'Report')}</span><small data-notr>@${esc(r.username || '?')} · ${fmtWhen(r.at)}</small></div><p class="fb-body" data-notr>${esc(r.text || '')}</p><div class="row"><button class="btn btn-ghost btn-sm mod-ban" data-act="rep-delmsg" data-id="${esc(r.id)}" data-msg="${esc(r.msgId)}">Delete message</button><button class="btn btn-ghost btn-sm" data-act="rep-dismiss" data-id="${esc(r.id)}">Dismiss</button></div></li>`).join('')}</ul>` : '<p class="help">No reports. 👍</p>'}<h2 class="sec-title">Feedback</h2>`;
+  return `${back}<div><h1 class="page-title">Reports & feedback</h1><p class="page-sub"><b>${Fb.list.length}</b> <span>feedback messages</span></p></div>${repHTML}
     ${Fb.list.length ? `<ul class="fb-list">${Fb.list.map(f => `<li class="form-card fb-item" id="fb-${esc(f.id)}"><div class="fb-top">${tag(f.kind)}<small data-notr>${f.username ? '@' + esc(f.username) : 'Guest'} · ${esc(f.platform || '')} · ${fmtWhen(f.at)}</small></div>
       <p class="fb-body" data-notr>${esc(f.text || '')}</p><button class="btn btn-ghost btn-sm" data-act="fb-del" data-id="${esc(f.id)}">Delete</button></li>`).join('')}</ul>` : empty('No feedback yet.')}`;
 }
@@ -4759,12 +4771,13 @@ async function fbDelete(id) {
 /* --- Prediction leagues: play with friends using a code --- */
 const Lg = { mine: null, open: null, err: '' };
 const LG_RX = /^[A-Z0-9]{6}$/;
+try { const jc = (new URLSearchParams(location.search).get('join') || '').toUpperCase(); if (LG_RX.test(jc)) { store.set('pendingJoin', jc); if (!location.hash) location.hash = '#leagues'; } } catch (e) {}
 const lgCode = () => { const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s = ''; const r = crypto.getRandomValues(new Uint8Array(6)); r.forEach(x => s += c[x % c.length]); return s; };
 async function statsSync() { // my points, public so league tables can show them
   if (!Acct.user || !Acct.db || !Prof.me || Prof.me.guest) return;
   try { if (!state.fixtures) await Data.fixtures(); } catch (e) { return; }
-  const st = predStats(), rec = { pts: st.pts, n: st.n, exact: st.exact, done: st.done, name: Prof.me.displayName, username: Prof.me.username, at: Date.now() };
-  const k = JSON.stringify([rec.pts, rec.n, rec.exact, rec.done, rec.name, rec.username]);
+  const st = predStats(), rec = { pts: st.pts, n: st.n, exact: st.exact, done: st.done, streak: predStreak(), name: Prof.me.displayName, username: Prof.me.username, at: Date.now() };
+  const k = JSON.stringify([rec.pts, rec.n, rec.exact, rec.done, rec.streak, rec.name, rec.username]);
   if (store.get('statsSent', '') === k) return;
   try { await Acct.m.setDoc(Acct.m.doc(Acct.db, 'stats', Acct.user.uid), rec); store.set('statsSent', k); } catch (e) { /* try again next time */ }
 }
@@ -4779,8 +4792,9 @@ async function viewLeagues() {
   if (!Acct.user) return head + `<section class="form-card"><p class="help">Sign in to create or join a league.</p><a class="btn btn-primary" href="#options">Sign in</a></section>`;
   if (!Prof.me || Prof.me.guest) return head + `<section class="form-card"><p class="help">Choose a display name and username first, so your friends know who you are.</p><button class="btn btn-primary" data-act="prof-edit">Set up profile</button></section>`;
   await statsSync(); await lgLoad();
-  const st = predStats();
-  return head + `<section class="form-card"><div class="sheet-sum"><div class="kv"><b>${st.pts}</b><small>Your points</small></div><div class="kv"><b>${st.n}</b><small>Predictions</small></div><div class="kv"><b>${st.exact}</b><small>Exact scores</small></div></div></section>
+  const st = { ...predStats(), streak: predStreak() }, pend = store.get('pendingJoin', '');
+  const joinBanner = pend && !Lg.mine.some(l => l.code === pend) ? `<section class="form-card guest-cta"><p class="help"><b>You've been invited to a league!</b> Code <b data-notr>${esc(pend)}</b></p><button class="btn btn-primary btn-sm" data-act="lg-join-pending">Join now</button></section>` : '';
+  return head + joinBanner + `<section class="form-card"><div class="sheet-sum"><div class="kv"><b>${st.pts}</b><small>Your points</small></div><div class="kv"><b>${st.n}</b><small>Predictions</small></div><div class="kv"><b>${st.exact}</b><small>Exact scores</small></div></div><h3 class="sec-title">Your badges</h3>${badgesHTML(st, false)}</section>
     <section class="form-card"><h2 class="fc-title">Your leagues</h2>
       ${Lg.err ? `<p class="help">Leagues can't be loaded right now.</p>` : Lg.mine.length ? `<ul class="rlist">${Lg.mine.map(l => `<li><button class="rrow" data-act="lg-open" data-code="${esc(l.code)}"><span class="nmw"><span class="nmt"><b data-notr>${esc(l.name)}</b><small>${l.members.length} ${l.members.length === 1 ? 'player' : 'players'} · code <span data-notr>${esc(l.code)}</span></small></span></span><span></span><span>${I.chev || '›'}</span></button></li>`).join('')}</ul>` : '<p class="help">You\'re not in a league yet. Create one and send the code to your friends, or join theirs.</p>'}
     </section>
@@ -4836,14 +4850,17 @@ async function lgOpen(code, from) {
   if (Lg.open !== code) return;
   const me = Acct.user.uid;
   root.innerHTML = shell(`<div class="tbl-wrap"><table class="tbl lg-tbl"><thead><tr><th>#</th><th class="l">Player</th><th>Pred</th><th>Exact</th><th>Pts</th></tr></thead><tbody>
-    ${rows.map((r, i) => `<tr class="${r.uid === me ? 'barca' : ''}"><td>${i + 1}</td><td class="l"><b data-notr>${esc(maskSwears(r.name || '?'))}</b>${r.username ? ` <small data-notr>@${esc(r.username)}</small>` : ''}</td><td>${r.n || 0}</td><td>${r.exact || 0}</td><td><b>${r.pts || 0}</b></td></tr>`).join('')}
+    ${rows.map((r, i) => `<tr class="${r.uid === me ? 'barca' : ''}"><td>${i + 1}</td><td class="l">${i === 0 && r.pts > 0 ? '🏆 ' : ''}<b data-notr>${esc(maskSwears(r.name || '?'))}</b> ${miniBadges(r)}${r.username ? ` <small data-notr>@${esc(r.username)}</small>` : ''}</td><td>${r.n || 0}</td><td>${r.exact || 0}</td><td><b>${r.pts || 0}</b></td></tr>`).join('')}
     </tbody></table></div>
-    <p class="help">Points update when each player opens the app.</p>
+    <p class="help">Points update when each player opens the app. 🎯 = exact score · 🔥 = 3 right in a row</p>
+    <h3>League chat</h3><div class="lgc" id="lgc-list"><div class="loading">Loading…</div></div>
+    <form id="lgc-form" class="chat-form"><input id="lgc-in" maxlength="300" autocomplete="off" placeholder="Message your league" aria-label="Message"><button class="btn btn-primary" type="submit" aria-label="Send">${I.send}</button></form>
     <div class="row"><button class="btn btn-primary" data-act="lg-share" data-code="${esc(code)}">Invite friends</button><button class="btn btn-ghost mod-ban" data-act="lg-leave" data-code="${esc(code)}">${l.owner === me ? 'Delete league' : 'Leave league'}</button></div>`);
+  lgChatWatch(code);
 }
 async function lgShare(code) {
-  const l = (Lg.mine || []).find(x => x.code === code), url = location.origin + location.pathname + '#leagues';
-  const text = `Join my Culé Live prediction league "${l ? l.name : ''}"! Code: ${code}`;
+  const l = (Lg.mine || []).find(x => x.code === code), url = location.origin + location.pathname + '?join=' + code + '#leagues';
+  const text = `Join my Culé Live prediction league "${l ? l.name : ''}"! Tap the link or use code ${code}`;
   try { if (navigator.share) { await navigator.share({ title: 'Culé Live league', text, url }); return; } } catch (e) { return; }
   try { await navigator.clipboard.writeText(text + ' ' + url); toast('Invite copied. Paste it to your friends.'); } catch (e) { toast(`Your code is ${code}`); }
 }
@@ -4857,12 +4874,124 @@ async function lgLeave(code, btn) {
     closeSheet(false); toast(l.owner === Acct.user.uid ? 'League deleted' : 'You left the league'); $('#view').dataset.route = ''; render();
   } catch (e) { toast("Couldn't do that. Try again."); }
 }
+/* ===== Report & block (chat safety) ===== */
+const Blk = { get list() { return store.get('blocked', {}); } };
+const isBlocked = uid => !!Blk.list[uid];
+function blockUser(uid, name) { const l = Blk.list; l[uid] = name || ''; store.set('blocked', l); chatPaint(); toast(`@${name || 'user'} is blocked. You won't see their messages.`); }
+function unblockUser(uid) { const l = Blk.list; delete l[uid]; store.set('blocked', l); chatPaint(); const c = $('#blk-card'); if (c) c.outerHTML = blockedHTML(); toast('Unblocked'); }
+function blockedHTML() {
+  const l = Object.entries(Blk.list); if (!l.length) return '<section class="form-card" id="blk-card" hidden></section>';
+  return `<section class="form-card" id="blk-card"><h2 class="fc-title">Blocked users</h2><ul class="injlist adm-list">${l.map(([u, n]) => `<li><span><b data-notr>@${esc(n || u.slice(0, 6))}</b></span><button class="btn btn-ghost btn-sm" data-act="unblock" data-uid="${esc(u)}">Unblock</button></li>`).join('')}</ul></section>`;
+}
+function msgMenu(id) {
+  const m = (Chat.msgs || []).find(x => x.id === id); if (!m) return;
+  state.sheetPid = 'xi:rep'; const root = $('#sheet-root');
+  root.innerHTML = `<div class="sheet-back" data-act="sheet-close"></div><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+    <div class="sheet-top"><span class="sheet-name"><b id="sheet-title" data-notr>@${esc(m.username || '?')}</b><small data-notr>“${esc(maskSwears((m.text || '').slice(0, 80)))}”</small></span><button class="sheet-close" data-act="sheet-close" aria-label="Close">×</button></div>
+    <h3>Report this message</h3><div class="chips" role="group">${['Spam', 'Abuse or bullying', 'Swearing', 'Personal details', 'Something else'].map(r => `<button class="chip" data-act="report" data-id="${esc(id)}" data-r="${r}">${r}</button>`).join('')}</div>
+    <h3>Block</h3><p class="help">Hide all messages from @${esc(m.username || '?')} on this device.</p><button class="btn btn-ghost wide mod-ban" data-act="block" data-uid="${esc(m.uid)}" data-name="${esc(m.username || '')}">Block @${esc(m.username || '?')}</button></div>`;
+  root.hidden = false; document.body.style.overflow = 'hidden';
+}
+async function reportMsg(id, reason) {
+  const m = (Chat.msgs || []).find(x => x.id === id); if (!m || !Acct.user) { toast('Sign in to report messages.'); return; }
+  try { await Acct.m.addDoc(Acct.m.collection(Acct.db, 'reports'), { msgId: id, uid: m.uid, username: m.username || '', text: (m.text || '').slice(0, 500), reason, by: Acct.user.uid, at: Date.now() }); closeSheet(false); toast('Thanks. The Culé Live team will review it.'); }
+  catch (e) { toast("Couldn't send the report. Try again."); }
+}
+
+/* ===== Match-day banner + share prediction ===== */
+function matchdayHTML(f) {
+  if (!f || f.tbc) return '';
+  const d = new Date(f.ts), now = new Date(); if (d.toDateString() !== now.toDateString() || f.ts < Date.now()) return '';
+  const opp = f[other(barcaSide(f))], has = !!getPred(f);
+  return `<div class="mday"><b>⚽ MATCH DAY</b><span>Barça vs ${esc(opp.name)} at ${fmtTime(f.ts)}${has ? ' · your prediction is in ✅' : ' · make your prediction ↓'}</span></div>`;
+}
+
+/* ===== Badges ===== */
+function predStreak() {
+  const done = (state.fixtures || []).map(f => ({ f, p: getPred(f) })).filter(x => x.p).map(x => ({ ts: x.f.ts, pts: predPoints(x.p, x.f) })).filter(x => x.pts != null).sort((a, b) => b.ts - a.ts);
+  let s = 0; for (const x of done) { if (x.pts > 0) s++; else break; } return s;
+}
+function badgesHTML(st, leader) {
+  const b = [];
+  if (st.exact >= 1) b.push(['🎯', 'Sniper', 'Got an exact score']);
+  if (st.exact >= 3) b.push(['💎', 'Oracle', '3 exact scores']);
+  if ((st.streak || 0) >= 3) b.push(['🔥', 'On fire', `${st.streak} correct in a row`]);
+  if (st.n >= 10) b.push(['📅', 'Loyal Culé', '10 predictions']);
+  if (leader) b.push(['🏆', 'League leader', 'Top of a league']);
+  return b.length ? `<div class="badges">${b.map(([i, n, t]) => `<span class="bdg" title="${t}">${i} ${n}</span>`).join('')}</div>` : '<p class="help">No badges yet. Get an exact score for 🎯 Sniper, or 3 right in a row for 🔥 On fire.</p>';
+}
+const miniBadges = r => [(r.exact >= 1) && '🎯', (r.streak >= 3) && '🔥'].filter(Boolean).join('');
+
+/* ===== League chat ===== */
+const LgChat = { unsub: null, msgs: [] };
+function lgChatStop() { if (LgChat.unsub) { LgChat.unsub(); LgChat.unsub = null; } }
+function lgChatWatch(code) {
+  lgChatStop(); const { collection, query, orderBy, limit, onSnapshot } = Acct.m;
+  LgChat.unsub = onSnapshot(query(collection(Acct.db, 'leagues', code, 'chat'), orderBy('at', 'desc'), limit(50)), snap => {
+    const out = []; snap.forEach(d => out.push({ id: d.id, ...d.data() })); LgChat.msgs = out.reverse();
+    const el = $('#lgc-list'); if (!el) { lgChatStop(); return; }
+    const me = Acct.user?.uid;
+    el.innerHTML = LgChat.msgs.length ? LgChat.msgs.filter(m => !isBlocked(m.uid)).map(m => `<div class="msg ${m.uid === me ? 'mine' : ''}"><div class="msg-who"><b data-notr>${esc(maskSwears(m.name || '?'))}</b></div><div class="msg-bubble"><span class="msg-text" data-notr>${esc(maskSwears(m.text || ''))}</span><span class="msg-meta">${chatTime(m.at)}</span></div></div>`).join('') : '<p class="help">No messages yet. Start the banter!</p>';
+    el.scrollTop = el.scrollHeight;
+  }, () => {});
+}
+async function lgChatSend(form) {
+  const inp = $('#lgc-in'), text = (inp.value || '').trim(), code = Lg.open; if (!text || !code) return;
+  if (hasSwear(text)) { toast('Please keep it clean, no swear words.'); return; }
+  inp.value = '';
+  try { await Acct.m.addDoc(Acct.m.collection(Acct.db, 'leagues', code, 'chat'), { uid: Acct.user.uid, name: Prof.me.displayName, text: text.slice(0, 300), at: Acct.m.serverTimestamp() }); }
+  catch (e) { inp.value = text; toast("Couldn't send. Try again."); }
+}
+
+/* ===== Poll: who'll be Barça's best player? ===== */
+const Poll = { votes: {}, mine: null, id: null };
+async function pollLoad(f) {
+  if (!Acct.db || !f) return; Poll.id = predKey(f);
+  try { const snap = await Acct.m.getDocs(Acct.m.collection(Acct.db, 'polls', Poll.id, 'votes')); const v = {}; let mine = null; snap.forEach(d => { const p = d.data().pick; v[p] = (v[p] || 0) + 1; if (d.id === (Acct.user || Acct.anon)?.uid) mine = p; }); Poll.votes = v; Poll.mine = mine; } catch (e) {}
+  const el = $('#poll'); if (el) el.outerHTML = pollHTML(f);
+}
+const POLL_OPTS = ['Lamine Yamal', 'Raphinha', 'Pedri', 'Fermín López', 'Joan García', 'Someone else'];
+function pollHTML(f) {
+  if (!f) return '';
+  const tot = Object.values(Poll.votes).reduce((a, b) => a + b, 0);
+  return `<section class="card poll" id="poll"><h2 class="sec-title">Fan poll · Who'll be Barça's best player vs ${esc(f[other(barcaSide(f))].name)}?</h2>
+    ${POLL_OPTS.map(o => { const n = Poll.votes[o] || 0, pc = tot ? Math.round(n * 100 / tot) : 0; return Poll.mine ? `<div class="pl-row ${Poll.mine === o ? 'me' : ''}"><span>${esc(o)}</span><b>${pc}%</b><i style="width:${pc}%"></i></div>` : `<button class="pl-opt" data-act="poll-vote" data-o="${esc(o)}">${esc(o)}</button>`; }).join('')}
+    <p class="help">${Poll.mine ? `${tot} ${tot === 1 ? 'vote' : 'votes'} · you picked ${esc(Poll.mine)}` : 'Tap to vote and see what other Culés think.'}</p></section>`;
+}
+async function pollVote(o) {
+  const u = Acct.user; if (!u) { welcomeShow(true); return; }
+  try { await Acct.m.setDoc(Acct.m.doc(Acct.db, 'polls', Poll.id, 'votes', u.uid), { pick: o, at: Date.now() }); Poll.votes[o] = (Poll.votes[o] || 0) + 1; Poll.mine = o; const el = $('#poll'); if (el) el.outerHTML = pollHTML((state.fixtures || []).find(f => predKey(f) === Poll.id)); }
+  catch (e) { toast("Couldn't vote. Try again."); }
+}
+
+/* ===== Barça news (ESPN) ===== */
+async function newsLoad() {
+  const k = 'news:' + Math.floor(Date.now() / 1800e3), c = store.get('newsC', null);
+  if (c && c.k === k) return c.list;
+  try {
+    const j = await (await fetch('https://site.api.espn.com/apis/site/v2/sports/soccer/esp.1/news?limit=50')).json();
+    const list = (j.articles || []).filter(a => /barcelona|barça|barca|lamine|raphinha|pedri|flick/i.test((a.headline || '') + ' ' + (a.description || ''))).slice(0, 8)
+      .map(a => ({ h: a.headline, d: a.description || '', img: a.images?.[0]?.url || '', url: a.links?.web?.href || '', at: a.published }));
+    store.set('newsC', { k, list }); return list;
+  } catch (e) { return c ? c.list : []; }
+}
+async function newsHTML() {
+  const list = await newsLoad(); if (!list.length) return '';
+  return `<section aria-labelledby="news-h"><div class="sec-head"><h2 class="sec-title" id="news-h">Barça news</h2></div><div class="news">${list.map(n => `<a class="card nw" href="${esc(n.url)}" target="_blank" rel="noopener">${n.img ? `<img src="${esc(n.img)}" alt="" loading="lazy">` : ''}<span><b data-notr>${esc(n.h)}</b><small data-notr>${esc(n.d.slice(0, 120))}</small><small class="nw-src">ESPN · ${n.at ? fmtDay(Date.parse(n.at)) : ''}</small></span></a>`).join('')}</div></section>`;
+}
+
+/* ===== Theme ===== */
+function themeApply() { const t = store.get('theme', 'auto'); if (t === 'auto') delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = t; }
+themeApply();
+function themeHTML() { const t = store.get('theme', 'auto'); return `<section class="form-card"><h2 class="fc-title">Appearance</h2><div class="seg" role="group" aria-label="Theme">${[['auto', 'Auto'], ['light', 'Light'], ['dark', 'Dark']].map(([k, l]) => `<button data-act="theme" data-t="${k}" aria-pressed="${t === k}">${l}</button>`).join('')}</div></section>`; }
 async function viewOptions() {
   if (Acct.user && !state.fixtures) { try { await Data.fixtures(); } catch (e) { /* points need fixtures; show 0 if they can't load */ } }
   return `<div><h1 class="page-title">Settings</h1><p class="page-sub">Your account and preferences.</p></div>
     ${accountHTML()}
     ${adminHTML()}
     ${installHTML()}
+    ${themeHTML()}
+    ${blockedHTML()}
     ${feedbackHTML()}
     <section class="form-card"><h2 class="fc-title">Language</h2>
       <div class="seg lang-seg" role="group" aria-label="Language">${Object.entries(LANG_NAMES).map(([k, n]) => `<button data-act="lang" data-lang="${k}" lang="${k}" data-notr aria-pressed="${LANG === k}">${n}</button>`).join('')}</div>
@@ -5144,9 +5273,19 @@ document.addEventListener('click', e => {
     case 'acct-forgot': acctForgot(); break;
     case 'acct-out': acctSignOut(); break;
     case 'del-open': delOpen(b); break;
+    case 'msg-menu': msgMenu(b.dataset.id); break;
+    case 'report': reportMsg(b.dataset.id, b.dataset.r); break;
+    case 'block': closeSheet(false); blockUser(b.dataset.uid, b.dataset.name); break;
+    case 'unblock': unblockUser(b.dataset.uid); break;
+    case 'share-pred-next': shareCard('pred', 0, b.dataset.fid); break;
+    case 'poll-vote': pollVote(b.dataset.o); break;
+    case 'theme': store.set('theme', b.dataset.t); themeApply(); document.querySelectorAll('[data-act="theme"]').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.t === b.dataset.t))); break;
+    case 'lg-join-pending': { const c = store.get('pendingJoin', ''); store.set('pendingJoin', ''); const fake = { querySelector: () => b }; const inp = $('#lg-code'); if (inp) { inp.value = c; lgJoin(fake); } break; }
     case 'fb-kind': Fb.kind = b.dataset.k; document.querySelectorAll('[data-act="fb-kind"]').forEach(c => c.setAttribute('aria-pressed', String(c.dataset.k === Fb.kind))); break;
     case 'fb-send': fbSend(b); break;
     case 'fb-del': fbDelete(b.dataset.id); break;
+    case 'rep-dismiss': Acct.m.deleteDoc(Acct.m.doc(Acct.db, 'reports', b.dataset.id)).then(() => { $('#rep-' + CSS.escape(b.dataset.id))?.remove(); toast('Dismissed'); }).catch(() => toast("Couldn't do that.")); break;
+    case 'rep-delmsg': Promise.all([Acct.m.deleteDoc(Acct.m.doc(Acct.db, 'chat', b.dataset.msg)).catch(() => {}), Acct.m.deleteDoc(Acct.m.doc(Acct.db, 'reports', b.dataset.id))]).then(() => { $('#rep-' + CSS.escape(b.dataset.id))?.remove(); toast('Message deleted'); }); break;
     case 'lg-open': lgOpen(b.dataset.code, b); break;
     case 'lg-share': lgShare(b.dataset.code); break;
     case 'lg-leave': lgLeave(b.dataset.code, b); break;
@@ -5161,6 +5300,7 @@ document.addEventListener('submit', e => {
   if (e.target.id === 'del-form') { e.preventDefault(); acctDelete(e.target); }
   if (e.target.id === 'lg-create') { e.preventDefault(); lgCreate(e.target); }
   if (e.target.id === 'lg-join') { e.preventDefault(); lgJoin(e.target); }
+  if (e.target.id === 'lgc-form') { e.preventDefault(); lgChatSend(e.target); }
   if (e.target.id === 'chat-form') { e.preventDefault(); chatSend(e.target); }
 });
 document.addEventListener('change', e => {
