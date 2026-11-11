@@ -106,6 +106,8 @@ nav a,nav button,.btn,.chip{-webkit-user-select:none;user-select:none}
 .pk-keeper.dive-l{animation:pkdl .35s ease-out both}.pk-keeper.dive-r{animation:pkdr .35s ease-out both}
 @keyframes pkdl{from{transform:translateX(-50%)}to{transform:translateX(-50%) rotate(-40deg) translateY(10px)}}
 @keyframes pkdr{from{transform:translateX(-50%)}to{transform:translateX(-50%) rotate(40deg) translateY(10px)}}
+.pk-keeper.keeper-move{bottom:auto;top:var(--ky);left:var(--kx);animation:pkmove .35s ease-out both}
+@keyframes pkmove{from{left:50%;top:85%;transform:translate(-50%,-50%)}to{left:var(--kx);top:var(--ky);transform:translate(-50%,-50%) rotate(var(--rot))}}
 </style>
 <title>Culé Live</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -5854,7 +5856,7 @@ function goalHTML(canAim, last, extra = '') {
   const ball = last ? `<span class="pk-ball fly ${last.goal ? 'in' : ''}" style="--tx:${last.x * 100}%;--ty:${last.y * 100}%">⚽</span>` : '';
   const aim = canAim ? '<svg class="pk-arrowsvg" id="pk-arr" viewBox="0 0 100 100" preserveAspectRatio="none"><line id="pk-line" x1="50" y1="96" x2="50" y2="96" stroke="#d9f99d" stroke-width="2.6" stroke-linecap="round"/></svg><span class="pk-tgt" id="pk-tgt"></span>' : '';
   const hint = canAim ? '<p class="pk-hint" id="pk-hint">Tap to lock the direction, then tap again to power the shot.</p>' : '';
-  return `<div class="pk-goal2 ${canAim ? 'aim' : ''} ${extra ? 'keep' : ''}" id="pk-goal"><div class="pk-net"></div>${aim}${extra}${ball}<span class="pk-keeper ${dv ? 'dive-' + dv.toLowerCase() : ''}" style="left:${kx}%">${PK_KEEPER}</span></div>${hint}`;
+  return `<div class="pk-goal2 ${canAim ? 'aim' : ''} ${extra ? 'keep' : ''}" id="pk-goal"><div class="pk-net"></div>${aim}${extra}${ball}<span class="pk-keeper ${last && last.kx != null ? 'keeper-move' : (dv ? 'dive-' + dv.toLowerCase() : '')}" style="${last && last.kx != null ? `--kx:${last.kx * 100}%;--ky:${last.ky * 100}%;--rot:${(last.kx - 0.5) * 60}deg` : `left:${kx}%`}">${PK_KEEPER}</span></div>${hint}`;
 }
 function pkScore() { return { y: PK.rows.filter(x => x.you && x.goal).length, a: PK.rows.filter(x => !x.you && x.goal).length }; }
 function pkHTML() {
@@ -5927,7 +5929,7 @@ function pkSave(tx, ty) {
   if (!PK.ai || PK.ai.phase !== 'pick' || PK.busy) return;
   const a = PK.ai, row = v => Math.min(2, Math.floor(v * 3)), saved = pkCol(tx) === pkCol(a.x) && row(ty) === row(a.y);
   PK.ai = null;
-  PK.last = { x: a.x, y: a.y, dive: pkCol(tx), goal: !saved, you: false }; PK.rows.push(PK.last); PK.k++;
+  PK.last = { x: a.x, y: a.y, dive: pkCol(tx), goal: !saved, you: false, kx: tx, ky: ty }; PK.rows.push(PK.last); PK.k++;
   if (PK.k >= 10) pkFinish(); pkRerender();
   toast(saved ? '🧤 <b>You saved it!</b>' : '😬 <b>AI scores</b>');
 }
