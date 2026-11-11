@@ -83,6 +83,11 @@ nav a,nav button,.btn,.chip{-webkit-user-select:none;user-select:none}
 .fr-btns{display:flex;gap:6px;flex-wrap:wrap}
 .fc-sub{margin:14px 0 6px;font-size:1rem}
 .pk-vers{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}
+
+.pk-meter{position:absolute;right:10px;top:10px;bottom:10px;width:16px;background:rgba(0,0,0,.35);border-radius:8px;pointer-events:none}
+.pk-meter i{position:absolute;left:-6px;width:28px;height:6px;background:#edbb00;border-radius:3px;top:0;transform:translateY(-50%)}
+.pk-goal2{overflow:visible}.pk-goal2.aim{touch-action:none;cursor:pointer}
+.pk-hint{font-size:.85rem;opacity:.8;margin:6px 0 0}
 </style>
 <title>Culé Live</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -5655,18 +5660,18 @@ const isShooterOf = d => (d.round % 2 === 0 ? d.a : d.b) === Acct.user?.uid;
 function duelHTML() {
   const d = Fr.dd; if (!d) return '<div id="duel"></div>';
   const shooter = isShooterOf(d), nameA = '@' + (d.an || 'player1'), nameB = '@' + (d.bn || 'player2');
-  const lastShot = d.round > 0 && d.lastZone ? { c: d.lastZone[0], r: d.lastZone[1], goal: d.lastGoal, dive: d.lastDive } : null;
+  const lastShot = d.round > 0 && d.lastZone ? { c: d.lastZone[0], y: (+d.lastZone.slice(1) || 50) / 100, goal: d.lastGoal, dive: d.lastDive } : null;
   const score = `<div class="duel-score"><b>${esc(nameA)}</b><span>${d.sa} – ${d.sb}</span><b>${esc(nameB)}</b></div>`;
   let body, grid;
   if (d.status === 'over') {
     const txt = d.winner === 'draw' ? "It's a draw!" : d.winner === Acct.user?.uid ? '🏆 You won!' : 'You lost this one.';
-    grid = goalHTML(false, '', lastShot, d.lastDive); body = `<b class="ap-q">${txt}</b><p class="help">Full time after 10 shots.</p>`;
+    grid = goalHTML(false, lastShot); body = `<b class="ap-q">${txt}</b><p class="help">Full time after 10 shots.</p>`;
   } else if (d.ph === 'dive') {
-    grid = goalHTML(false, '', lastShot, d.lastDive);
+    grid = goalHTML(false, lastShot);
     body = shooter ? '<p class="help">Your friend is choosing where to dive…</p>'
       : '<p class="help">You are the keeper. Pick a side before they shoot.</p><div class="row"><button class="btn btn-ghost" data-act="duel-dive" data-z="L">⬅️ Left</button><button class="btn btn-ghost" data-act="duel-dive" data-z="M">⏺ Middle</button><button class="btn btn-ghost" data-act="duel-dive" data-z="R">➡️ Right</button></div>';
   } else {
-    grid = goalHTML(shooter, 'duel-shot', lastShot);
+    grid = goalHTML(shooter, lastShot); setTimeout(pkBind, 0);
     body = shooter ? '<p class="help">Tap a spot in the goal. Your friend has picked their side.</p>' : '<p class="help">Shot taken. Waiting for the result…</p>';
   }
   const last = lastShot ? `<p class="help">Last shot: <b>${lastShot.goal ? '⚽ Goal' : '🧤 Saved'}</b> · keeper went ${DZ[d.lastDive] || '?'}</p>` : '';
@@ -5677,11 +5682,11 @@ async function duelDive(z) {
   const d = Fr.dd; if (!d || d.ph !== 'dive' || isShooterOf(d)) return;
   try { await Acct.m.updateDoc(Acct.m.doc(Acct.db, 'duels', d.id), { dive: z, ph: 'shoot', updated: Date.now() }); } catch (e) { toast("Couldn't dive. Try again."); }
 }
-async function duelShot(c, r) {
+async function duelShot(c, y) {
   const d = Fr.dd; if (!d || d.ph !== 'shoot' || !isShooterOf(d)) return;
   const goal = c !== d.dive, shooterA = d.round % 2 === 0;
   const sa = d.sa + (goal && shooterA ? 1 : 0), sb = d.sb + (goal && !shooterA ? 1 : 0), round = d.round + 1, over = round >= 10;
-  try { await Acct.m.updateDoc(Acct.m.doc(Acct.db, 'duels', d.id), { shot: '', lastZone: c + r, lastDive: d.dive, lastGoal: goal, sa, sb, round, dive: '', ph: over ? 'over' : 'dive', status: over ? 'over' : 'active', winner: over ? (sa > sb ? d.a : sb > sa ? d.b : 'draw') : '', updated: Date.now() }); }
+  try { await Acct.m.updateDoc(Acct.m.doc(Acct.db, 'duels', d.id), { shot: '', lastZone: c + Math.round(y * 100), lastDive: d.dive, lastGoal: goal, sa, sb, round, dive: '', ph: over ? 'over' : 'dive', status: over ? 'over' : 'active', winner: over ? (sa > sb ? d.a : sb > sa ? d.b : 'draw') : '', updated: Date.now() }); }
   catch (e) { toast("Couldn't take the shot."); }
 }
 async function friendsHTML() {
@@ -5820,17 +5825,16 @@ async function searchRun(raw) {
 }
 
 /* ===== Penalty shootout, Higher/Lower, QOTD, history, Clásico countdown, MVP vote, Wrapped, streak freeze ===== */
-const PK = { busy: false, k: 0, rows: [], last: null };
-const PKC = ['L', 'M', 'R'], PKX = { L: 20, M: 50, R: 80 }, PKY = { t: 28, b: 72 };
-function goalHTML(canAim, aimAct, last) {
-  const cells = ['t', 'b'].flatMap(r => PKC.map(c => canAim
-    ? `<button class="pk-cell" data-act="${aimAct}" data-c="${c}" data-r="${r}" aria-label="Shoot ${c === 'L' ? 'left' : c === 'R' ? 'right' : 'middle'}, ${r === 't' ? 'high' : 'low'}"></button>`
-    : '<span class="pk-cell"></span>')).join('');
-  const kx = last && last.dive ? PKX[last.dive] : 50;
-  const ball = last ? `<span class="pk-ball ${last.goal ? 'in' : ''}" style="left:${PKX[last.c]}%;top:${PKY[last.r]}%">⚽</span>` : '';
-  return `<div class="pk-goal2"><div class="pk-grid">${cells}</div>${ball}<span class="pk-keeper" style="left:${kx}%">🧤</span></div>`;
-}
+const PK = { busy: false, k: 0, rows: [], last: null, held: false, col: 'M', y: 0, dir: 1, spd: 0.012, raf: 0 };
+const PKC = ['L', 'M', 'R'], PKX = { L: 20, M: 50, R: 80 };
 const pkYours = () => PK.k % 2 === 0;
+function goalHTML(canAim, last) {
+  const kx = last && last.dive ? PKX[last.dive] : 50;
+  const ball = last ? `<span class="pk-ball ${last.goal ? 'in' : ''}" style="left:${PKX[last.c]}%;top:${12 + last.y * 76}%">⚽</span>` : '';
+  const meter = canAim ? '<div class="pk-meter"><i id="pk-mk"></i></div>' : '';
+  const hint = canAim ? '<p class="pk-hint">Press and hold on the goal. Release to shoot. The marker gets faster each kick.</p>' : '';
+  return `<div class="pk-goal2 ${canAim ? 'aim' : ''}" id="pk-goal"><div class="pk-grid"><span class="pk-cell"></span><span class="pk-cell"></span><span class="pk-cell"></span><span class="pk-cell"></span><span class="pk-cell"></span><span class="pk-cell"></span></div>${ball}<span class="pk-keeper" style="left:${kx}%">🧤</span>${meter}</div>${hint}`;
+}
 function pkScore() { return { y: PK.rows.filter(x => x.you && x.goal).length, a: PK.rows.filter(x => !x.you && x.goal).length }; }
 function pkHTML() {
   const done = PK.k >= 10, { y, a } = pkScore(), best = store.get('pk:best', 0), last = PK.last;
@@ -5838,32 +5842,60 @@ function pkHTML() {
   let prompt, grid, body = '';
   if (done) {
     const txt = y > a ? '🏆 You win!' : y < a ? 'AI wins this one.' : "It's a draw!";
-    prompt = `<b class="ap-q">${txt}</b>`; grid = goalHTML(false, '', last);
-    body = `<button class="btn btn-primary wide" data-act="pk-new">Play again</button>`;
+    prompt = `<b class="ap-q">${txt}</b>`; grid = goalHTML(false, last);
+    body = '<button class="btn btn-primary wide" data-act="pk-new">Play again</button>';
   } else if (pkYours()) {
-    prompt = `<b class="ap-q">Your kick · tap a spot in the goal</b>`; grid = goalHTML(!PK.busy, 'pk-shot', last);
+    prompt = '<b class="ap-q">Your kick</b>'; grid = goalHTML(true, last);
   } else {
-    prompt = `<b class="ap-q">AI is shooting · pick a side to dive</b>`; grid = goalHTML(false, '', last);
-    body = `<div class="row"><button class="btn btn-ghost" data-act="pk-dive" data-z="L">⬅️ Left</button><button class="btn btn-ghost" data-act="pk-dive" data-z="M">⏺ Middle</button><button class="btn btn-ghost" data-act="pk-dive" data-z="R">➡️ Right</button></div>`;
+    prompt = '<b class="ap-q">AI is shooting · pick a side to dive</b>'; grid = goalHTML(false, last);
+    body = '<div class="row"><button class="btn btn-ghost" data-act="pk-dive" data-z="L">⬅️ Left</button><button class="btn btn-ghost" data-act="pk-dive" data-z="M">⏺ Middle</button><button class="btn btn-ghost" data-act="pk-dive" data-z="R">➡️ Right</button></div>';
   }
+  setTimeout(pkBind, 0);
   return `<section class="card game" id="pk">${head}${prompt}${grid}${body}
-    <p class="help">${last ? (last.you ? (last.goal ? '⚽ Goal!' : '🧤 Saved by the keeper!') : (last.goal ? '😬 AI scores' : '🧤 You saved it!')) : 'You shoot first. Then you keep goal.'} · Best: ${best} goals</p></section>`;
+    <p class="help">${last ? (last.you ? (last.goal ? '⚽ Goal!' : '🧤 Saved!') : (last.goal ? '😬 AI scores' : '🧤 You saved it!')) : 'You shoot first. Then you keep goal.'} · Best: ${best} goals</p></section>`;
+}
+function pkBind() {
+  const g = $('#pk-goal'); if (!g || !g.classList.contains('aim')) return;
+  g.onpointerdown = e => { e.preventDefault(); pkDown(e, g); };
 }
 function pkRerender() { const el = $('#pk'); if (el) el.outerHTML = pkHTML(); }
-function pkNew() { PK.k = 0; PK.rows = []; PK.last = null; pkRerender(); }
+function pkNew() { PK.k = 0; PK.rows = []; PK.last = null; PK.spd = 0.012; pkRerender(); }
 function pkFinish() { const { y } = pkScore(); if (y > store.get('pk:best', 0)) store.set('pk:best', y); }
-async function pkShot(c, r) {
+function pkDown(e, g) {
+  if (PK.busy || PK.held || PK.k >= 10 || !pkYours()) return;
+  if (Fr.open && Fr.dd && Fr.dd.status === 'active' && !isShooterOf(Fr.dd)) return;
+  const rc = g.getBoundingClientRect(), f = (e.clientX - rc.left) / rc.width;
+  PK.col = f < 1 / 3 ? 'L' : f < 2 / 3 ? 'M' : 'R';
+  PK.held = true; PK.y = 0; PK.dir = 1;
+  const mk = () => {
+    if (!PK.held) return;
+    PK.y += PK.dir * PK.spd; if (PK.y >= 1) { PK.y = 1; PK.dir = -1; } if (PK.y <= 0) { PK.y = 0; PK.dir = 1; }
+    const m = $('#pk-mk'); if (m) m.style.top = (PK.y * 100) + '%';
+    PK.raf = requestAnimationFrame(mk);
+  };
+  mk();
+}
+function pkRelease() {
+  if (!PK.held) return;
+  PK.held = false; cancelAnimationFrame(PK.raf);
+  const col = PK.col, y = PK.y;
+  if (Fr.open && Fr.dd) duelShot(col, y); else pkShoot(col, y);
+}
+window.addEventListener('pointerup', pkRelease);
+window.addEventListener('pointercancel', pkRelease);
+async function pkShoot(col, y) {
   if (PK.busy || PK.k >= 10 || !pkYours()) return;
   PK.busy = true;
-  const dive = PKC[Math.floor(Math.random() * 3)], goal = c !== dive;
-  PK.last = { c, r, dive, goal, you: true }; PK.rows.push(PK.last); PK.k++;
+  const onTarget = y > 0.1 && y < 0.92, dive = PKC[Math.floor(Math.random() * 3)], goal = onTarget && col !== dive;
+  PK.last = { c: col, y, dive, goal, you: true }; PK.rows.push(PK.last); PK.k++;
+  PK.spd = Math.min(0.06, PK.spd * 1.15);
   PK.busy = false; if (PK.k >= 10) pkFinish(); pkRerender();
-  toast(goal ? '⚽ <b>GOAL!</b>' : '🧤 <b>Saved by the AI keeper!</b>');
+  toast(goal ? '⚽ <b>GOAL!</b>' : (onTarget ? '🧤 <b>Saved by the AI keeper!</b>' : '😬 <b>Off target!</b>'));
 }
 function pkDive(z) {
   if (PK.busy || PK.k >= 10 || pkYours()) return;
-  const c = PKC[Math.floor(Math.random() * 3)], r = Math.random() < .5 ? 't' : 'b', goal = c !== z;
-  PK.last = { c, r, dive: z, goal, you: false }; PK.rows.push(PK.last); PK.k++;
+  const c = PKC[Math.floor(Math.random() * 3)], y = 0.2 + Math.random() * 0.6, goal = c !== z;
+  PK.last = { c, y, dive: z, goal, you: false }; PK.rows.push(PK.last); PK.k++;
   if (PK.k >= 10) pkFinish(); pkRerender();
   toast(goal ? '😬 <b>AI scores</b>' : '🧤 <b>You saved it!</b>');
 }
@@ -6278,7 +6310,6 @@ document.addEventListener('click', e => {
     case 'quiz': quizAnswer(b.dataset.i); break;
     case 'gp': gpPick(b.dataset.id); break;
     case 'invite': inviteShare(); break;
-    case 'pk-shot': pkShot(b.dataset.c, b.dataset.r); break;
     case 'pk-dive': pkDive(b.dataset.z); break;
     case 'pk-new': pkNew(); break;
     case 'fr-accept': frAccept(b.dataset.id); break;
@@ -6287,7 +6318,6 @@ document.addEventListener('click', e => {
     case 'duel-open': duelOpen(b.dataset.id); { const sl = $('#duel-slot'); if (sl) sl.innerHTML = '<div id="duel"></div>'; } break;
     case 'duel-close': duelClose(); break;
     case 'duel-dive': duelDive(b.dataset.z); break;
-    case 'duel-shot': duelShot(b.dataset.c, b.dataset.r); break;
     case 'hl': hlGuess(b.dataset.g); break;
     case 'hl-again': hlStart(); { const el = $('#hl'); if (el) el.outerHTML = hlHTML(); } break;
     case 'qotd': qotdFill(); break;
