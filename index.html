@@ -82,6 +82,7 @@ nav a,nav button,.btn,.chip{-webkit-user-select:none;user-select:none}
 .fr-row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0}
 .fr-btns{display:flex;gap:6px;flex-wrap:wrap}
 .fc-sub{margin:14px 0 6px;font-size:1rem}
+.pk-vers{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}
 </style>
 <title>Culé Live</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -5647,7 +5648,6 @@ function duelWatch() {
   if (Fr.dUnsub) Fr.dUnsub(); const id = Fr.open; if (!id) return;
   Fr.dUnsub = Acct.m.onSnapshot(Acct.m.doc(Acct.db, 'duels', id), s => {
     Fr.dd = s.exists() ? { id, ...s.data() } : null; const d = Fr.dd;
-    if (d && d.status === 'over' && d.winner === Acct.user?.uid && !store.get('dxp:' + id, false)) { store.set('dxp:' + id, true); xpAdd(10); toast('🏆 <span><b>You won the duel!</b><br>+10 XP</span>', 'goal'); }
     const el = $('#duel'); if (el) el.outerHTML = duelHTML();
   }, () => toast("Lost connection to the duel."));
 }
@@ -5691,7 +5691,7 @@ async function friendsHTML() {
   const inc = Fr.list.filter(f => f.status === 'pending' && f.from !== u.uid), out = Fr.list.filter(f => f.status === 'pending' && f.from === u.uid), fr = Fr.list.filter(f => f.status === 'ok');
   const row = (f, btns) => `<div class="fr-row"><span data-notr>${esc(frName(f))}</span><span class="fr-btns">${btns}</span></div>`;
   setTimeout(() => { if (Fr.open) duelWatch(); }, 0);
-  return `<section class="form-card"><h2 class="fc-title">Friends & duels</h2><p class="help">1v1 penalty shootouts. No chat, just the game.</p>
+  return `<section class="form-card"><h2 class="fc-title">Friends & duels</h2><p class="help">1v1 penalty shootouts. No chat, no XP, play as many as you like.</p>
     <form id="fr-form" class="chat-form"><input id="fr-in" autocomplete="off" placeholder="Their @username"><button class="btn btn-primary" type="submit">Add friend</button></form>
     ${inc.length ? `<h3 class="fc-sub">Requests</h3>${inc.map(f => row(f, `<button class="btn btn-primary btn-sm" data-act="fr-accept" data-id="${esc(f.id)}">Accept</button><button class="btn btn-ghost btn-sm" data-act="fr-remove" data-id="${esc(f.id)}">Decline</button>`)).join('')}` : ''}
     <h3 class="fc-sub">Friends</h3>${fr.length ? fr.map(f => row(f, `<button class="btn btn-primary btn-sm" data-act="fr-challenge" data-id="${esc(f.id)}">⚽ Challenge</button><button class="btn btn-ghost btn-sm" data-act="fr-remove" data-id="${esc(f.id)}">Remove</button>`)).join('') : '<p class="help">No friends yet. Add one above.</p>'}
@@ -5820,8 +5820,13 @@ async function searchRun(raw) {
 }
 
 /* ===== Penalty shootout, Higher/Lower, QOTD, history, Clásico countdown, MVP vote, Wrapped, streak freeze ===== */
-const PK = { busy: false, last: null };
+const PK = { busy: false, last: null, v: 'ps1', rnd: [], tally: { L: 0, M: 0, R: 0 } };
 const PKC = ['L', 'M', 'R'], PKX = { L: 20, M: 50, R: 80 }, PKY = { t: 28, b: 72 };
+const PK_VERSIONS = {
+  ps1: { name: 'PS1', blurb: 'Relaxed keeper. Dives at random.' },
+  ps2: { name: 'PS2', blurb: 'Smarter keeper. Often dives the way you just shot.' },
+  psx: { name: 'PSX', blurb: 'Pro keeper. Reads where you aim the most.' }
+};
 function goalHTML(canAim, aimAct, last, dive) {
   const cells = ['t', 'b'].flatMap(r => PKC.map(c => canAim
     ? `<button class="pk-cell" data-act="${aimAct}" data-c="${c}" data-r="${r}" aria-label="Shoot ${c === 'L' ? 'left' : c === 'R' ? 'right' : 'middle'}, ${r === 't' ? 'high' : 'low'}"></button>`
@@ -5830,26 +5835,36 @@ function goalHTML(canAim, aimAct, last, dive) {
   const ball = last ? `<span class="pk-ball ${last.goal ? 'in' : ''}" style="left:${PKX[last.c]}%;top:${PKY[last.r]}%">⚽</span>` : '';
   return `<div class="pk-goal2"><div class="pk-grid">${cells}</div>${ball}<span class="pk-keeper" style="left:${kx}%">🧤</span></div>`;
 }
-const pkKey = () => 'pk:' + dayKey();
-function pkHTML() {
-  const st = store.get(pkKey(), { s: [] }), done = st.s.length >= 5, score = st.s.filter(Boolean).length;
-  const last = st.s.length ? PK.last : null;
-  return `<section class="card game" id="pk"><small class="nw-tag">PENALTY SHOOTOUT · VS AI KEEPER</small>
-    <b class="ap-q">${done ? `You scored ${score}/5${score >= 4 ? ' 🔥' : ''}` : `Shot ${st.s.length + 1} of 5 · tap a spot in the goal`}</b>
-    ${goalHTML(!done && !PK.busy, 'pk-shot', last, last?.dive)}
-    <p class="help">${last ? (last.goal ? '⚽ Goal!' : '🧤 Saved!') + ' ' : ''}${done ? 'New shootout tomorrow.' : 'The AI keeper dives after you shoot. +2 XP per goal.'}</p>
-    <div class="pk-balls">${[0, 1, 2, 3, 4].map(i => `<span>${i < st.s.length ? (st.s[i] ? '⚽' : '❌') : '·'}</span>`).join('')}</div></section>`;
+function keeperPick(v, c) {
+  const rnd = () => PKC[Math.floor(Math.random() * 3)];
+  if (v === 'ps2' && PK.rnd.length && Math.random() < .5) return PK.rnd[PK.rnd.length - 1].c;
+  if (v === 'psx' && PK.rnd.length >= 2 && Math.random() < .6) return PKC.reduce((a, b) => (PK.tally[b] > PK.tally[a] ? b : a));
+  return rnd();
 }
+function pkHTML() {
+  const n = PK.rnd.length, done = n >= 5, score = PK.rnd.filter(s => s.goal).length, v = PK_VERSIONS[PK.v];
+  const best = store.get('pk:best:' + PK.v, 0), last = PK.last;
+  return `<section class="card game" id="pk"><small class="nw-tag">PENALTY SHOOTOUT · ${v.name}</small>
+    <div class="pk-vers">${Object.keys(PK_VERSIONS).map(k => `<button class="chip" data-act="pk-ver" data-v="${k}" aria-pressed="${k === PK.v}">${PK_VERSIONS[k].name}</button>`).join('')}</div>
+    <p class="help">${v.blurb}</p>
+    <b class="ap-q">${done ? `Full time: ${score}/5` : `Shot ${n + 1} of 5 · tap a spot in the goal`}</b>
+    ${goalHTML(!done && !PK.busy, 'pk-shot', last, last?.dive)}
+    <div class="pk-balls">${[0, 1, 2, 3, 4].map(i => `<span>${i < n ? (PK.rnd[i].goal ? '⚽' : '❌') : '·'}</span>`).join('')}</div>
+    <p class="help">${last && !done ? (last.goal ? '⚽ Goal! ' : '🧤 Saved! ') : ''}Best on ${v.name}: ${best}/5</p>
+    ${done ? '<button class="btn btn-primary wide" data-act="pk-new">Play again</button>' : ''}</section>`;
+}
+function pkRerender() { const el = $('#pk'); if (el) el.outerHTML = pkHTML(); }
+function pkReset() { PK.rnd = []; PK.last = null; PK.tally = { L: 0, M: 0, R: 0 }; }
+function pkVer(v) { PK.v = v; pkReset(); pkRerender(); }
+function pkNew() { pkReset(); pkRerender(); }
 async function pkShot(c, r) {
-  const k = pkKey(), st = store.get(k, { s: [] }); if (PK.busy || st.s.length >= 5) return;
+  if (PK.busy || PK.rnd.length >= 5) return;
   PK.busy = true;
-  const dive = PKC[Math.floor(Math.random() * 3)], goal = c !== dive;
-  PK.last = { c, r, dive, goal }; st.s.push(goal); store.set(k, st);
-  PK.busy = false;
-  const el = $('#pk'); if (el) el.outerHTML = pkHTML();
-  toast(goal ? '⚽ <b>GOAL!</b>' : '🧤 <b>Saved by the AI keeper!</b>');
-  if (goal) xpAdd(2);
-  if (st.s.length >= 5) { const sc = st.s.filter(Boolean).length, me = await fanMe(); if (me && sc > (me.pk || 0)) { try { await fanSave({ pk: sc }); } catch (e) {} } }
+  const dive = keeperPick(PK.v, c), goal = c !== dive, shot = { c, r, dive, goal };
+  PK.rnd.push(shot); PK.tally[c]++; PK.last = shot;
+  PK.busy = false; pkRerender();
+  toast(goal ? '⚽ <b>GOAL!</b>' : '🧤 <b>Saved by the keeper!</b>');
+  if (PK.rnd.length >= 5) { const sc = PK.rnd.filter(s => s.goal).length; if (sc > store.get('pk:best:' + PK.v, 0)) store.set('pk:best:' + PK.v, sc); pkRerender(); }
 }
 
 /* Higher or lower: career goals for Barça (all competitions, roughly) */
@@ -6263,6 +6278,8 @@ document.addEventListener('click', e => {
     case 'gp': gpPick(b.dataset.id); break;
     case 'invite': inviteShare(); break;
     case 'pk-shot': pkShot(b.dataset.c, b.dataset.r); break;
+    case 'pk-ver': pkVer(b.dataset.v); break;
+    case 'pk-new': pkNew(); break;
     case 'fr-accept': frAccept(b.dataset.id); break;
     case 'fr-remove': frRemove(b.dataset.id); break;
     case 'fr-challenge': duelNew(b.dataset.id); break;
