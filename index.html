@@ -5850,7 +5850,7 @@ async function searchRun(raw) {
 }
 
 /* ===== Penalty shootout, Higher/Lower, QOTD, history, Clásico countdown, MVP vote, Wrapped, streak freeze ===== */
-const PK = { busy: false, k: 0, rows: [], last: null, ai: null, phase: 'idle', ang: 0, angDir: 1, pow: 0, powDir: 1, spd: 0.02, raf: 0 };
+const PK = { busy: false, k: 0, rows: [], last: null, ai: null, hold: false, phase: 'idle', ang: 0, angDir: 1, pow: 0, powDir: 1, spd: 0.02, raf: 0 };
 const PKX = { L: 20, M: 50, R: 80 }, PKC = ['L', 'M', 'R'];
 const pkYours = () => PK.k % 2 === 0;
 const pkCol = x => (x < 1 / 3 ? 'L' : x < 2 / 3 ? 'M' : 'R');
@@ -5873,6 +5873,8 @@ function pkHTML() {
     const txt = y > a ? '🏆 You win!' : y < a ? 'AI wins this one.' : "It's a draw!";
     prompt = `<b class="ap-q">${txt}</b>`; grid = goalHTML(false, last);
     body = '<button class="btn btn-primary wide" data-act="pk-new">Play again</button>';
+  } else if (PK.hold) {
+    prompt = '<b class="ap-q">Next kick…</b>'; grid = goalHTML(false, last);
   } else if (pkYours()) {
     prompt = '<b class="ap-q">Your kick</b>'; grid = goalHTML(true, last);
   } else {
@@ -5893,7 +5895,8 @@ function pkBind() {
   else if (g.classList.contains('keep')) g.onpointerdown = e => { e.preventDefault(); const r = g.getBoundingClientRect(); pkSave((e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height); };
 }
 function pkRerender() { const el = $('#pk'); if (el) el.outerHTML = pkHTML(); }
-function pkNew() { PK.k = 0; PK.rows = []; PK.last = null; PK.spd = 0.02; PK.phase = 'idle'; PK.ai = null; pkRerender(); }
+function pkNew() { PK.k = 0; PK.rows = []; PK.last = null; PK.spd = 0.02; PK.phase = 'idle'; PK.ai = null; PK.hold = false; pkRerender(); }
+function pkWait() { PK.hold = true; pkRerender(); setTimeout(() => { PK.hold = false; pkRerender(); }, 1800); }
 function pkFinish() { const { y } = pkScore(); if (y > store.get('pk:best', 0)) store.set('pk:best', y); }
 function pkTip() { return { x: 0.5 + PK.ang * 0.45, y: 0.96 - PK.pow * 0.9 }; }
 function pkPaint() {
@@ -5924,7 +5927,7 @@ async function pkShoot(x, y) {
   const inside = x >= 0 && x <= 1 && y > 0.12 && y < 0.92, dive = PKC[Math.floor(Math.random() * 3)], goal = inside && pkCol(x) !== dive;
   PK.last = { x, y, dive, goal, you: true, inside }; PK.rows.push(PK.last); PK.k++;
   PK.spd = Math.min(0.06, PK.spd * 1.12);
-  PK.busy = false; if (PK.k >= 10) pkFinish(); pkRerender();
+  PK.busy = false; if (PK.k >= 10) pkFinish(); pkWait();
   toast(goal ? '⚽ <b>GOAL!</b>' : (inside ? '🧤 <b>Saved by the keeper!</b>' : '😬 <b>Missed the goal!</b>'));
 }
 function pkAiStart() {
@@ -5936,7 +5939,7 @@ function pkSave(tx, ty) {
   const a = PK.ai, row = v => Math.min(2, Math.floor(v * 3)), saved = pkCol(tx) === pkCol(a.x) && row(ty) === row(a.y);
   PK.ai = null;
   PK.last = { x: a.x, y: a.y, dive: pkCol(tx), goal: !saved, you: false, kx: tx, ky: ty }; PK.rows.push(PK.last); PK.k++;
-  if (PK.k >= 10) pkFinish(); pkRerender();
+  if (PK.k >= 10) pkFinish(); pkWait();
   toast(saved ? '🧤 <b>You saved it!</b>' : '😬 <b>AI scores</b>');
 }
 
