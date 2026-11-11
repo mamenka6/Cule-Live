@@ -108,6 +108,11 @@ nav a,nav button,.btn,.chip{-webkit-user-select:none;user-select:none}
 @keyframes pkdr{from{transform:translateX(-50%)}to{transform:translateX(-50%) rotate(40deg) translateY(10px)}}
 .pk-keeper.keeper-move{bottom:auto;top:var(--ky);left:var(--kx);animation:pkmove .35s ease-out both}
 @keyframes pkmove{from{left:50%;top:85%;transform:translate(-50%,-50%)}to{left:var(--kx);top:var(--ky);transform:translate(-50%,-50%) rotate(var(--rot))}}
+.pk-res{position:absolute;left:50%;top:32%;transform:translate(-50%,-50%);font-size:1.7rem;font-weight:900;color:#fff;text-shadow:0 3px 0 #000;z-index:4;pointer-events:none;animation:pkres 1.6s ease-out both}
+@keyframes pkres{0%{opacity:0;transform:translate(-50%,-50%) scale(.6)}15%{opacity:1;transform:translate(-50%,-50%) scale(1.1)}25%{transform:translate(-50%,-50%) scale(1)}80%{opacity:1}100%{opacity:0}}
+.pk-goal2{background:linear-gradient(#9fd8ff 0 28%,#4a5d6b 28% 36%,#1f8a3b 36%)}
+.pk-keeper.keeper-move{animation:pkmove .6s cubic-bezier(.3,.6,.4,1) both}
+.pk-keeper.dive-l,.pk-keeper.dive-r{animation-duration:.45s}
 </style>
 <title>Culé Live</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -5853,10 +5858,11 @@ const PK_KEEPER = '<svg viewBox="0 0 40 60" width="36" height="54" aria-hidden="
 function goalHTML(canAim, last, extra = '') {
   const dv = last && last.dive ? last.dive : '';
   const kx = dv ? PKX[dv] : 50;
+  const res = last ? `<b class="pk-res">${last.goal ? 'GOAL!' : (last.you && !last.inside ? 'MISS!' : 'SAVED!')}</b>` : '';
   const ball = last ? `<span class="pk-ball fly ${last.goal ? 'in' : ''}" style="--tx:${last.x * 100}%;--ty:${last.y * 100}%">⚽</span>` : '';
   const aim = canAim ? '<svg class="pk-arrowsvg" id="pk-arr" viewBox="0 0 100 100" preserveAspectRatio="none"><line id="pk-line" x1="50" y1="96" x2="50" y2="96" stroke="#d9f99d" stroke-width="2.6" stroke-linecap="round"/></svg><span class="pk-tgt" id="pk-tgt"></span>' : '';
   const hint = canAim ? '<p class="pk-hint" id="pk-hint">Tap to lock the direction, then tap again to power the shot.</p>' : '';
-  return `<div class="pk-goal2 ${canAim ? 'aim' : ''} ${extra ? 'keep' : ''}" id="pk-goal"><div class="pk-net"></div>${aim}${extra}${ball}<span class="pk-keeper ${last && last.kx != null ? 'keeper-move' : (dv ? 'dive-' + dv.toLowerCase() : '')}" style="${last && last.kx != null ? `--kx:${last.kx * 100}%;--ky:${last.ky * 100}%;--rot:${(last.kx - 0.5) * 60}deg` : `left:${kx}%`}">${PK_KEEPER}</span></div>${hint}`;
+  return `<div class="pk-goal2 ${canAim ? 'aim' : ''} ${extra ? 'keep' : ''}" id="pk-goal"><div class="pk-net"></div>${aim}${extra}${ball}${res}<span class="pk-keeper ${last && last.kx != null ? 'keeper-move' : (dv ? 'dive-' + dv.toLowerCase() : '')}" style="${last && last.kx != null ? `--kx:${last.kx * 100}%;--ky:${last.ky * 100}%;--rot:${(last.kx - 0.5) * 60}deg` : `left:${kx}%`}">${PK_KEEPER}</span></div>${hint}`;
 }
 function pkScore() { return { y: PK.rows.filter(x => x.you && x.goal).length, a: PK.rows.filter(x => !x.you && x.goal).length }; }
 function pkHTML() {
@@ -5916,7 +5922,7 @@ async function pkShoot(x, y) {
   if (PK.busy || PK.k >= 10 || !pkYours()) return;
   PK.busy = true; PK.phase = 'idle';
   const inside = x >= 0 && x <= 1 && y > 0.12 && y < 0.92, dive = PKC[Math.floor(Math.random() * 3)], goal = inside && pkCol(x) !== dive;
-  PK.last = { x, y, dive, goal, you: true }; PK.rows.push(PK.last); PK.k++;
+  PK.last = { x, y, dive, goal, you: true, inside }; PK.rows.push(PK.last); PK.k++;
   PK.spd = Math.min(0.06, PK.spd * 1.12);
   PK.busy = false; if (PK.k >= 10) pkFinish(); pkRerender();
   toast(goal ? '⚽ <b>GOAL!</b>' : (inside ? '🧤 <b>Saved by the keeper!</b>' : '😬 <b>Missed the goal!</b>'));
