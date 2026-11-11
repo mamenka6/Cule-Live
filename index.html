@@ -100,6 +100,12 @@ nav a,nav button,.btn,.chip{-webkit-user-select:none;user-select:none}
 .pk-flashtxt{position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);font-size:1.1rem;color:#fff;text-shadow:0 2px 6px #000;z-index:3;white-space:nowrap}
 .pk-big{position:absolute;top:50%;width:84px;height:84px;margin:-42px 0 0 -42px;border-radius:50%;border:5px solid #edbb00;background:rgba(237,187,0,.25);z-index:2;pointer-events:none}
 .pk-goal2.keep{cursor:crosshair;touch-action:none}
+.pk-ball{z-index:3}
+.pk-ball.fly{animation:pkfly .6s cubic-bezier(.2,.7,.3,1) both}
+@keyframes pkfly{from{left:50%;top:100%;transform:translate(-50%,-50%) scale(.45)}to{left:var(--tx);top:var(--ty);transform:translate(-50%,-50%) scale(1)}}
+.pk-keeper.dive-l{animation:pkdl .35s ease-out both}.pk-keeper.dive-r{animation:pkdr .35s ease-out both}
+@keyframes pkdl{from{transform:translateX(-50%)}to{transform:translateX(-50%) rotate(-40deg) translateY(10px)}}
+@keyframes pkdr{from{transform:translateX(-50%)}to{transform:translateX(-50%) rotate(40deg) translateY(10px)}}
 </style>
 <title>Culé Live</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -5845,7 +5851,7 @@ const PK_KEEPER = '<svg viewBox="0 0 40 60" width="36" height="54" aria-hidden="
 function goalHTML(canAim, last, extra = '') {
   const dv = last && last.dive ? last.dive : '';
   const kx = dv ? PKX[dv] : 50;
-  const ball = last ? `<span class="pk-ball ${last.goal ? 'in' : ''}" style="left:${last.x * 100}%;top:${last.y * 100}%">⚽</span>` : '';
+  const ball = last ? `<span class="pk-ball fly ${last.goal ? 'in' : ''}" style="--tx:${last.x * 100}%;--ty:${last.y * 100}%">⚽</span>` : '';
   const aim = canAim ? '<svg class="pk-arrowsvg" id="pk-arr" viewBox="0 0 100 100" preserveAspectRatio="none"><line id="pk-line" x1="50" y1="96" x2="50" y2="96" stroke="#d9f99d" stroke-width="2.6" stroke-linecap="round"/></svg><span class="pk-tgt" id="pk-tgt"></span>' : '';
   const hint = canAim ? '<p class="pk-hint" id="pk-hint">Tap to lock the direction, then tap again to power the shot.</p>' : '';
   return `<div class="pk-goal2 ${canAim ? 'aim' : ''} ${extra ? 'keep' : ''}" id="pk-goal"><div class="pk-net"></div>${aim}${extra}${ball}<span class="pk-keeper ${dv ? 'dive-' + dv.toLowerCase() : ''}" style="left:${kx}%">${PK_KEEPER}</span></div>${hint}`;
@@ -5919,7 +5925,7 @@ function pkAiStart() {
 }
 function pkSave(tx, ty) {
   if (!PK.ai || PK.ai.phase !== 'pick' || PK.busy) return;
-  const a = PK.ai, saved = pkCol(tx) === pkCol(a.x) && Math.abs(ty - a.y) < 0.18;
+  const a = PK.ai, row = v => Math.min(2, Math.floor(v * 3)), saved = pkCol(tx) === pkCol(a.x) && row(ty) === row(a.y);
   PK.ai = null;
   PK.last = { x: a.x, y: a.y, dive: pkCol(tx), goal: !saved, you: false }; PK.rows.push(PK.last); PK.k++;
   if (PK.k >= 10) pkFinish(); pkRerender();
