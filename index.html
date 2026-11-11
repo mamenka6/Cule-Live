@@ -65,6 +65,11 @@ nav a,nav button,.btn,.chip{-webkit-user-select:none;user-select:none}
 .lu-pitch .pl-dot.has-ph .rt{left:auto;right:-14px}
 .lu-pitch .pl-name{font-size:11px;max-width:78px;background:rgba(5,10,24,.55);border-radius:6px;padding:0 5px;line-height:1.5}
 .lu-pitch .pl-evs{bottom:-3px;right:auto;left:-10px}
+.pk-balls{display:flex;gap:10px;font-size:22px;justify-content:center}.pk-goal{display:flex;height:34px;border-radius:10px;overflow:hidden;border:1px solid var(--line)}.pk-zone{flex:0 0 28%;background:color-mix(in srgb,#16a34a 45%,transparent)}.pk-zone.l{flex-basis:26%;margin-left:4%}.pk-zone.r{flex-basis:26%;margin-right:4%}.pk-mid{flex:1;display:grid;place-items:center;background:color-mix(in srgb,#dc2626 30%,transparent)}
+.pk-bar{position:relative;height:16px;border-radius:99px;background:var(--line)}#pk-cur{position:absolute;top:-4px;width:20px;height:24px;border-radius:7px;background:var(--gold);left:0;box-shadow:0 0 8px var(--gold)}
+.hl-row{display:flex;align-items:center;gap:10px;text-align:center}.hl-p{flex:1;display:grid;gap:2px;border:1px solid var(--line);border-radius:14px;padding:14px 8px}.hl-n{font-size:2rem;font-weight:800;color:var(--gold)}.hl-vs{font-family:var(--f-label);font-weight:800;color:var(--muted)}
+.qotd{padding:14px;display:grid;gap:8px;margin:0 0 12px}.hist-t{margin:0;line-height:1.5;font-size:1.02rem}
+.clasico{display:grid;gap:4px;padding:16px;margin:10px 0;border:1px solid var(--gold);text-align:center}.clasico b{font-size:2rem;font-variant-numeric:tabular-nums;color:var(--gold);font-family:var(--f-label)}
 </style>
 <title>Culé Live</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -1288,6 +1293,7 @@ class AppError extends Error { constructor(msg, kind = 'api') { super(msg); this
 
 // Small drawings used around the app
 const I = {
+  friends: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.4 3.2-5.5 6.5-5.5s5.9 2.1 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18.5 14.8c1.3.9 2 2.6 2.2 5.2"/></svg>',
   games: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="11" rx="5"/><path d="M7 11v3M5.5 12.5h3"/><circle cx="15.5" cy="12" r=".6" fill="currentColor"/><circle cx="17.5" cy="14" r=".6" fill="currentColor"/></svg>',
   news: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h13v14H6a2 2 0 0 1-2-2Z"/><path d="M17 9h3v8a2 2 0 0 1-2 2"/><path d="M8 9h5M8 13h5"/></svg>',
   chat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1.1-4.6A8 8 0 1 1 21 12Z"/><path d="M8.5 11h7M8.5 14.5h4"/></svg>',
@@ -3278,6 +3284,8 @@ async function viewHome() {
   else if (!isDemo) html += empty(`No upcoming matches in the ${seasonLabel(settings.season)} data. Open any result and press <b>Replay</b> to watch it back minute by minute.`);
   if (results.length) html += formHTML(results);
   html += apSlot('home');
+  html += clasicoHTML(list);
+  html += histHTML();
   html += champSlot();
   html += fotwSlot();
   html += `<a class="card champ" href="#games"><span class="champ-c">🎮</span><span><small class="nw-tag">TODAY'S GAMES</small><b>Quiz · Wordle · Guess the player · Predict the XI</b><small>New every day. Earn XP.</small></span></a>`;
@@ -4322,7 +4330,7 @@ async function viewChat() {
   chatWatch(); rxWatch(); champLoad().then(() => chatPaint());
   setTimeout(chatPaint, 0);
   return `<div><h1 class="page-title">Fan chat</h1><p class="page-sub">Talk with Culés everywhere. Be kind: no swearing, insults, spam or personal details.</p></div>
-    ${apSlot('chat')}<section class="chat-box card"><div id="chat-list" class="chat-list" aria-live="polite">${chatListHTML()}</div><div id="chat-compose">${chatComposerHTML()}</div></section>`;
+    ${apSlot('chat')}${qotdHTML()}<section class="chat-box card"><div id="chat-list" class="chat-list" aria-live="polite">${chatListHTML()}</div><div id="chat-compose">${chatComposerHTML()}</div></section>`;
 }
 async function chatSend(form) {
   const input = $('#chat-input'), text = (input?.value || '').trim().slice(0, 500);
@@ -5113,6 +5121,7 @@ async function viewNews() {
   return `<div><h1 class="page-title">News</h1><p class="page-sub">Barça news from the Culé Live team.</p></div>
     ${adm ? '<div class="row"><button class="btn btn-primary" data-act="post-new">+ New post</button><button class="btn btn-ghost" data-act="ap-new" data-place="news">+ New poll</button></div>' : ''}
     ${apSlot('news')}
+    ${mvpHTML()}
     ${posts.length ? postsCards(posts) : '<div class="empty-card"><b>No news yet</b><p>Check back soon.</p></div>'}`;
 }
 
@@ -5190,7 +5199,7 @@ function botHTML() { return Chat.local.map(m => `<div class="msg bot"><div class
 async function userByName(n) { n = String(n || '').replace(/^@/, '').toLowerCase(); try { const d = await Acct.m.getDoc(Acct.m.doc(Acct.db, 'usernames', n)); return d.exists() ? d.data().uid : null; } catch (e) { return null; } }
 async function chatCommand(text) {
   const [cmd, ...rest] = text.slice(1).split(' '), arg = rest.join(' ').trim(), c = cmd.toLowerCase(), adm = isAdmin(Acct.user?.uid), me = Acct.user?.uid;
-  const help = `<b>Commands</b><br>/next · next match<br>/table · league table<br>/polls · open fan polls<br>/rules · chat rules<br>/news · latest news<br>/predict · make a prediction<br>/leagues · your leagues<br>/score · live score<br>/last · last result<br>/form · last 5 games<br>/countdown · time to kick-off<br>/me · your points<br>/top · leaderboard<br>/who @user · profile<br>/admins · staff list<br>/level · your XP<br>/champion · weekly 👑<br>/games · quiz, wordle & more<br>/invite · +50 XP per friend<br>/badges · achievements<br>/search<br>/card · edit fan card<br>/squad /matches /settings · go there<br><br><b>Fun</b><br>/coin · /roll 6 · /8ball question<br>/rate Pedri · /visca<br><br>/clear · hide bot messages${adm ? '<br><br><b>Admin</b><br>/poll Question | Option | Option [| …] [#home #news #matches]<br>/newpoll · poll form<br>/endpoll · end latest chat poll<br>/post · write a news post<br>/purge 10 · delete last messages<br>/setlevel @user 4 · /setxp @user 500<br>/editcard @user<br>/fotw @user reason · /fotw clear<br>/mute @user minutes<br>/unmute @user<br>/ban @user<br>/unban @user' : ''}`;
+  const help = `<b>Commands</b><br>/next · next match<br>/table · league table<br>/polls · open fan polls<br>/rules · chat rules<br>/news · latest news<br>/predict · make a prediction<br>/leagues · your leagues<br>/score · live score<br>/last · last result<br>/form · last 5 games<br>/countdown · time to kick-off<br>/me · your points<br>/top · leaderboard<br>/who @user · profile<br>/admins · staff list<br>/level · your XP<br>/champion · weekly 👑<br>/games · quiz, wordle & more<br>/invite · +50 XP per friend<br>/wrapped · your monthly recap<br>/qotd · question of the day<br>/badges · achievements<br>/search<br>/card · edit fan card<br>/squad /matches /settings · go there<br><br><b>Fun</b><br>/coin · /roll 6 · /8ball question<br>/rate Pedri · /visca<br><br>/clear · hide bot messages${adm ? '<br><br><b>Admin</b><br>/poll Question | Option | Option [| …] [#home #news #matches]<br>/newpoll · poll form<br>/endpoll · end latest chat poll<br>/post · write a news post<br>/purge 10 · delete last messages<br>/setlevel @user 4 · /setxp @user 500<br>/editcard @user<br>/fotw @user reason · /fotw clear<br>/mute @user minutes<br>/unmute @user<br>/ban @user<br>/unban @user' : ''}`;
   switch (c) {
     case 'help': case 'commands': botSay(help); return;
     case 'clear': Chat.local = []; chatPaint(); return;
@@ -5226,6 +5235,8 @@ async function chatCommand(text) {
     case 'champion': case 'king': { Champ.loaded = false; await champLoad(); botSay(Champ.uid ? `👑 Last week's champion: <b>${esc(Champ.name)}</b> with ${Champ.pts} points` : 'No champion last week yet. Predict to become one!'); return; }
     case 'card': fanEdit(); return;
     case 'invite': inviteShare(); return;
+    case 'wrapped': wrappedShare(); return;
+    case 'qotd': botSay('💬 <b>Question of the day</b><br>' + esc(QOTD[daySeed() % QOTD.length])); return;
     case 'search': location.hash = 'search'; return;
     case 'badges': case 'achievements': location.hash = 'options'; return;
     case 'coin': botSay(Math.random() < .5 ? '🪙 Heads' : '🪙 Tails'); return;
@@ -5280,7 +5291,7 @@ const FAN_EMOJI = ['⚽', '🔥', '💙', '❤️', '👑', '🦁', '🐐', '⭐
 const FAN_COLORS = ['#1d4ed8', '#a50044', '#edbb00', '#0f766e', '#7c3aed', '#111827'];
 const LEVELS = [[0, 'New Culé'], [50, 'Socio'], [150, 'Matchday Regular'], [350, 'Ultra'], [700, 'Camp Nou Legend'], [1200, 'Més que un fan']];
 function levelOf(xp) { xp = xp || 0; let i = 0; LEVELS.forEach(([t], k) => { if (xp >= t) i = k; }); const next = LEVELS[i + 1]; return { n: i + 1, name: LEVELS[i][1], xp, next: next ? next[0] : null, from: LEVELS[i][0] }; }
-const FAN_BASE = { inv: 0, msgs: 0, ls: 0, lday: '', pic: '', emoji: '', color: '', fav: '', num: 0, bio: '', xp: 0, qpts: 0, qday: '', w0k: '', w0: 0, w1k: '', w1: 0 };
+const FAN_BASE = { pk: 0, lfz: '', inv: 0, msgs: 0, ls: 0, lday: '', pic: '', emoji: '', color: '', fav: '', num: 0, bio: '', xp: 0, qpts: 0, qday: '', w0k: '', w0: 0, w1k: '', w1: 0 };
 async function fanGet(uid) {
   if (!uid || !Acct.db) return null;
   if (Fan.cache[uid]) return Fan.cache[uid];
@@ -5389,7 +5400,7 @@ function fanCardHTML() {
   if (!Acct.user || Acct.user.isAnonymous) return '';
   setTimeout(async () => { const me = await fanMe(); const el = $('#fan-card'); if (!me || !el) return; const lv = levelOf(me.xp), pc = lv.next ? Math.round((lv.xp - lv.from) * 100 / (lv.next - lv.from)) : 100;
     el.innerHTML = `<div class="fan-row">${avatarHTML(me.uid, Prof.me?.displayName, me, 'big')}<div class="lvl"><div class="lvl-top"><b>Level ${lv.n} · ${esc(lv.name)}</b><small>${lv.xp} XP${lv.next ? ' / ' + lv.next : ''}</small></div><div class="lvl-bar"><span style="width:${pc}%"></span></div></div></div>
-      <p class="help">Earn XP: predict +5, quiz +10, vote +3, chat +2, react +1.</p><div class="row"><button class="btn btn-primary" data-act="fan-edit">Edit fan card</button><button class="btn btn-ghost" data-act="fan-open" data-uid="${esc(me.uid)}">View</button></div>`; }, 0);
+      <p class="help">Earn XP: predict +5, quiz +10, vote +3, chat +2, react +1.</p><div class="row"><button class="btn btn-primary" data-act="fan-edit">Edit fan card</button><button class="btn btn-ghost" data-act="fan-open" data-uid="${esc(me.uid)}">View</button><button class="btn btn-ghost" data-act="wrapped">📊 My Culé Wrapped</button></div>`; }, 0);
   return `<section class="form-card"><h2 class="fc-title">Fan card & level</h2><div id="fan-card"><p class="help">Loading…</p></div></section>`;
 }
 
@@ -5472,8 +5483,14 @@ const daySeed = () => Math.floor(Date.now() / 864e5);
 async function loginTick() {
   const me = await fanMe(); if (!me) return; mentionWatch(); if (Acct.user && !Prof.loaded) { try { await profLoad(); } catch (e) {} } inviteTick();
   const d = dayKey(); if (me.lday === d) return;
-  const y = new Date(Date.now() - 864e5).toISOString().slice(0, 10), ls = me.lday === y ? (me.ls || 0) + 1 : 1, bonus = ls % 7 === 0 ? 15 : 0;
-  try { await fanSave({ lday: d, ls, xp: (me.xp || 0) + 5 + bonus }); toast(`🔥 <span><b>Day ${ls} streak!</b><br>+${5 + bonus} XP for opening the app${bonus ? ' (weekly bonus)' : ''}</span>`); } catch (e) {}
+  const y = new Date(Date.now() - 864e5).toISOString().slice(0, 10), y2 = new Date(Date.now() - 2 * 864e5).toISOString().slice(0, 10);
+  let ls, froze = false;
+  if (me.lday === y) ls = (me.ls || 0) + 1;
+  else if (me.lday === y2 && (me.ls || 0) >= 2 && wkKey(Date.now()) !== wkKey(me.lfz ? Date.parse(me.lfz) : 0)) { ls = (me.ls || 0) + 1; froze = true; }
+  else ls = 1;
+  const bonus = ls % 7 === 0 ? 15 : 0;
+  if (froze) toast('🧊 <span><b>Streak freeze used!</b><br>You missed a day but your streak is safe (1 per week)</span>');
+  try { await fanSave({ lday: d, ls, lfz: froze ? d : (me.lfz || ''), xp: (me.xp || 0) + 5 + bonus }); toast(`🔥 <span><b>Day ${ls} streak!</b><br>+${5 + bonus} XP for opening the app${bonus ? ' (weekly bonus)' : ''}</span>`); } catch (e) {}
 }
 function streakHTML() {
   setTimeout(async () => { const me = await fanMe(); const el = $('#ls-card'); if (!el) return;
@@ -5572,7 +5589,106 @@ async function viewGames() {
   PXI.sel = null;
   const [gp, px] = await Promise.all([guessHTML().catch(() => ''), pxiHTML().catch(() => '')]);
   return `<div><h1 class="page-title">Games</h1><p class="page-sub">New games every day. Earn XP and level up.</p></div>
-    ${streakHTML()}${quizHTML()}${wordleHTML()}${gp}${px}${inviteHTML()}`;
+    ${streakHTML()}${quizHTML()}${pkHTML()}${wordleHTML()}${hlHTML()}${gp}${px}${inviteHTML()}`;
+}
+
+/* ===== Friends & 1v1 penalty duels (no chat) ===== */
+const Fr = { list: [], duels: [], open: null, dUnsub: null, dd: null, aim: 0, dir: 1, raf: 0, run: false };
+const pairId = (a, b) => [a, b].sort().join('_');
+const frOther = f => (f.a === Acct.user?.uid ? f.b : f.a);
+const frName = f => '@' + (f.a === Acct.user?.uid ? f.bName : f.aName);
+async function frLoad() {
+  const u = Acct.user; if (!u || u.isAnonymous || !Acct.db) return false;
+  const { collection, query, where, getDocs } = Acct.m, fr = collection(Acct.db, 'friends'), du = collection(Acct.db, 'duels');
+  const [a1, b1, a2, b2] = await Promise.all([getDocs(query(fr, where('a', '==', u.uid))), getDocs(query(fr, where('b', '==', u.uid))), getDocs(query(du, where('a', '==', u.uid))), getDocs(query(du, where('b', '==', u.uid)))]);
+  const fs = new Map(), ds = new Map();
+  [...a1.docs, ...b1.docs].forEach(d => fs.set(d.id, { id: d.id, ...d.data() }));
+  [...a2.docs, ...b2.docs].forEach(d => ds.set(d.id, { id: d.id, ...d.data() }));
+  Fr.list = [...fs.values()]; Fr.duels = [...ds.values()].sort((x, y) => (y.at || 0) - (x.at || 0));
+  return true;
+}
+async function frAdd(name) {
+  const u = Acct.user; if (!u || u.isAnonymous) { welcomeShow(true); return; }
+  const nm = String(name || '').replace(/^@/, '').trim().toLowerCase(); if (!nm) return;
+  const other = await userByName(nm); if (!other) { toast("Can't find that user"); return; }
+  if (other === u.uid) { toast("That's you!"); return; }
+  try {
+    const { doc, getDoc, setDoc } = Acct.m, id = pairId(u.uid, other);
+    if ((await getDoc(doc(Acct.db, 'friends', id))).exists()) { toast('Already friends, or a request is pending'); return; }
+    await setDoc(doc(Acct.db, 'friends', id), { a: u.uid, b: other, aName: Prof.me?.username || '', bName: nm, from: u.uid, status: 'pending', at: Date.now() });
+    toast(`Friend request sent to @${nm}`); render();
+  } catch (e) { toast("Couldn't send the request."); }
+}
+async function frAccept(id) { try { await Acct.m.updateDoc(Acct.m.doc(Acct.db, 'friends', id), { status: 'ok' }); toast('You are now friends'); render(); } catch (e) { toast("Couldn't accept."); } }
+async function frRemove(id) { try { await Acct.m.deleteDoc(Acct.m.doc(Acct.db, 'friends', id)); render(); } catch (e) { toast("Couldn't remove."); } }
+async function duelNew(fid) {
+  const f = Fr.list.find(x => x.id === fid); if (!f) return;
+  try {
+    const ref = await Acct.m.addDoc(Acct.m.collection(Acct.db, 'duels'), { a: Acct.user.uid, b: frOther(f), an: Prof.me?.username || '', bn: f.a === Acct.user.uid ? f.bName : f.aName, round: 0, ph: 'dive', dive: '', shot: -1, sa: 0, sb: 0, status: 'active', winner: '', lastGoal: false, lastZone: '', lastDive: '', at: Date.now(), updated: Date.now() });
+    duelOpen(ref.id); toast('Challenge sent! Shooter goes first.');
+  } catch (e) { toast("Couldn't start the duel."); }
+}
+const DZ = { L: 'left', M: 'middle', R: 'right' };
+function duelOpen(id) { Fr.open = id; duelWatch(); }
+function duelClose() { if (Fr.dUnsub) Fr.dUnsub(); Fr.dUnsub = null; Fr.open = null; Fr.dd = null; cancelAnimationFrame(Fr.raf); Fr.run = false; const el = $('#duel'); if (el) el.outerHTML = '<div id="duel"></div>'; }
+function duelWatch() {
+  if (Fr.dUnsub) Fr.dUnsub(); const id = Fr.open; if (!id) return;
+  Fr.dUnsub = Acct.m.onSnapshot(Acct.m.doc(Acct.db, 'duels', id), s => {
+    Fr.dd = s.exists() ? { id, ...s.data() } : null; const d = Fr.dd;
+    if (d && d.status === 'over' && d.winner === Acct.user?.uid && !store.get('dxp:' + id, false)) { store.set('dxp:' + id, true); xpAdd(10); toast('🏆 <span><b>You won the duel!</b><br>+10 XP</span>', 'goal'); }
+    const el = $('#duel'); if (el) el.outerHTML = duelHTML();
+  }, () => toast("Lost connection to the duel."));
+}
+const isShooterOf = d => (d.round % 2 === 0 ? d.a : d.b) === Acct.user?.uid;
+function duelHTML() {
+  const d = Fr.dd; if (!d) return '<div id="duel"></div>';
+  const shooter = isShooterOf(d), nameA = '@' + (d.an || 'player1'), nameB = '@' + (d.bn || 'player2');
+  const last = d.round > 0 ? `<p class="help">Last shot: <b>${d.lastGoal ? '⚽ Goal' : '🧤 Saved'}</b> · keeper dived ${DZ[d.lastDive] || '?'}, shot went ${DZ[d.lastZone] || '?'}</p>` : '';
+  const score = `<div class="duel-score"><b>${esc(nameA)}</b><span>${d.sa} – ${d.sb}</span><b>${esc(nameB)}</b></div>`;
+  let body;
+  if (d.status === 'over') {
+    const txt = d.winner === 'draw' ? "It's a draw!" : d.winner === Acct.user?.uid ? '🏆 You won!' : 'You lost this one.';
+    body = `<b class="ap-q">${txt}</b><p class="help">Full time after 10 shots.</p>`;
+  } else if (d.ph === 'dive') {
+    body = shooter ? `<p class="help">Waiting for the keeper to choose a side…</p><div class="pk-bar"><span style="left:50%"></span></div>`
+      : `<p class="help">You are the keeper. Pick where to dive before the shot.</p><div class="row"><button class="btn btn-ghost" data-act="duel-dive" data-z="L">⬅️ Left</button><button class="btn btn-ghost" data-act="duel-dive" data-z="M">⏺ Stay</button><button class="btn btn-ghost" data-act="duel-dive" data-z="R">➡️ Right</button></div>`;
+  } else {
+    body = shooter ? `<p class="help">Stop the bar in a corner. The keeper has dived, so pick the other side!</p><div class="pk-bar"><span id="du-cur"></span></div><button class="btn btn-primary wide" data-act="duel-shoot">SHOOT!</button>`
+      : `<p class="help">Shot taken. Waiting for the result…</p>`;
+  }
+  setTimeout(() => { if (d.status === 'active' && d.ph === 'shoot' && shooter) duelAimStart(); }, 0);
+  return `<section class="card game" id="duel"><small class="nw-tag">PENALTY DUEL · SHOT ${Math.min(d.round + 1, 10)}/10</small>${score}${body}${last}
+    <button class="btn btn-ghost btn-sm" data-act="duel-close">Close</button></section>`;
+}
+function duLoop() { const cur = $('#du-cur'); if (!cur || !Fr.run) return; Fr.aim += Fr.dir * 0.022; if (Fr.aim >= 1) { Fr.aim = 1; Fr.dir = -1; } if (Fr.aim <= 0) { Fr.aim = 0; Fr.dir = 1; } cur.style.left = `calc(${(Fr.aim * 100).toFixed(1)}% - 10px)`; Fr.raf = requestAnimationFrame(duLoop); }
+function duelAimStart() { if (Fr.run || !$('#du-cur')) return; Fr.run = true; Fr.aim = Math.random(); Fr.dir = Math.random() < .5 ? 1 : -1; duLoop(); }
+async function duelDive(z) {
+  const d = Fr.dd; if (!d || d.ph !== 'dive' || isShooterOf(d)) return;
+  try { await Acct.m.updateDoc(Acct.m.doc(Acct.db, 'duels', d.id), { dive: z, ph: 'shoot', updated: Date.now() }); } catch (e) { toast("Couldn't dive. Try again."); }
+}
+async function duelShot() {
+  const d = Fr.dd; if (!d || d.ph !== 'shoot' || !isShooterOf(d)) return;
+  const pos = Fr.aim; Fr.run = false; cancelAnimationFrame(Fr.raf);
+  const zone = pos < .3 ? 'L' : pos > .7 ? 'R' : 'M', goal = zone !== 'M' && zone !== d.dive, shooterA = d.round % 2 === 0;
+  const sa = d.sa + (goal && shooterA ? 1 : 0), sb = d.sb + (goal && !shooterA ? 1 : 0), round = d.round + 1, over = round >= 10;
+  try { await Acct.m.updateDoc(Acct.m.doc(Acct.db, 'duels', d.id), { shot: pos, lastZone: zone, lastDive: d.dive, lastGoal: goal, sa, sb, round, dive: '', ph: over ? 'over' : 'dive', status: over ? 'over' : 'active', winner: over ? (sa > sb ? d.a : sb > sa ? d.b : 'draw') : '', updated: Date.now() }); }
+  catch (e) { toast("Couldn't take the shot."); }
+}
+async function viewFriends() {
+  const u = Acct.user;
+  const head = `<div><h1 class="page-title">Friends</h1><p class="page-sub">Challenge friends to a 1v1 penalty shootout. No chat, just the game.</p></div>`;
+  if (!u || u.isAnonymous) return `${head}<div class="empty-card"><b>Sign in to add friends</b><p>Create an account to challenge your friends.</p></div>`;
+  await frLoad().catch(() => {});
+  const inc = Fr.list.filter(f => f.status === 'pending' && f.from !== u.uid), out = Fr.list.filter(f => f.status === 'pending' && f.from === u.uid), fr = Fr.list.filter(f => f.status === 'ok');
+  const row = (f, btns) => `<div class="fr-row"><span data-notr>${esc(frName(f))}</span><span class="fr-btns">${btns}</span></div>`;
+  setTimeout(() => { if (Fr.open) duelWatch(); }, 0);
+  return `${head}
+    <section class="form-card"><h2 class="fc-title">Add a friend</h2><form id="fr-form" class="chat-form"><input id="fr-in" autocomplete="off" placeholder="Their @username"><button class="btn btn-primary" type="submit">Send request</button></form></section>
+    ${inc.length ? `<section class="form-card"><h2 class="fc-title">Requests</h2>${inc.map(f => row(f, `<button class="btn btn-primary btn-sm" data-act="fr-accept" data-id="${esc(f.id)}">Accept</button><button class="btn btn-ghost btn-sm" data-act="fr-remove" data-id="${esc(f.id)}">Decline</button>`)).join('')}</section>` : ''}
+    <section class="form-card"><h2 class="fc-title">Friends</h2>${fr.length ? fr.map(f => row(f, `<button class="btn btn-primary btn-sm" data-act="fr-challenge" data-id="${esc(f.id)}">⚽ Challenge</button><button class="btn btn-ghost btn-sm" data-act="fr-remove" data-id="${esc(f.id)}">Remove</button>`)).join('') : '<p class="help">No friends yet. Send a request above.</p>'}
+      ${out.length ? `<p class="help">Pending: ${out.map(frName).map(esc).join(', ')}</p>` : ''}</section>
+    <section class="form-card"><h2 class="fc-title">Duels</h2>${Fr.duels.length ? Fr.duels.map(d => { const yours = isShooterOf(d) ? 'Your shot' : 'Your keeper dive'; return `<div class="fr-row"><span>${d.status === 'over' ? (d.winner === u.uid ? '🏆 Won' : d.winner === 'draw' ? '🤝 Draw' : '❌ Lost') : `⚽ ${esc(yours)}`} · ${d.sa}–${d.sb}</span><button class="btn btn-ghost btn-sm" data-act="duel-open" data-id="${esc(d.id)}">Open</button></div>`; }).join('') : '<p class="help">No duels yet.</p>'}
+      <div id="duel-slot">${Fr.open ? '<div id="duel"></div>' : ''}</div></section>`;
 }
 
 /* ===== Invite rewards, achievements, mentions, fan of the week, search ===== */
@@ -5694,6 +5810,131 @@ async function searchRun(raw) {
     || (players.length || matches.length ? '' : '<p class="help">Nothing found. Fans are searched by the start of their username.</p>');
 }
 
+/* ===== Penalty shootout, Higher/Lower, QOTD, history, Clásico countdown, MVP vote, Wrapped, streak freeze ===== */
+const PK = { run: false, pos: 0, dir: 1, raf: 0 };
+const pkKey = () => 'pk:' + dayKey();
+function pkHTML() {
+  const st = store.get(pkKey(), { s: [] }), done = st.s.length >= 5, score = st.s.filter(Boolean).length;
+  return `<section class="card game" id="pk"><small class="nw-tag">PENALTY SHOOTOUT</small><b class="ap-q">Stop the bar in a corner to score</b>
+    <div class="pk-balls">${[0, 1, 2, 3, 4].map(i => `<span>${i < st.s.length ? (st.s[i] ? '⚽' : '❌') : '·'}</span>`).join('')}</div>
+    <div class="pk-goal"><span class="pk-zone l"></span><span class="pk-mid">🧤</span><span class="pk-zone r"></span></div>
+    <div class="pk-bar"><span id="pk-cur"></span></div>
+    ${done ? `<p class="help">You scored <b>${score}/5</b> today${score >= 4 ? ' 🔥' : ''}. New shootout tomorrow.</p>`
+      : `<button class="btn btn-primary wide" data-act="pk-shoot">${PK.run ? 'SHOOT!' : st.s.length ? `Shot ${st.s.length + 1} of 5` : 'Start · shot 1 of 5'}</button>
+    <p class="help">Green corners = goal. The middle is the keeper. +2 XP per goal.</p>`}</section>`;
+}
+function pkLoop(ts) {
+  const cur = $('#pk-cur'); if (!cur || !PK.run) return;
+  PK.pos += PK.dir * 0.022; if (PK.pos >= 1) { PK.pos = 1; PK.dir = -1; } if (PK.pos <= 0) { PK.pos = 0; PK.dir = 1; }
+  cur.style.left = `calc(${(PK.pos * 100).toFixed(1)}% - 10px)`;
+  PK.raf = requestAnimationFrame(pkLoop);
+}
+async function pkShoot(b) {
+  const st = store.get(pkKey(), { s: [] }); if (st.s.length >= 5) return;
+  if (!PK.run) { PK.run = true; PK.pos = Math.random(); PK.dir = Math.random() < .5 ? 1 : -1; b.textContent = 'SHOOT!'; cancelAnimationFrame(PK.raf); pkLoop(); return; }
+  PK.run = false; cancelAnimationFrame(PK.raf);
+  const p = PK.pos, goal = (p >= 0.04 && p <= 0.30) || (p >= 0.70 && p <= 0.96);
+  st.s.push(goal); store.set(pkKey(), st);
+  toast(goal ? '⚽ <b>GOOOAL!</b>' : p > 0.3 && p < 0.7 ? '🧤 Saved by the keeper' : '😬 Off target');
+  if (goal) xpAdd(2);
+  if (st.s.length >= 5) { const sc = st.s.filter(Boolean).length; const me = await fanMe(); if (me && sc > (me.pk || 0)) { try { await fanSave({ pk: sc }); } catch (e) {} } }
+  const el = $('#pk'); if (el) el.outerHTML = pkHTML();
+}
+/* Higher or lower: career goals for Barça (all competitions, roughly) */
+const HLP = [['Lionel Messi', 672], ['Luis Suárez', 198], ['César Rodríguez', 232], ['László Kubala', 194], ['Josep Samitier', 184], ["Samuel Eto'o", 130], ['Rivaldo', 136], ['Ronaldinho', 94], ['Neymar', 105], ['Thierry Henry', 49], ['Johan Cruyff', 60], ['Diego Maradona', 38], ['Romário', 39], ['Hristo Stoichkov', 117], ['Gary Lineker', 42], ['Ronald Koeman', 88], ['Pedro', 99], ['David Villa', 48], ['Zlatan Ibrahimović', 22], ['Antoine Griezmann', 35], ['Ousmane Dembélé', 40], ['Robert Lewandowski', 83], ['Rafael Márquez', 13], ['Carles Puyol', 18], ['Xavi', 85], ['Andrés Iniesta', 57], ['Sergio Busquets', 19], ['Gerard Piqué', 53], ['Luis Figo', 45], ['Patrick Kluivert', 122]];
+const HL = { a: null, b: null, n: 0, over: false };
+function hlPick(not) { let p; do { p = HLP[Math.floor(Math.random() * HLP.length)]; } while (p === not); return p; }
+function hlStart() { HL.a = hlPick(); HL.b = hlPick(HL.a); HL.n = 0; HL.over = false; }
+function hlHTML() {
+  if (!HL.a) hlStart();
+  const best = store.get('hl:best', 0);
+  return `<section class="card game" id="hl"><small class="nw-tag">HIGHER OR LOWER</small><b class="ap-q">Career goals for Barça</b>
+    <div class="hl-row"><div class="hl-p"><b data-notr>${esc(HL.a[0])}</b><span class="hl-n">${HL.a[1]}</span><small>goals</small></div>
+    <div class="hl-vs">VS</div>
+    <div class="hl-p"><b data-notr>${esc(HL.b[0])}</b><span class="hl-n">${HL.over ? HL.b[1] : '?'}</span><small>goals</small></div></div>
+    ${HL.over ? `<p class="help">Streak over at <b>${HL.n}</b>. Best: ${Math.max(best, HL.n)}.</p><button class="btn btn-primary wide" data-act="hl-again">Play again</button>`
+      : `<div class="row"><button class="btn btn-ghost" data-act="hl" data-g="h">⬆️ Higher</button><button class="btn btn-ghost" data-act="hl" data-g="l">⬇️ Lower</button></div>
+    <p class="help">Streak: <b>${HL.n}</b> · best ${best} · XP for your streak when it ends</p>`}</section>`;
+}
+async function hlGuess(g) {
+  if (HL.over) return;
+  const right = g === 'h' ? HL.b[1] >= HL.a[1] : HL.b[1] <= HL.a[1];
+  if (right) { HL.n++; HL.a = HL.b; HL.b = hlPick(HL.a); }
+  else { HL.over = true; const best = store.get('hl:best', 0); if (HL.n > best) store.set('hl:best', HL.n); if (HL.n > 0) xpAdd(Math.min(10, HL.n)); }
+  const el = $('#hl'); if (el) el.outerHTML = hlHTML();
+}
+/* Question of the day (shown above the chat; same for everyone, new daily) */
+const QOTD = ['Pedri or prime Iniesta?', 'Is Lamine already top 3 in the world?', 'One player from Madrid you would take at Barça?', 'Best Barça goal you ever saw live?', 'Flick in 3 words?', 'Who takes the last-minute penalty: Lewa or Raphinha?', 'Most underrated Culé right now?', 'Messi front three: who joins him from this squad?', 'Camp Nou or Montjuïc atmosphere?', 'Which academy kid breaks out next?', 'Better dribbler at 18: Messi or Lamine?', 'One rule you would change in football?', 'Cruyff or Guardiola: bigger influence on Barça?', 'Score prediction for the next match?', 'Which trophy matters most this season?', 'Best Clásico memory?', 'Who is your keeper of the decade: Valdés or Ter Stegen?', 'Ronaldinho or Neymar at their Barça best?', 'Would you sell anyone this summer? Who?', 'Xavi, Busquets or Iniesta: who do you clone?', 'Best away kit in Barça history?', 'One word for Real Madrid?', 'Who wears the 10 after Lamine?', 'Puyol or Koeman as defender of the era?'];
+function qotdHTML() { const q = QOTD[daySeed() % QOTD.length]; return `<section class="card qotd"><small class="nw-tag">💬 QUESTION OF THE DAY</small><b class="ap-q" data-notr>${esc(q)}</b><button class="btn btn-ghost btn-sm" data-act="qotd">Answer in the chat</button></section>`; }
+function qotdFill() { const i = $('#chat-input'); if (i) { i.focus(); } }
+/* This day in Barça history + daily facts */
+const HIST = { '11-29': '1899 — Joan Gamper founds FC Barcelona.', '03-02': "1974 — Cruyff's Barça win 0-5 at the Bernabéu.", '05-20': '1992 — Koeman wins Barça their first European Cup at Wembley.', '06-26': '1984 — A teenage Guardiola joins La Masia.', '05-02': '2009 — Barça win 2-6 at the Bernabéu; Messi scores twice.', '05-27': '2009 — Treble complete: 2-0 vs United in Rome.', '12-19': '2009 — Sextuple sealed at the Club World Cup.', '05-28': '2011 — Wembley masterclass: 3-1 vs United.', '11-25': '2012 — Tito fields 11 Masia players at once vs Levante.', '06-06': '2015 — Berlin: 3-1 vs Juventus, the second treble.', '03-08': '2017 — La Remontada: 6-1 vs PSG.', '04-30': '1997 — Ronaldo scores THAT solo goal vs Compostela.', '10-16': '2004 — A 17-year-old Messi makes his debut vs Espanyol.', '05-01': '2005 — Messi scores his first Barça goal, assisted by Ronaldinho.', '03-01': '2007 — Messi hat-trick in a 3-3 Clásico at 19.', '04-18': '2007 — Messi recreates the Maradona goal vs Getafe.', '04-27': '2011 — Messi dribbles the whole of Madrid in the Champions League semi.', '09-24': '2021 — Lamine Yamal is born in 2007… and makes fans feel old.', '04-29': '2023 — Barça Femení win a 6th straight league title.', '06-03': '2023 — Barça Femení complete the comeback in the Champions League final.', '08-16': '1997 — Rivaldo makes his debut.', '01-08': '2012 — Four Barça players in the World XI, Masia sweeps the Ballon d\'Or podium.', '12-18': '2022 — Messi, raised by La Masia, lifts the World Cup.', '02-11': '1957 — Camp Nou hosts its first match.', '05-05': '2018 — Iniesta says goodbye to the Camp Nou.', '08-08': '2021 — The hardest day: Messi\'s farewell press conference.', '10-28': '2023 — Flick\'s predecessors could never: 2-1 with 17-year-olds everywhere.', '05-15': '2023 — Barça clinch LaLiga at Espanyol.', '01-14': '2024 — Supercopa glory in Riyadh.' };
+const FACTS = ['Barça have never been relegated from La Liga.', 'More than 140,000 socis own the club — including maybe you one day.', 'La Masia once supplied the entire Ballon d\'Or podium: Messi, Xavi, Iniesta.', 'The Barça badge has the St George cross of Catalonia.', '"Més que un club" has been the motto since 1968.', 'Barça played the very first La Liga match in 1929 — and won the first title.', 'The Camp Nou is the biggest stadium in Europe.', 'Barça and Real have met in El Clásico more than 250 times.', 'Barça Femení sold out the Camp Nou with 91,648 fans — a world record.', 'Kubala was so good they built the Camp Nou to fit his crowds.'];
+function histHTML() {
+  const d = new Date(), k = `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const h = HIST[k], txt = h || FACTS[daySeed() % FACTS.length];
+  return `<section class="card qotd"><small class="nw-tag">${h ? '📜 THIS DAY IN BARÇA HISTORY' : '📜 BARÇA FACT OF THE DAY'}</small><p class="hist-t" data-notr>${esc(txt)}</p></section>`;
+}
+/* Clásico countdown */
+function clasicoHTML(list) {
+  const f = (list || []).filter(x => fstat(x) === 'NS' && x.ts > Date.now() && /real madrid/i.test(x.home.name + x.away.name)).sort((a, b) => a.ts - b.ts)[0];
+  if (!f || f.ts - Date.now() > 14 * 864e5) return '';
+  if (!window.__clcd) window.__clcd = setInterval(() => { const el = $('#cl-cd'); if (!el) return; const ms = +el.dataset.ts - Date.now(); if (ms < 0) { el.textContent = "IT'S CLÁSICO DAY"; return; } const d = Math.floor(ms / 864e5), h = Math.floor(ms / 36e5) % 24, m = Math.floor(ms / 6e4) % 60, s = Math.floor(ms / 1e3) % 60; el.textContent = `${d}d ${h}h ${m}m ${s}s`; }, 1000);
+  return `<a class="card clasico" href="#match-${esc(f.id)}"><small class="nw-tag">EL CLÁSICO</small><b id="cl-cd" data-ts="${f.ts}">…</b><small>${esc(f.home.name)} vs ${esc(f.away.name)} · ${fmtDay(f.ts)} ${fmtTime(f.ts)}</small></a>`;
+}
+/* Fan MVP of the month */
+const monthKey = () => new Date().toISOString().slice(0, 7);
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const Mvp = { votes: null, mine: null, m: '' };
+async function mvpLoad() {
+  const m = monthKey(); if (Mvp.m === m && Mvp.votes) return;
+  Mvp.m = m; Mvp.votes = {}; Mvp.names = {}; Mvp.mine = null;
+  try { const sn = await Acct.m.getDocs(Acct.m.collection(Acct.db, 'mvp', m, 'votes')); sn.forEach(d => { const x = d.data(); Mvp.votes[x.pid] = (Mvp.votes[x.pid] || 0) + 1; Mvp.names[x.pid] = x.name; if (d.id === Acct.user?.uid) Mvp.mine = x.pid; }); } catch (e) {}
+}
+function mvpHTML() {
+  setTimeout(async () => {
+    await mvpLoad(); if (!state.squadList || !state.squadList.length) { try { await gpPlayer(); } catch (e) {} }
+    const el = $('#mvp-in'); if (!el) return;
+    const total = Object.values(Mvp.votes).reduce((a, b) => a + b, 0);
+    if (Mvp.mine || total >= 20) {
+      const top = Object.entries(Mvp.votes).sort((a, b) => b[1] - a[1]).slice(0, 5);
+      el.innerHTML = top.length ? top.map(([pid, n], i) => { const pc = Math.round(n * 100 / total); return `<div class="ap-res ${pid === Mvp.mine ? 'on' : ''}"><span class="ap-bar" style="width:${pc}%"></span><span data-notr>${['🥇', '🥈', '🥉'][i] || ''} ${esc(Mvp.names[pid] || '')}</span><b>${pc}%</b></div>`; }).join('') + `<small class="help">${total} vote${total === 1 ? '' : 's'} this month</small>` : '<p class="help">No votes yet.</p>';
+    } else {
+      const sq = (state.squadList || []).filter(p => p.name && p.pos !== 'G').slice(0, 24);
+      el.innerHTML = `<div class="pxi-grid">${sq.map(p => `<button class="chip" data-act="mvp" data-id="${esc(p.id)}" data-n="${esc(p.name)}">${esc(shortPlayer(p.name))}</button>`).join('')}</div>`;
+    }
+  }, 0);
+  return `<section class="card game"><small class="nw-tag">FAN MVP · ${MONTHS[new Date().getMonth()].toUpperCase()}</small><b class="ap-q">Who's been Barça's best this month?</b><div id="mvp-in"><p class="help">Loading…</p></div></section>`;
+}
+async function mvpVote(pid, name) {
+  const u = Acct.user; if (!u || u.isAnonymous || Prof.me?.guest) { welcomeShow(true); return; }
+  try { await Acct.m.setDoc(Acct.m.doc(Acct.db, 'mvp', monthKey(), 'votes', u.uid), { pid, name, at: Date.now() }); Mvp.votes[pid] = (Mvp.votes[pid] || 0) + 1; Mvp.names[pid] = name; Mvp.mine = pid; xpAdd(3); toast('MVP vote in!'); $('#view').dataset.route = ''; render(); } catch (e) { toast("Couldn't vote."); }
+}
+/* Culé Wrapped: a shareable monthly recap image */
+async function wrappedShare() {
+  const me = await fanMe(); if (!me) { welcomeShow(true); return; }
+  if (!state.fixtures) { try { await Data.fixtures(); } catch (e) {} }
+  const st = { ...predStats(), streak: predStreak() }, lv = levelOf(me.xp);
+  const c = document.createElement('canvas'); c.width = 1080; c.height = 1350; const x = c.getContext('2d');
+  const g = x.createLinearGradient(0, 0, 0, 1350); g.addColorStop(0, '#0a1230'); g.addColorStop(1, '#122a68'); x.fillStyle = g; x.fillRect(0, 0, 1080, 1350);
+  x.fillStyle = '#a50044'; x.fillRect(0, 0, 70, 1350); x.fillStyle = '#004d98'; x.fillRect(70, 0, 70, 1350);
+  x.textAlign = 'center'; x.fillStyle = '#f5c542'; x.font = '800 54px system-ui'; x.fillText('CULÉ WRAPPED', 590, 150);
+  x.fillStyle = '#fff'; x.font = '800 96px system-ui'; x.fillText(MONTHS[new Date().getMonth()].toUpperCase(), 590, 265);
+  x.font = '600 44px system-ui'; x.fillStyle = '#9fb4e8'; x.fillText('@' + (Prof.me?.username || 'cule'), 590, 330);
+  const rows = [['Prediction points', st.pts], ['Exact scores', st.exact], ['Prediction streak', st.streak + ' 🔥'], ['Login streak', (me.ls || 0) + ' days'], ['Quiz points', me.qpts || 0], ['Level ' + lv.n, lv.name]];
+  rows.forEach(([a, b], i) => {
+    const y = 430 + i * 130; x.fillStyle = 'rgba(255,255,255,.07)'; const r = 24, X = 160, Y = y - 62, Wd = 860, Ht = 104;
+    x.beginPath(); x.roundRect(X, Y, Wd, Ht, r); x.fill();
+    x.textAlign = 'left'; x.fillStyle = '#cdd9f5'; x.font = '600 40px system-ui'; x.fillText(a, 200, y);
+    x.textAlign = 'right'; x.fillStyle = '#f5c542'; x.font = '800 52px system-ui'; x.fillText(String(b), 980, y + 4);
+  });
+  x.textAlign = 'center'; x.fillStyle = '#fff'; x.font = '700 42px system-ui'; x.fillText('Culé Live · the Barça fan app', 590, 1270);
+  const blob = await new Promise(r => c.toBlob(r, 'image/png'));
+  const file = new File([blob], 'cule-wrapped.png', { type: 'image/png' });
+  try { if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'My Culé Wrapped' }); return; } } catch (e) { return; }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'cule-wrapped.png'; a.click(); toast('Wrapped saved. Post it!');
+}
+
 /* ===== Theme ===== */
 function themeApply() { const t = store.get('theme', 'auto'); if (t === 'auto') delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = t; }
 themeApply();
@@ -5770,8 +6011,8 @@ function viewSetup() {
 }
 
 /* ---------- 8. Buttons, router and start-up ---------- */
-const VIEWS = { home: viewHome, matches: viewMatches, table: viewTable, squad: viewSquad, options: viewOptions, dev: viewSetup, match: viewMatch, xi: viewXI, chat: viewChat, news: viewNews, games: viewGames, search: viewSearch, members: viewMembers, leagues: viewLeagues, feedback: viewFeedback };
-const NAV = [['home', 'Home'], ['matches', 'Matches'], ['table', 'Table'], ['squad', 'Squad'], ['news', 'News'], ['games', 'Games'], ['chat', 'Chat'], ['options', 'Settings']];
+const VIEWS = { home: viewHome, matches: viewMatches, table: viewTable, squad: viewSquad, options: viewOptions, dev: viewSetup, match: viewMatch, xi: viewXI, chat: viewChat, news: viewNews, games: viewGames, friends: viewFriends, search: viewSearch, members: viewMembers, leagues: viewLeagues, feedback: viewFeedback };
+const NAV = [['home', 'Home'], ['matches', 'Matches'], ['table', 'Table'], ['squad', 'Squad'], ['news', 'News'], ['games', 'Games'], ['friends', 'Friends'], ['chat', 'Chat'], ['options', 'Settings']];
 const HIDDEN = { dev: 'dev', setup: 'options', xi: 'xi', members: 'members', leagues: 'leagues', feedback: 'feedback', search: 'search' }; // #dev = developer page, old #setup links go to Settings
 function route() {
   const h = location.hash.slice(1);
@@ -6009,6 +6250,19 @@ document.addEventListener('click', e => {
     case 'quiz': quizAnswer(b.dataset.i); break;
     case 'gp': gpPick(b.dataset.id); break;
     case 'invite': inviteShare(); break;
+    case 'pk-shoot': pkShoot(b); break;
+    case 'fr-accept': frAccept(b.dataset.id); break;
+    case 'fr-remove': frRemove(b.dataset.id); break;
+    case 'fr-challenge': duelNew(b.dataset.id); break;
+    case 'duel-open': duelOpen(b.dataset.id); { const sl = $('#duel-slot'); if (sl) sl.innerHTML = '<div id="duel"></div>'; } break;
+    case 'duel-close': duelClose(); break;
+    case 'duel-dive': duelDive(b.dataset.z); break;
+    case 'duel-shoot': duelShot(); break;
+    case 'hl': hlGuess(b.dataset.g); break;
+    case 'hl-again': hlStart(); { const el = $('#hl'); if (el) el.outerHTML = hlHTML(); } break;
+    case 'qotd': qotdFill(); break;
+    case 'mvp': mvpVote(b.dataset.id, b.dataset.n); break;
+    case 'wrapped': wrappedShare(); break;
     case 'fotw': fotwSet(Fotw.uid === b.dataset.uid ? null : b.dataset.uid, '').then(ok => { if (ok) fanOpen(b.dataset.uid); }); break;
     case 'pxi': pxiToggle(b.dataset.id); break;
     case 'pxi-save': pxiSave(); break;
@@ -6043,6 +6297,7 @@ document.addEventListener('submit', e => {
   if (e.target.id === 'ap-form') { e.preventDefault(); apSubmit(e.target); }
   if (e.target.id === 'fan-form') { e.preventDefault(); fanSubmit(); }
   if (e.target.id === 'wd-form') { e.preventDefault(); wdGuess(); }
+  if (e.target.id === 'fr-form') { e.preventDefault(); frAdd($('#fr-in').value); }
   if (e.target.id === 'chat-form') { e.preventDefault(); chatSend(e.target); }
 });
 document.addEventListener('change', e => {
