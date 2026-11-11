@@ -95,6 +95,11 @@ nav a,nav button,.btn,.chip{-webkit-user-select:none;user-select:none}
 .pk-keeper{position:absolute;bottom:0;transform:translateX(-50%);transition:transform .3s ease-out;pointer-events:none;z-index:2;font-size:0}
 .pk-keeper.dive-l{transform:translateX(-50%) rotate(-40deg) translateY(10px)}.pk-keeper.dive-r{transform:translateX(-50%) rotate(40deg) translateY(10px)}
 .pk-tgt{z-index:2}.pk-ball{z-index:3;transform:translate(-50%,-50%)}
+.pk-flash{position:absolute;top:0;bottom:0;width:33%;margin-left:-16.5%;background:rgba(237,187,0,.45);animation:pkf .25s steps(2) 4;z-index:1;pointer-events:none}
+@keyframes pkf{50%{opacity:.2}}
+.pk-flashtxt{position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);font-size:1.1rem;color:#fff;text-shadow:0 2px 6px #000;z-index:3;white-space:nowrap}
+.pk-big{position:absolute;top:50%;width:84px;height:84px;margin:-42px 0 0 -42px;border-radius:50%;border:5px solid #edbb00;background:rgba(237,187,0,.25);z-index:2;pointer-events:none}
+.pk-goal2.keep{cursor:crosshair;touch-action:none}
 </style>
 <title>Culé Live</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -5832,18 +5837,18 @@ async function searchRun(raw) {
 }
 
 /* ===== Penalty shootout, Higher/Lower, QOTD, history, Clásico countdown, MVP vote, Wrapped, streak freeze ===== */
-const PK = { busy: false, k: 0, rows: [], last: null, phase: 'idle', ang: 0, angDir: 1, pow: 0, powDir: 1, spd: 0.02, raf: 0 };
+const PK = { busy: false, k: 0, rows: [], last: null, ai: null, phase: 'idle', ang: 0, angDir: 1, pow: 0, powDir: 1, spd: 0.02, raf: 0 };
 const PKX = { L: 20, M: 50, R: 80 }, PKC = ['L', 'M', 'R'];
 const pkYours = () => PK.k % 2 === 0;
 const pkCol = x => (x < 1 / 3 ? 'L' : x < 2 / 3 ? 'M' : 'R');
 const PK_KEEPER = '<svg viewBox="0 0 40 60" width="36" height="54" aria-hidden="true"><circle cx="20" cy="9" r="6" fill="#c8793a"/><path d="M10 17h20l3 22H7z" fill="#f97316"/><path d="M14 17l6 9 6-9" fill="#fde047" opacity=".5"/><rect x="9" y="38" width="22" height="9" fill="#111"/><rect x="11" y="46" width="7" height="13" fill="#c8793a"/><rect x="22" y="46" width="7" height="13" fill="#c8793a"/><circle cx="5" cy="24" r="4.5" fill="#fde047"/><circle cx="35" cy="24" r="4.5" fill="#fde047"/></svg>';
-function goalHTML(canAim, last) {
+function goalHTML(canAim, last, extra = '') {
   const dv = last && last.dive ? last.dive : '';
   const kx = dv ? PKX[dv] : 50;
   const ball = last ? `<span class="pk-ball ${last.goal ? 'in' : ''}" style="left:${last.x * 100}%;top:${last.y * 100}%">⚽</span>` : '';
   const aim = canAim ? '<svg class="pk-arrowsvg" id="pk-arr" viewBox="0 0 100 100" preserveAspectRatio="none"><line id="pk-line" x1="50" y1="96" x2="50" y2="96" stroke="#d9f99d" stroke-width="2.6" stroke-linecap="round"/></svg><span class="pk-tgt" id="pk-tgt"></span>' : '';
   const hint = canAim ? '<p class="pk-hint" id="pk-hint">Tap to lock the direction, then tap again to power the shot.</p>' : '';
-  return `<div class="pk-goal2 ${canAim ? 'aim' : ''}" id="pk-goal"><div class="pk-net"></div>${aim}${ball}<span class="pk-keeper ${dv ? 'dive-' + dv.toLowerCase() : ''}" style="left:${kx}%">${PK_KEEPER}</span></div>${hint}`;
+  return `<div class="pk-goal2 ${canAim ? 'aim' : ''} ${extra ? 'keep' : ''}" id="pk-goal"><div class="pk-net"></div>${aim}${extra}${ball}<span class="pk-keeper ${dv ? 'dive-' + dv.toLowerCase() : ''}" style="left:${kx}%">${PK_KEEPER}</span></div>${hint}`;
 }
 function pkScore() { return { y: PK.rows.filter(x => x.you && x.goal).length, a: PK.rows.filter(x => !x.you && x.goal).length }; }
 function pkHTML() {
@@ -5857,16 +5862,24 @@ function pkHTML() {
   } else if (pkYours()) {
     prompt = '<b class="ap-q">Your kick</b>'; grid = goalHTML(true, last);
   } else {
-    prompt = '<b class="ap-q">AI is shooting · you can\'t see where. Pick a side to dive</b>'; grid = goalHTML(false, last);
-    body = '<div class="row"><button class="btn btn-ghost" data-act="pk-dive" data-z="L">⬅️ Left</button><button class="btn btn-ghost" data-act="pk-dive" data-z="M">⏺ Middle</button><button class="btn btn-ghost" data-act="pk-dive" data-z="R">➡️ Right</button></div>';
+    if (!PK.ai) pkAiStart();
+    const col = pkCol(PK.ai.x), ex = PK.ai.phase === 'flash'
+      ? `<div class="pk-flash" style="left:${PKX[col]}%"></div><b class="pk-flashtxt">AI shoots ${DZ[col]}!</b>`
+      : `<div class="pk-big" style="left:${PKX[col]}%"></div>`;
+    prompt = PK.ai.phase === 'flash' ? '<b class="ap-q">Get ready…</b>' : '<b class="ap-q">Tap the goal where you dive. Side and height both matter</b>';
+    grid = goalHTML(false, last, ex);
   }
   setTimeout(pkBind, 0);
   return `<section class="card game" id="pk">${head}${prompt}${grid}${body}
     <p class="help">${last ? (last.you ? (last.goal ? '⚽ Goal!' : '🧤 Missed or saved!') : (last.goal ? '😬 AI scores' : '🧤 You saved it!')) : 'You shoot first. Then you keep goal.'} · Best: ${best} goals</p></section>`;
 }
-function pkBind() { const g = $('#pk-goal'); if (g && g.classList.contains('aim')) g.onpointerdown = e => { e.preventDefault(); pkTap(); }; }
+function pkBind() {
+  const g = $('#pk-goal'); if (!g) return;
+  if (g.classList.contains('aim')) g.onpointerdown = e => { e.preventDefault(); pkTap(); };
+  else if (g.classList.contains('keep')) g.onpointerdown = e => { e.preventDefault(); const r = g.getBoundingClientRect(); pkSave((e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height); };
+}
 function pkRerender() { const el = $('#pk'); if (el) el.outerHTML = pkHTML(); }
-function pkNew() { PK.k = 0; PK.rows = []; PK.last = null; PK.spd = 0.02; PK.phase = 'idle'; pkRerender(); }
+function pkNew() { PK.k = 0; PK.rows = []; PK.last = null; PK.spd = 0.02; PK.phase = 'idle'; PK.ai = null; pkRerender(); }
 function pkFinish() { const { y } = pkScore(); if (y > store.get('pk:best', 0)) store.set('pk:best', y); }
 function pkTip() { return { x: 0.5 + PK.ang * 0.45, y: 0.96 - PK.pow * 0.9 }; }
 function pkPaint() {
@@ -5900,12 +5913,17 @@ async function pkShoot(x, y) {
   PK.busy = false; if (PK.k >= 10) pkFinish(); pkRerender();
   toast(goal ? '⚽ <b>GOAL!</b>' : (inside ? '🧤 <b>Saved by the keeper!</b>' : '😬 <b>Missed the goal!</b>'));
 }
-function pkDive(z) {
-  if (PK.busy || PK.k >= 10 || pkYours()) return;
-  const x = Math.random(), y = 0.25 + Math.random() * 0.55, goal = pkCol(x) !== z;
-  PK.last = { x, y, dive: z, goal, you: false }; PK.rows.push(PK.last); PK.k++;
+function pkAiStart() {
+  PK.ai = { x: 0.05 + Math.random() * 0.9, y: 0.2 + Math.random() * 0.6, phase: 'flash' };
+  setTimeout(() => { if (PK.ai) { PK.ai.phase = 'pick'; pkRerender(); } }, 1000);
+}
+function pkSave(tx, ty) {
+  if (!PK.ai || PK.ai.phase !== 'pick' || PK.busy) return;
+  const a = PK.ai, saved = pkCol(tx) === pkCol(a.x) && Math.abs(ty - a.y) < 0.18;
+  PK.ai = null;
+  PK.last = { x: a.x, y: a.y, dive: pkCol(tx), goal: !saved, you: false }; PK.rows.push(PK.last); PK.k++;
   if (PK.k >= 10) pkFinish(); pkRerender();
-  toast(goal ? '😬 <b>AI scores</b>' : '🧤 <b>You saved it!</b>');
+  toast(saved ? '🧤 <b>You saved it!</b>' : '😬 <b>AI scores</b>');
 }
 
 /* Higher or lower: career goals for Barça (all competitions, roughly) */
@@ -6318,7 +6336,6 @@ document.addEventListener('click', e => {
     case 'quiz': quizAnswer(b.dataset.i); break;
     case 'gp': gpPick(b.dataset.id); break;
     case 'invite': inviteShare(); break;
-    case 'pk-dive': pkDive(b.dataset.z); break;
     case 'pk-new': pkNew(); break;
     case 'fr-accept': frAccept(b.dataset.id); break;
     case 'fr-remove': frRemove(b.dataset.id); break;
