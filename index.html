@@ -70,6 +70,18 @@ nav a,nav button,.btn,.chip{-webkit-user-select:none;user-select:none}
 .hl-row{display:flex;align-items:center;gap:10px;text-align:center}.hl-p{flex:1;display:grid;gap:2px;border:1px solid var(--line);border-radius:14px;padding:14px 8px}.hl-n{font-size:2rem;font-weight:800;color:var(--gold)}.hl-vs{font-family:var(--f-label);font-weight:800;color:var(--muted)}
 .qotd{padding:14px;display:grid;gap:8px;margin:0 0 12px}.hist-t{margin:0;line-height:1.5;font-size:1.02rem}
 .clasico{display:grid;gap:4px;padding:16px;margin:10px 0;border:1px solid var(--gold);text-align:center}.clasico b{font-size:2rem;font-variant-numeric:tabular-nums;color:var(--gold);font-family:var(--f-label)}
+.pk-goal2{position:relative;height:150px;margin:12px 0;border:3px solid #fff;border-bottom:none;border-radius:10px 10px 0 0;background:repeating-linear-gradient(90deg,rgba(255,255,255,.06) 0 2px,transparent 2px 22px),repeating-linear-gradient(0deg,rgba(255,255,255,.06) 0 2px,transparent 2px 22px),#14803c;overflow:hidden}
+.pk-grid{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:1fr 1fr;height:100%}
+.pk-cell{border:0;background:transparent;cursor:pointer}
+.pk-cell:hover{background:rgba(237,187,0,.28)}
+.pk-cell:disabled,span.pk-cell{cursor:default}
+.pk-keeper{position:absolute;bottom:2px;transform:translateX(-50%);font-size:38px;transition:left .35s;pointer-events:none}
+.pk-ball{position:absolute;transform:translate(-50%,-50%);font-size:26px;pointer-events:none}
+.pk-ball.in{filter:drop-shadow(0 0 6px #edbb00)}
+.duel-score{display:flex;justify-content:space-between;align-items:center;font-weight:700}
+.fr-row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0}
+.fr-btns{display:flex;gap:6px;flex-wrap:wrap}
+.fc-sub{margin:14px 0 6px;font-size:1rem}
 </style>
 <title>Culé Live</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -5587,13 +5599,13 @@ async function pxiSave() {
 
 async function viewGames() {
   PXI.sel = null;
-  const [gp, px] = await Promise.all([guessHTML().catch(() => ''), pxiHTML().catch(() => '')]);
+  const [gp, px, fh] = await Promise.all([guessHTML().catch(() => ''), pxiHTML().catch(() => ''), friendsHTML().catch(() => '')]);
   return `<div><h1 class="page-title">Games</h1><p class="page-sub">New games every day. Earn XP and level up.</p></div>
-    ${streakHTML()}${quizHTML()}${pkHTML()}${wordleHTML()}${hlHTML()}${gp}${px}${inviteHTML()}`;
+    ${streakHTML()}${quizHTML()}${pkHTML()}${fh}${wordleHTML()}${hlHTML()}${gp}${px}${inviteHTML()}`;
 }
 
-/* ===== Friends & 1v1 penalty duels (no chat) ===== */
-const Fr = { list: [], duels: [], open: null, dUnsub: null, dd: null, aim: 0, dir: 1, raf: 0, run: false };
+/* ===== Friends & 1v1 penalty duels (inside Games) ===== */
+const Fr = { list: [], duels: [], open: null, dUnsub: null, dd: null };
 const pairId = (a, b) => [a, b].sort().join('_');
 const frOther = f => (f.a === Acct.user?.uid ? f.b : f.a);
 const frName = f => '@' + (f.a === Acct.user?.uid ? f.bName : f.aName);
@@ -5624,13 +5636,13 @@ async function frRemove(id) { try { await Acct.m.deleteDoc(Acct.m.doc(Acct.db, '
 async function duelNew(fid) {
   const f = Fr.list.find(x => x.id === fid); if (!f) return;
   try {
-    const ref = await Acct.m.addDoc(Acct.m.collection(Acct.db, 'duels'), { a: Acct.user.uid, b: frOther(f), an: Prof.me?.username || '', bn: f.a === Acct.user.uid ? f.bName : f.aName, round: 0, ph: 'dive', dive: '', shot: -1, sa: 0, sb: 0, status: 'active', winner: '', lastGoal: false, lastZone: '', lastDive: '', at: Date.now(), updated: Date.now() });
-    duelOpen(ref.id); toast('Challenge sent! Shooter goes first.');
+    const ref = await Acct.m.addDoc(Acct.m.collection(Acct.db, 'duels'), { a: Acct.user.uid, b: frOther(f), an: Prof.me?.username || '', bn: f.a === Acct.user.uid ? f.bName : f.aName, round: 0, ph: 'dive', dive: '', shot: '', sa: 0, sb: 0, status: 'active', winner: '', lastGoal: false, lastZone: '', lastDive: '', at: Date.now(), updated: Date.now() });
+    duelOpen(ref.id); toast('Challenge sent! You shoot first.');
   } catch (e) { toast("Couldn't start the duel."); }
 }
 const DZ = { L: 'left', M: 'middle', R: 'right' };
 function duelOpen(id) { Fr.open = id; duelWatch(); }
-function duelClose() { if (Fr.dUnsub) Fr.dUnsub(); Fr.dUnsub = null; Fr.open = null; Fr.dd = null; cancelAnimationFrame(Fr.raf); Fr.run = false; const el = $('#duel'); if (el) el.outerHTML = '<div id="duel"></div>'; }
+function duelClose() { if (Fr.dUnsub) Fr.dUnsub(); Fr.dUnsub = null; Fr.open = null; Fr.dd = null; render(); }
 function duelWatch() {
   if (Fr.dUnsub) Fr.dUnsub(); const id = Fr.open; if (!id) return;
   Fr.dUnsub = Acct.m.onSnapshot(Acct.m.doc(Acct.db, 'duels', id), s => {
@@ -5643,52 +5655,49 @@ const isShooterOf = d => (d.round % 2 === 0 ? d.a : d.b) === Acct.user?.uid;
 function duelHTML() {
   const d = Fr.dd; if (!d) return '<div id="duel"></div>';
   const shooter = isShooterOf(d), nameA = '@' + (d.an || 'player1'), nameB = '@' + (d.bn || 'player2');
-  const last = d.round > 0 ? `<p class="help">Last shot: <b>${d.lastGoal ? '⚽ Goal' : '🧤 Saved'}</b> · keeper dived ${DZ[d.lastDive] || '?'}, shot went ${DZ[d.lastZone] || '?'}</p>` : '';
+  const lastShot = d.round > 0 && d.lastZone ? { c: d.lastZone[0], r: d.lastZone[1], goal: d.lastGoal } : null;
   const score = `<div class="duel-score"><b>${esc(nameA)}</b><span>${d.sa} – ${d.sb}</span><b>${esc(nameB)}</b></div>`;
-  let body;
+  let body, grid;
   if (d.status === 'over') {
     const txt = d.winner === 'draw' ? "It's a draw!" : d.winner === Acct.user?.uid ? '🏆 You won!' : 'You lost this one.';
-    body = `<b class="ap-q">${txt}</b><p class="help">Full time after 10 shots.</p>`;
+    grid = goalHTML(false, '', lastShot, d.lastDive); body = `<b class="ap-q">${txt}</b><p class="help">Full time after 10 shots.</p>`;
   } else if (d.ph === 'dive') {
-    body = shooter ? `<p class="help">Waiting for the keeper to choose a side…</p><div class="pk-bar"><span style="left:50%"></span></div>`
-      : `<p class="help">You are the keeper. Pick where to dive before the shot.</p><div class="row"><button class="btn btn-ghost" data-act="duel-dive" data-z="L">⬅️ Left</button><button class="btn btn-ghost" data-act="duel-dive" data-z="M">⏺ Stay</button><button class="btn btn-ghost" data-act="duel-dive" data-z="R">➡️ Right</button></div>`;
+    grid = goalHTML(false, '', lastShot, d.lastDive);
+    body = shooter ? '<p class="help">Your friend is choosing where to dive…</p>'
+      : '<p class="help">You are the keeper. Pick a side before they shoot.</p><div class="row"><button class="btn btn-ghost" data-act="duel-dive" data-z="L">⬅️ Left</button><button class="btn btn-ghost" data-act="duel-dive" data-z="M">⏺ Middle</button><button class="btn btn-ghost" data-act="duel-dive" data-z="R">➡️ Right</button></div>';
   } else {
-    body = shooter ? `<p class="help">Stop the bar in a corner. The keeper has dived, so pick the other side!</p><div class="pk-bar"><span id="du-cur"></span></div><button class="btn btn-primary wide" data-act="duel-shoot">SHOOT!</button>`
-      : `<p class="help">Shot taken. Waiting for the result…</p>`;
+    grid = goalHTML(shooter, 'duel-shot', lastShot, '');
+    body = shooter ? '<p class="help">Tap a spot in the goal. Your friend has picked their side.</p>' : '<p class="help">Shot taken. Waiting for the result…</p>';
   }
-  setTimeout(() => { if (d.status === 'active' && d.ph === 'shoot' && shooter) duelAimStart(); }, 0);
-  return `<section class="card game" id="duel"><small class="nw-tag">PENALTY DUEL · SHOT ${Math.min(d.round + 1, 10)}/10</small>${score}${body}${last}
-    <button class="btn btn-ghost btn-sm" data-act="duel-close">Close</button></section>`;
+  const last = lastShot ? `<p class="help">Last shot: <b>${lastShot.goal ? '⚽ Goal' : '🧤 Saved'}</b> · keeper went ${DZ[d.lastDive] || '?'}</p>` : '';
+  return `<section class="card game" id="duel"><small class="nw-tag">PENALTY DUEL · SHOT ${Math.min(d.round + 1, 10)}/10</small>${score}${grid}${body}${last}
+    <button class="btn btn-ghost btn-sm" data-act="duel-close">Close duel</button></section>`;
 }
-function duLoop() { const cur = $('#du-cur'); if (!cur || !Fr.run) return; Fr.aim += Fr.dir * 0.022; if (Fr.aim >= 1) { Fr.aim = 1; Fr.dir = -1; } if (Fr.aim <= 0) { Fr.aim = 0; Fr.dir = 1; } cur.style.left = `calc(${(Fr.aim * 100).toFixed(1)}% - 10px)`; Fr.raf = requestAnimationFrame(duLoop); }
-function duelAimStart() { if (Fr.run || !$('#du-cur')) return; Fr.run = true; Fr.aim = Math.random(); Fr.dir = Math.random() < .5 ? 1 : -1; duLoop(); }
 async function duelDive(z) {
   const d = Fr.dd; if (!d || d.ph !== 'dive' || isShooterOf(d)) return;
   try { await Acct.m.updateDoc(Acct.m.doc(Acct.db, 'duels', d.id), { dive: z, ph: 'shoot', updated: Date.now() }); } catch (e) { toast("Couldn't dive. Try again."); }
 }
-async function duelShot() {
+async function duelShot(c, r) {
   const d = Fr.dd; if (!d || d.ph !== 'shoot' || !isShooterOf(d)) return;
-  const pos = Fr.aim; Fr.run = false; cancelAnimationFrame(Fr.raf);
-  const zone = pos < .3 ? 'L' : pos > .7 ? 'R' : 'M', goal = zone !== 'M' && zone !== d.dive, shooterA = d.round % 2 === 0;
+  const goal = c !== d.dive, shooterA = d.round % 2 === 0;
   const sa = d.sa + (goal && shooterA ? 1 : 0), sb = d.sb + (goal && !shooterA ? 1 : 0), round = d.round + 1, over = round >= 10;
-  try { await Acct.m.updateDoc(Acct.m.doc(Acct.db, 'duels', d.id), { shot: pos, lastZone: zone, lastDive: d.dive, lastGoal: goal, sa, sb, round, dive: '', ph: over ? 'over' : 'dive', status: over ? 'over' : 'active', winner: over ? (sa > sb ? d.a : sb > sa ? d.b : 'draw') : '', updated: Date.now() }); }
+  try { await Acct.m.updateDoc(Acct.m.doc(Acct.db, 'duels', d.id), { shot: '', lastZone: c + r, lastDive: d.dive, lastGoal: goal, sa, sb, round, dive: '', ph: over ? 'over' : 'dive', status: over ? 'over' : 'active', winner: over ? (sa > sb ? d.a : sb > sa ? d.b : 'draw') : '', updated: Date.now() }); }
   catch (e) { toast("Couldn't take the shot."); }
 }
-async function viewFriends() {
+async function friendsHTML() {
   const u = Acct.user;
-  const head = `<div><h1 class="page-title">Friends</h1><p class="page-sub">Challenge friends to a 1v1 penalty shootout. No chat, just the game.</p></div>`;
-  if (!u || u.isAnonymous) return `${head}<div class="empty-card"><b>Sign in to add friends</b><p>Create an account to challenge your friends.</p></div>`;
+  if (!u || u.isAnonymous) return '<section class="form-card"><h2 class="fc-title">Friends & duels</h2><p class="help">Sign in to add friends and challenge them to penalty duels.</p></section>';
   await frLoad().catch(() => {});
   const inc = Fr.list.filter(f => f.status === 'pending' && f.from !== u.uid), out = Fr.list.filter(f => f.status === 'pending' && f.from === u.uid), fr = Fr.list.filter(f => f.status === 'ok');
   const row = (f, btns) => `<div class="fr-row"><span data-notr>${esc(frName(f))}</span><span class="fr-btns">${btns}</span></div>`;
   setTimeout(() => { if (Fr.open) duelWatch(); }, 0);
-  return `${head}
-    <section class="form-card"><h2 class="fc-title">Add a friend</h2><form id="fr-form" class="chat-form"><input id="fr-in" autocomplete="off" placeholder="Their @username"><button class="btn btn-primary" type="submit">Send request</button></form></section>
-    ${inc.length ? `<section class="form-card"><h2 class="fc-title">Requests</h2>${inc.map(f => row(f, `<button class="btn btn-primary btn-sm" data-act="fr-accept" data-id="${esc(f.id)}">Accept</button><button class="btn btn-ghost btn-sm" data-act="fr-remove" data-id="${esc(f.id)}">Decline</button>`)).join('')}</section>` : ''}
-    <section class="form-card"><h2 class="fc-title">Friends</h2>${fr.length ? fr.map(f => row(f, `<button class="btn btn-primary btn-sm" data-act="fr-challenge" data-id="${esc(f.id)}">⚽ Challenge</button><button class="btn btn-ghost btn-sm" data-act="fr-remove" data-id="${esc(f.id)}">Remove</button>`)).join('') : '<p class="help">No friends yet. Send a request above.</p>'}
-      ${out.length ? `<p class="help">Pending: ${out.map(frName).map(esc).join(', ')}</p>` : ''}</section>
-    <section class="form-card"><h2 class="fc-title">Duels</h2>${Fr.duels.length ? Fr.duels.map(d => { const yours = isShooterOf(d) ? 'Your shot' : 'Your keeper dive'; return `<div class="fr-row"><span>${d.status === 'over' ? (d.winner === u.uid ? '🏆 Won' : d.winner === 'draw' ? '🤝 Draw' : '❌ Lost') : `⚽ ${esc(yours)}`} · ${d.sa}–${d.sb}</span><button class="btn btn-ghost btn-sm" data-act="duel-open" data-id="${esc(d.id)}">Open</button></div>`; }).join('') : '<p class="help">No duels yet.</p>'}
-      <div id="duel-slot">${Fr.open ? '<div id="duel"></div>' : ''}</div></section>`;
+  return `<section class="form-card"><h2 class="fc-title">Friends & duels</h2><p class="help">1v1 penalty shootouts. No chat, just the game.</p>
+    <form id="fr-form" class="chat-form"><input id="fr-in" autocomplete="off" placeholder="Their @username"><button class="btn btn-primary" type="submit">Add friend</button></form>
+    ${inc.length ? `<h3 class="fc-sub">Requests</h3>${inc.map(f => row(f, `<button class="btn btn-primary btn-sm" data-act="fr-accept" data-id="${esc(f.id)}">Accept</button><button class="btn btn-ghost btn-sm" data-act="fr-remove" data-id="${esc(f.id)}">Decline</button>`)).join('')}` : ''}
+    <h3 class="fc-sub">Friends</h3>${fr.length ? fr.map(f => row(f, `<button class="btn btn-primary btn-sm" data-act="fr-challenge" data-id="${esc(f.id)}">⚽ Challenge</button><button class="btn btn-ghost btn-sm" data-act="fr-remove" data-id="${esc(f.id)}">Remove</button>`)).join('') : '<p class="help">No friends yet. Add one above.</p>'}
+    ${out.length ? `<p class="help">Pending: ${out.map(frName).map(esc).join(', ')}</p>` : ''}
+    <h3 class="fc-sub">Duels</h3>${Fr.duels.length ? Fr.duels.map(d => `<div class="fr-row"><span>${d.status === 'over' ? (d.winner === u.uid ? '🏆 Won' : d.winner === 'draw' ? '🤝 Draw' : '❌ Lost') : (isShooterOf(d) ? '⚽ Your shot' : '🧤 Your dive')} · ${d.sa}–${d.sb}</span><button class="btn btn-ghost btn-sm" data-act="duel-open" data-id="${esc(d.id)}">Open</button></div>`).join('') : '<p class="help">No duels yet.</p>'}
+    <div id="duel-slot">${Fr.open ? '<div id="duel"></div>' : ''}</div></section>`;
 }
 
 /* ===== Invite rewards, achievements, mentions, fan of the week, search ===== */
@@ -5811,35 +5820,38 @@ async function searchRun(raw) {
 }
 
 /* ===== Penalty shootout, Higher/Lower, QOTD, history, Clásico countdown, MVP vote, Wrapped, streak freeze ===== */
-const PK = { run: false, pos: 0, dir: 1, raf: 0 };
+const PK = { busy: false, last: null };
+const PKC = ['L', 'M', 'R'], PKX = { L: 20, M: 50, R: 80 }, PKY = { t: 28, b: 72 };
+function goalHTML(canAim, aimAct, last, dive) {
+  const cells = ['t', 'b'].flatMap(r => PKC.map(c => canAim
+    ? `<button class="pk-cell" data-act="${aimAct}" data-c="${c}" data-r="${r}" aria-label="Shoot ${c === 'L' ? 'left' : c === 'R' ? 'right' : 'middle'}, ${r === 't' ? 'high' : 'low'}"></button>`
+    : '<span class="pk-cell"></span>')).join('');
+  const kx = dive ? PKX[dive] : 50;
+  const ball = last ? `<span class="pk-ball ${last.goal ? 'in' : ''}" style="left:${PKX[last.c]}%;top:${PKY[last.r]}%">⚽</span>` : '';
+  return `<div class="pk-goal2"><div class="pk-grid">${cells}</div>${ball}<span class="pk-keeper" style="left:${kx}%">🧤</span></div>`;
+}
 const pkKey = () => 'pk:' + dayKey();
 function pkHTML() {
   const st = store.get(pkKey(), { s: [] }), done = st.s.length >= 5, score = st.s.filter(Boolean).length;
-  return `<section class="card game" id="pk"><small class="nw-tag">PENALTY SHOOTOUT</small><b class="ap-q">Stop the bar in a corner to score</b>
-    <div class="pk-balls">${[0, 1, 2, 3, 4].map(i => `<span>${i < st.s.length ? (st.s[i] ? '⚽' : '❌') : '·'}</span>`).join('')}</div>
-    <div class="pk-goal"><span class="pk-zone l"></span><span class="pk-mid">🧤</span><span class="pk-zone r"></span></div>
-    <div class="pk-bar"><span id="pk-cur"></span></div>
-    ${done ? `<p class="help">You scored <b>${score}/5</b> today${score >= 4 ? ' 🔥' : ''}. New shootout tomorrow.</p>`
-      : `<button class="btn btn-primary wide" data-act="pk-shoot">${PK.run ? 'SHOOT!' : st.s.length ? `Shot ${st.s.length + 1} of 5` : 'Start · shot 1 of 5'}</button>
-    <p class="help">Green corners = goal. The middle is the keeper. +2 XP per goal.</p>`}</section>`;
+  const last = st.s.length ? PK.last : null;
+  return `<section class="card game" id="pk"><small class="nw-tag">PENALTY SHOOTOUT · VS AI KEEPER</small>
+    <b class="ap-q">${done ? `You scored ${score}/5${score >= 4 ? ' 🔥' : ''}` : `Shot ${st.s.length + 1} of 5 · tap a spot in the goal`}</b>
+    ${goalHTML(!done && !PK.busy, 'pk-shot', last, last?.dive)}
+    <p class="help">${last ? (last.goal ? '⚽ Goal!' : '🧤 Saved!') + ' ' : ''}${done ? 'New shootout tomorrow.' : 'The AI keeper dives after you shoot. +2 XP per goal.'}</p>
+    <div class="pk-balls">${[0, 1, 2, 3, 4].map(i => `<span>${i < st.s.length ? (st.s[i] ? '⚽' : '❌') : '·'}</span>`).join('')}</div></section>`;
 }
-function pkLoop(ts) {
-  const cur = $('#pk-cur'); if (!cur || !PK.run) return;
-  PK.pos += PK.dir * 0.022; if (PK.pos >= 1) { PK.pos = 1; PK.dir = -1; } if (PK.pos <= 0) { PK.pos = 0; PK.dir = 1; }
-  cur.style.left = `calc(${(PK.pos * 100).toFixed(1)}% - 10px)`;
-  PK.raf = requestAnimationFrame(pkLoop);
-}
-async function pkShoot(b) {
-  const st = store.get(pkKey(), { s: [] }); if (st.s.length >= 5) return;
-  if (!PK.run) { PK.run = true; PK.pos = Math.random(); PK.dir = Math.random() < .5 ? 1 : -1; b.textContent = 'SHOOT!'; cancelAnimationFrame(PK.raf); pkLoop(); return; }
-  PK.run = false; cancelAnimationFrame(PK.raf);
-  const p = PK.pos, goal = (p >= 0.04 && p <= 0.30) || (p >= 0.70 && p <= 0.96);
-  st.s.push(goal); store.set(pkKey(), st);
-  toast(goal ? '⚽ <b>GOOOAL!</b>' : p > 0.3 && p < 0.7 ? '🧤 Saved by the keeper' : '😬 Off target');
-  if (goal) xpAdd(2);
-  if (st.s.length >= 5) { const sc = st.s.filter(Boolean).length; const me = await fanMe(); if (me && sc > (me.pk || 0)) { try { await fanSave({ pk: sc }); } catch (e) {} } }
+async function pkShot(c, r) {
+  const k = pkKey(), st = store.get(k, { s: [] }); if (PK.busy || st.s.length >= 5) return;
+  PK.busy = true;
+  const dive = PKC[Math.floor(Math.random() * 3)], goal = c !== dive;
+  PK.last = { c, r, dive, goal }; st.s.push(goal); store.set(k, st);
+  PK.busy = false;
   const el = $('#pk'); if (el) el.outerHTML = pkHTML();
+  toast(goal ? '⚽ <b>GOAL!</b>' : '🧤 <b>Saved by the AI keeper!</b>');
+  if (goal) xpAdd(2);
+  if (st.s.length >= 5) { const sc = st.s.filter(Boolean).length, me = await fanMe(); if (me && sc > (me.pk || 0)) { try { await fanSave({ pk: sc }); } catch (e) {} } }
 }
+
 /* Higher or lower: career goals for Barça (all competitions, roughly) */
 const HLP = [['Lionel Messi', 672], ['Luis Suárez', 198], ['César Rodríguez', 232], ['László Kubala', 194], ['Josep Samitier', 184], ["Samuel Eto'o", 130], ['Rivaldo', 136], ['Ronaldinho', 94], ['Neymar', 105], ['Thierry Henry', 49], ['Johan Cruyff', 60], ['Diego Maradona', 38], ['Romário', 39], ['Hristo Stoichkov', 117], ['Gary Lineker', 42], ['Ronald Koeman', 88], ['Pedro', 99], ['David Villa', 48], ['Zlatan Ibrahimović', 22], ['Antoine Griezmann', 35], ['Ousmane Dembélé', 40], ['Robert Lewandowski', 83], ['Rafael Márquez', 13], ['Carles Puyol', 18], ['Xavi', 85], ['Andrés Iniesta', 57], ['Sergio Busquets', 19], ['Gerard Piqué', 53], ['Luis Figo', 45], ['Patrick Kluivert', 122]];
 const HL = { a: null, b: null, n: 0, over: false };
@@ -6011,8 +6023,8 @@ function viewSetup() {
 }
 
 /* ---------- 8. Buttons, router and start-up ---------- */
-const VIEWS = { home: viewHome, matches: viewMatches, table: viewTable, squad: viewSquad, options: viewOptions, dev: viewSetup, match: viewMatch, xi: viewXI, chat: viewChat, news: viewNews, games: viewGames, friends: viewFriends, search: viewSearch, members: viewMembers, leagues: viewLeagues, feedback: viewFeedback };
-const NAV = [['home', 'Home'], ['matches', 'Matches'], ['table', 'Table'], ['squad', 'Squad'], ['news', 'News'], ['games', 'Games'], ['friends', 'Friends'], ['chat', 'Chat'], ['options', 'Settings']];
+const VIEWS = { home: viewHome, matches: viewMatches, table: viewTable, squad: viewSquad, options: viewOptions, dev: viewSetup, match: viewMatch, xi: viewXI, chat: viewChat, news: viewNews, games: viewGames, search: viewSearch, members: viewMembers, leagues: viewLeagues, feedback: viewFeedback };
+const NAV = [['home', 'Home'], ['matches', 'Matches'], ['table', 'Table'], ['squad', 'Squad'], ['news', 'News'], ['games', 'Games'], ['chat', 'Chat'], ['options', 'Settings']];
 const HIDDEN = { dev: 'dev', setup: 'options', xi: 'xi', members: 'members', leagues: 'leagues', feedback: 'feedback', search: 'search' }; // #dev = developer page, old #setup links go to Settings
 function route() {
   const h = location.hash.slice(1);
@@ -6250,14 +6262,14 @@ document.addEventListener('click', e => {
     case 'quiz': quizAnswer(b.dataset.i); break;
     case 'gp': gpPick(b.dataset.id); break;
     case 'invite': inviteShare(); break;
-    case 'pk-shoot': pkShoot(b); break;
+    case 'pk-shot': pkShot(b.dataset.c, b.dataset.r); break;
     case 'fr-accept': frAccept(b.dataset.id); break;
     case 'fr-remove': frRemove(b.dataset.id); break;
     case 'fr-challenge': duelNew(b.dataset.id); break;
     case 'duel-open': duelOpen(b.dataset.id); { const sl = $('#duel-slot'); if (sl) sl.innerHTML = '<div id="duel"></div>'; } break;
     case 'duel-close': duelClose(); break;
     case 'duel-dive': duelDive(b.dataset.z); break;
-    case 'duel-shoot': duelShot(); break;
+    case 'duel-shot': duelShot(b.dataset.c, b.dataset.r); break;
     case 'hl': hlGuess(b.dataset.g); break;
     case 'hl-again': hlStart(); { const el = $('#hl'); if (el) el.outerHTML = hlHTML(); } break;
     case 'qotd': qotdFill(); break;
