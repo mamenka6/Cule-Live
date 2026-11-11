@@ -199,12 +199,12 @@ service cloud.firestore {
 
     // Fan cards, XP, quiz points, weekly points: each person writes only their own; XP can only go up a little at a time
     function validFan(d) {
-      return d.keys().hasOnly(['inv', 'msgs', 'ls', 'lday', 'pic', 'emoji', 'color', 'fav', 'num', 'bio', 'xp', 'qpts', 'qday', 'w0k', 'w0', 'w1k', 'w1', 'at'])
+      return d.keys().hasOnly(['pk', 'lfz', 'inv', 'msgs', 'ls', 'lday', 'pic', 'emoji', 'color', 'fav', 'num', 'bio', 'xp', 'qpts', 'qday', 'w0k', 'w0', 'w1k', 'w1', 'at'])
         && d.get('pic', '') is string && d.get('pic', '').size() <= 80000
         && d.emoji is string && d.emoji.size() <= 8 && d.color is string && d.color.size() <= 9
         && d.fav is string && d.fav.size() <= 30 && d.bio is string && d.bio.size() <= 100
         && d.num is int && d.num >= 0 && d.num <= 99 && d.xp is int && d.qpts is int
-        && d.get('ls', 0) is int && d.w0 is int && d.w0 <= 60 && d.w1 is int && d.w1 <= 60;
+        && d.get('ls', 0) is int && d.get('pk', 0) is int && d.get('lfz', '') is string && d.w0 is int && d.w0 <= 60 && d.w1 is int && d.w1 <= 60;
     }
     // Profile pictures: owners and admins for now (premium later). Anyone can remove theirs.
     function picOk(d) { return d.get('pic', '') == '' || isAdmin() || (resource != null && d.get('pic', '') == resource.data.get('pic', '')); }
@@ -250,6 +250,16 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Fan MVP of the month: one vote per signed-in person per month
+    match /mvp/{m}/votes/{uid} {
+      allow read: if true;
+      allow create, update: if request.auth != null && request.auth.uid == uid && request.auth.token.firebase.sign_in_provider != 'anonymous'
+        && request.resource.data.keys().hasOnly(['pid', 'name', 'at'])
+        && request.resource.data.pid is string && request.resource.data.pid.size() <= 40
+        && request.resource.data.name is string && request.resource.data.name.size() <= 40;
+      allow delete: if isAdmin();
+    }
+
     // Player of the match fan vote: one vote per person per match, results public
     match /potm/{matchId}/votes/{uid} {
       allow read: if true;
@@ -257,6 +267,40 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly(['pid', 'name', 'at'])
         && request.resource.data.pid is string && request.resource.data.pid.size() <= 40;
       allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Friends: a request (pending) from one person, accepted (ok) by the other. Only the two of them can see it.
+    match /friends/{id} {
+      allow read, delete: if request.auth != null && (resource.data.a == request.auth.uid || resource.data.b == request.auth.uid);
+      allow create: if request.auth != null && request.resource.data.from == request.auth.uid
+        && (request.resource.data.a == request.auth.uid || request.resource.data.b == request.auth.uid)
+        && request.resource.data.status == 'pending'
+        && request.resource.data.keys().hasOnly(['a', 'b', 'aName', 'bName', 'from', 'status', 'at']);
+      allow update: if request.auth != null && resource.data.status == 'pending' && request.auth.uid != resource.data.from
+        && (resource.data.a == request.auth.uid || resource.data.b == request.auth.uid)
+        && request.resource.data.status == 'ok' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'at']);
+    }
+
+    // 1v1 penalty duels. Challenger (a) shoots on even rounds, friend (b) keeps goal; roles swap on odd rounds.
+    // Keeper picks a dive (ph: dive -> shoot), shooter takes the shot (ph: shoot -> dive, or over after 10).
+    function isShooter(d) { return (d.round % 2 == 0 && request.auth.uid == d.a) || (d.round % 2 == 1 && request.auth.uid == d.b); }
+    function isKeeper(d) { return (d.round % 2 == 0 && request.auth.uid == d.b) || (d.round % 2 == 1 && request.auth.uid == d.a); }
+    match /duels/{id} {
+      allow read: if request.auth != null && (resource.data.a == request.auth.uid || resource.data.b == request.auth.uid);
+      allow create: if request.auth != null && request.resource.data.a == request.auth.uid && request.resource.data.b is string
+        && request.resource.data.b != request.auth.uid && request.resource.data.round == 0 && request.resource.data.ph == 'dive'
+        && request.resource.data.status == 'active' && request.resource.data.sa == 0 && request.resource.data.sb == 0
+        && request.resource.data.keys().hasOnly(['a', 'b', 'an', 'bn', 'round', 'ph', 'dive', 'shot', 'sa', 'sb', 'status', 'winner', 'lastGoal', 'lastZone', 'lastDive', 'at', 'updated']);
+      allow update: if request.auth != null && resource.data.status == 'active' && (
+        (resource.data.ph == 'dive' && isKeeper(resource.data)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['dive', 'ph', 'updated'])
+          && request.resource.data.ph == 'shoot' && request.resource.data.dive in ['L', 'M', 'R'])
+        || (resource.data.ph == 'shoot' && isShooter(resource.data)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['shot', 'ph', 'round', 'sa', 'sb', 'status', 'winner', 'lastGoal', 'lastZone', 'lastDive', 'dive', 'updated'])
+          && request.resource.data.round == resource.data.round + 1 && request.resource.data.ph in ['dive', 'over']
+          && request.resource.data.sa - resource.data.sa <= 1 && request.resource.data.sb - resource.data.sb <= 1)
+      );
+      allow delete: if false;
     }
   }
 }
