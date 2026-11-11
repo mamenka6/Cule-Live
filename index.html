@@ -113,6 +113,9 @@ nav a,nav button,.btn,.chip{-webkit-user-select:none;user-select:none}
 .pk-goal2{background:linear-gradient(#9fd8ff 0 28%,#4a5d6b 28% 36%,#1f8a3b 36%)}
 .pk-keeper.keeper-move{animation:pkmove .6s cubic-bezier(.3,.6,.4,1) both}
 .pk-keeper.dive-l,.pk-keeper.dive-r{animation-duration:.45s}
+.pk-keeper{position:absolute;bottom:0;transform:translateX(-50%);z-index:2;pointer-events:none;font-size:0}
+.pk-keeper.keeper-move{bottom:auto;top:var(--ky);left:var(--kx);animation:pkmove .55s cubic-bezier(.3,.6,.4,1) both}
+@keyframes pkmove{from{left:50%;top:85%;transform:translate(-50%,-50%)}to{left:var(--kx);top:var(--ky);transform:translate(-50%,-50%) rotate(var(--rot))}}
 </style>
 <title>Culé Live</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -5850,19 +5853,20 @@ async function searchRun(raw) {
 }
 
 /* ===== Penalty shootout, Higher/Lower, QOTD, history, Clásico countdown, MVP vote, Wrapped, streak freeze ===== */
-const PK = { busy: false, k: 0, rows: [], last: null, ai: null, hold: false, phase: 'idle', ang: 0, angDir: 1, pow: 0, powDir: 1, spd: 0.02, raf: 0 };
-const PKX = { L: 20, M: 50, R: 80 }, PKC = ['L', 'M', 'R'];
+const PK = { busy: false, k: 0, rows: [], last: null, ai: null, hold: false, sweep: false, x: 0.5, y: 0.5, vx: 1, vy: 1, spd: 0.012, raf: 0 };
+const PKX = { L: 20, M: 50, R: 80 };
 const pkYours = () => PK.k % 2 === 0;
 const pkCol = x => (x < 1 / 3 ? 'L' : x < 2 / 3 ? 'M' : 'R');
-const PK_KEEPER = '<svg viewBox="0 0 40 60" width="36" height="54" aria-hidden="true"><circle cx="20" cy="9" r="6" fill="#c8793a"/><path d="M10 17h20l3 22H7z" fill="#f97316"/><path d="M14 17l6 9 6-9" fill="#fde047" opacity=".5"/><rect x="9" y="38" width="22" height="9" fill="#111"/><rect x="11" y="46" width="7" height="13" fill="#c8793a"/><rect x="22" y="46" width="7" height="13" fill="#c8793a"/><circle cx="5" cy="24" r="4.5" fill="#fde047"/><circle cx="35" cy="24" r="4.5" fill="#fde047"/></svg>';
+const PK_KEEPER = '<svg viewBox="0 0 40 60" width="36" height="54" aria-hidden="true"><circle cx="20" cy="9" r="6" fill="#c8793a"/><path d="M10 17h20l3 22H7z" fill="#f97316"/><rect x="9" y="38" width="22" height="9" fill="#111"/><rect x="11" y="46" width="7" height="13" fill="#c8793a"/><rect x="22" y="46" width="7" height="13" fill="#c8793a"/><circle cx="5" cy="24" r="4.5" fill="#fde047"/><circle cx="35" cy="24" r="4.5" fill="#fde047"/></svg>';
 function goalHTML(canAim, last, extra = '') {
-  const dv = last && last.dive ? last.dive : '';
-  const kx = dv ? PKX[dv] : 50;
-  const res = last ? `<b class="pk-res">${last.goal ? 'GOAL!' : (last.you && !last.inside ? 'MISS!' : 'SAVED!')}</b>` : '';
+  const kx = last && last.kx != null ? last.kx : 0.5;
+  const rot = last && last.kx != null ? (last.kx - 0.5) * 160 : 0;
   const ball = last ? `<span class="pk-ball fly ${last.goal ? 'in' : ''}" style="--tx:${last.x * 100}%;--ty:${last.y * 100}%">⚽</span>` : '';
+  const res = last ? `<b class="pk-res">${last.goal ? 'GOAL!' : (last.you && !last.inside ? 'MISS!' : 'SAVED!')}</b>` : '';
   const aim = canAim ? '<svg class="pk-arrowsvg" id="pk-arr" viewBox="0 0 100 100" preserveAspectRatio="none"><line id="pk-line" x1="50" y1="96" x2="50" y2="96" stroke="#d9f99d" stroke-width="2.6" stroke-linecap="round"/></svg><span class="pk-tgt" id="pk-tgt"></span>' : '';
-  const hint = canAim ? '<p class="pk-hint" id="pk-hint">Tap to lock the direction, then tap again to power the shot.</p>' : '';
-  return `<div class="pk-goal2 ${canAim ? 'aim' : ''} ${extra ? 'keep' : ''}" id="pk-goal"><div class="pk-net"></div>${aim}${extra}${ball}${res}<span class="pk-keeper ${last && last.kx != null ? 'keeper-move' : (dv ? 'dive-' + dv.toLowerCase() : '')}" style="${last && last.kx != null ? `--kx:${last.kx * 100}%;--ky:${last.ky * 100}%;--rot:${(last.kx - 0.5) * 60}deg` : `left:${kx}%`}">${PK_KEEPER}</span></div>${hint}`;
+  const hint = canAim ? '<p class="pk-hint" id="pk-hint">Press and hold to start. Let go to shoot.</p>' : '';
+  const kcls = last && last.kx != null ? 'keeper-move' : '';
+  return `<div class="pk-goal2 ${canAim ? 'aim' : ''} ${extra ? 'keep' : ''}" id="pk-goal"><div class="pk-net"></div>${aim}${extra}${ball}${res}<span class="pk-keeper ${kcls}" style="${last && last.kx != null ? `--kx:${kx * 100}%;--ky:${last.ky * 100}%;--rot:${rot}deg` : 'left:50%'}">${PK_KEEPER}</span></div>${hint}`;
 }
 function pkScore() { return { y: PK.rows.filter(x => x.you && x.goal).length, a: PK.rows.filter(x => !x.you && x.goal).length }; }
 function pkHTML() {
@@ -5882,7 +5886,7 @@ function pkHTML() {
     const col = pkCol(PK.ai.x), ex = PK.ai.phase === 'flash'
       ? `<div class="pk-flash" style="left:${PKX[col]}%"></div><b class="pk-flashtxt">AI shoots ${DZ[col]}!</b>`
       : `<div class="pk-big" style="left:${PKX[col]}%"></div>`;
-    prompt = PK.ai.phase === 'flash' ? '<b class="ap-q">Get ready…</b>' : '<b class="ap-q">Tap the goal where you dive. Side and height both matter</b>';
+    prompt = PK.ai.phase === 'flash' ? '<b class="ap-q">Get ready…</b>' : '<b class="ap-q">Tap the exact spot to dive. Side and height both matter</b>';
     grid = goalHTML(false, last, ex);
   }
   setTimeout(pkBind, 0);
@@ -5891,45 +5895,49 @@ function pkHTML() {
 }
 function pkBind() {
   const g = $('#pk-goal'); if (!g) return;
-  if (g.classList.contains('aim')) g.onpointerdown = e => { e.preventDefault(); pkTap(); };
+  if (g.classList.contains('aim')) g.onpointerdown = e => { e.preventDefault(); pkDown(); };
   else if (g.classList.contains('keep')) g.onpointerdown = e => { e.preventDefault(); const r = g.getBoundingClientRect(); pkSave((e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height); };
 }
 function pkRerender() { const el = $('#pk'); if (el) el.outerHTML = pkHTML(); }
-function pkNew() { PK.k = 0; PK.rows = []; PK.last = null; PK.spd = 0.02; PK.phase = 'idle'; PK.ai = null; PK.hold = false; pkRerender(); }
-function pkWait() { PK.hold = true; pkRerender(); setTimeout(() => { PK.hold = false; pkRerender(); }, 1800); }
+function pkNew() { PK.k = 0; PK.rows = []; PK.last = null; PK.spd = 0.012; PK.ai = null; PK.hold = false; PK.sweep = false; pkRerender(); }
 function pkFinish() { const { y } = pkScore(); if (y > store.get('pk:best', 0)) store.set('pk:best', y); }
-function pkTip() { return { x: 0.5 + PK.ang * 0.45, y: 0.96 - PK.pow * 0.9 }; }
+function pkWait() { PK.hold = true; pkRerender(); setTimeout(() => { PK.hold = false; pkRerender(); }, 1800); }
 function pkPaint() {
   const ln = $('#pk-line'); if (!ln) return;
-  const t = pkTip(); ln.setAttribute('x2', (t.x * 100).toFixed(2)); ln.setAttribute('y2', (t.y * 100).toFixed(2));
-  const tg = $('#pk-tgt'); if (tg) { tg.style.left = (t.x * 100) + '%'; tg.style.top = (t.y * 100) + '%'; tg.style.opacity = PK.phase === 'idle' ? 0 : 1; }
-  const h = $('#pk-hint'); if (h) h.textContent = PK.phase === 'angle' ? 'Tap to lock the direction.' : 'Tap to shoot. The arrow is your power.';
+  ln.setAttribute('x2', (PK.x * 100).toFixed(2)); ln.setAttribute('y2', (PK.y * 100).toFixed(2));
+  const tg = $('#pk-tgt'); if (tg) { tg.style.left = (PK.x * 100) + '%'; tg.style.top = (PK.y * 100) + '%'; }
 }
-function pkLoop() {
-  if (PK.phase === 'angle') { PK.ang += PK.angDir * PK.spd * 1.5; if (PK.ang >= 1.2) { PK.ang = 1.2; PK.angDir = -1; } if (PK.ang <= -1.2) { PK.ang = -1.2; PK.angDir = 1; } }
-  if (PK.phase === 'power') { PK.pow += PK.powDir * PK.spd * 1.2; if (PK.pow >= 1) { PK.pow = 1; PK.powDir = -1; } if (PK.pow <= 0) { PK.pow = 0; PK.powDir = 1; } }
-  if (PK.phase === 'idle') return;
-  pkPaint(); PK.raf = requestAnimationFrame(pkLoop);
-}
-function pkTap() {
-  if (PK.busy || PK.k >= 10 || !pkYours()) return;
+function pkDown() {
+  if (PK.busy || PK.sweep || PK.k >= 10 || !pkYours()) return;
   if (Fr.open && Fr.dd && Fr.dd.status === 'active' && !isShooterOf(Fr.dd)) return;
-  if (PK.phase === 'idle') { PK.phase = 'angle'; PK.ang = 0; PK.angDir = Math.random() < .5 ? 1 : -1; PK.pow = 0; PK.powDir = 1; PK.raf = requestAnimationFrame(pkLoop); }
-  else if (PK.phase === 'angle') { PK.phase = 'power'; PK.pow = 0; }
-  else if (PK.phase === 'power') {
-    cancelAnimationFrame(PK.raf); PK.phase = 'idle'; const t = pkTip();
-    if (Fr.open && Fr.dd) duelShot(t.x, t.y); else pkShoot(t.x, t.y);
-  }
+  PK.sweep = true; PK.x = 0.5; PK.y = 0.5; PK.vx = Math.random() < .5 ? 1 : -1; PK.vy = 1;
+  const step = () => {
+    if (!PK.sweep) return;
+    PK.x += PK.vx * PK.spd * 1.4; PK.y -= PK.vy * PK.spd * 0.9;
+    if (PK.x >= 1.08) { PK.x = 1.08; PK.vx = -1; } if (PK.x <= -0.08) { PK.x = -0.08; PK.vx = 1; }
+    if (PK.y <= 0.02) { PK.y = 0.02; PK.vy = -1; } if (PK.y >= 0.98) { PK.y = 0.98; PK.vy = 1; }
+    pkPaint(); PK.raf = requestAnimationFrame(step);
+  };
+  step();
+}
+window.addEventListener('pointerup', () => { if (PK.sweep) pkRelease(); });
+function pkRelease() {
+  if (!PK.sweep) return;
+  PK.sweep = false; cancelAnimationFrame(PK.raf);
+  if (Fr.open && Fr.dd) duelShot(PK.x, PK.y); else pkShoot(PK.x, PK.y);
 }
 async function pkShoot(x, y) {
   if (PK.busy || PK.k >= 10 || !pkYours()) return;
-  PK.busy = true; PK.phase = 'idle';
-  const inside = x >= 0 && x <= 1 && y > 0.12 && y < 0.92, dive = PKC[Math.floor(Math.random() * 3)], goal = inside && pkCol(x) !== dive;
-  PK.last = { x, y, dive, goal, you: true, inside }; PK.rows.push(PK.last); PK.k++;
+  PK.busy = true;
+  const inside = x >= 0 && x <= 1 && y > 0.12 && y < 0.92, dive = pkCol(x), goal = false;
+  const kd = PKC[Math.floor(Math.random() * 3)], kcx = PKX[kd] / 100 + (Math.random() - .5) * 0.2;
+  const scored = inside && pkCol(x) !== kd;
+  PK.last = { x, y, goal: scored, you: true, inside, kx: kcx, ky: 0.7 }; PK.rows.push(PK.last); PK.k++;
   PK.spd = Math.min(0.06, PK.spd * 1.12);
   PK.busy = false; if (PK.k >= 10) pkFinish(); pkWait();
-  toast(goal ? '⚽ <b>GOAL!</b>' : (inside ? '🧤 <b>Saved by the keeper!</b>' : '😬 <b>Missed the goal!</b>'));
+  toast(scored ? '⚽ <b>GOAL!</b>' : (inside ? '🧤 <b>Saved by the keeper!</b>' : '😬 <b>Missed the goal!</b>'));
 }
+const PKC = ['L', 'M', 'R'];
 function pkAiStart() {
   PK.ai = { x: 0.05 + Math.random() * 0.9, y: 0.2 + Math.random() * 0.6, phase: 'flash' };
   setTimeout(() => { if (PK.ai) { PK.ai.phase = 'pick'; pkRerender(); } }, 1000);
@@ -5938,7 +5946,8 @@ function pkSave(tx, ty) {
   if (!PK.ai || PK.ai.phase !== 'pick' || PK.busy) return;
   const a = PK.ai, row = v => Math.min(2, Math.floor(v * 3)), saved = pkCol(tx) === pkCol(a.x) && row(ty) === row(a.y);
   PK.ai = null;
-  PK.last = { x: a.x, y: a.y, dive: pkCol(tx), goal: !saved, you: false, kx: tx, ky: ty }; PK.rows.push(PK.last); PK.k++;
+  PK.last = { x: a.x, y: a.y, goal: !saved, you: false, kx: Math.min(0.95, Math.max(0.05, tx)), ky: Math.min(0.95, Math.max(0.05, ty)) };
+  PK.rows.push(PK.last); PK.k++;
   if (PK.k >= 10) pkFinish(); pkWait();
   toast(saved ? '🧤 <b>You saved it!</b>' : '😬 <b>AI scores</b>');
 }
