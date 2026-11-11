@@ -65,57 +65,13 @@ nav a,nav button,.btn,.chip{-webkit-user-select:none;user-select:none}
 .lu-pitch .pl-dot.has-ph .rt{left:auto;right:-14px}
 .lu-pitch .pl-name{font-size:11px;max-width:78px;background:rgba(5,10,24,.55);border-radius:6px;padding:0 5px;line-height:1.5}
 .lu-pitch .pl-evs{bottom:-3px;right:auto;left:-10px}
-.pk-balls{display:flex;gap:10px;font-size:22px;justify-content:center}.pk-goal{display:flex;height:34px;border-radius:10px;overflow:hidden;border:1px solid var(--line)}.pk-zone{flex:0 0 28%;background:color-mix(in srgb,#16a34a 45%,transparent)}.pk-zone.l{flex-basis:26%;margin-left:4%}.pk-zone.r{flex-basis:26%;margin-right:4%}.pk-mid{flex:1;display:grid;place-items:center;background:color-mix(in srgb,#dc2626 30%,transparent)}
-.pk-bar{position:relative;height:16px;border-radius:99px;background:var(--line)}#pk-cur{position:absolute;top:-4px;width:20px;height:24px;border-radius:7px;background:var(--gold);left:0;box-shadow:0 0 8px var(--gold)}
 .hl-row{display:flex;align-items:center;gap:10px;text-align:center}.hl-p{flex:1;display:grid;gap:2px;border:1px solid var(--line);border-radius:14px;padding:14px 8px}.hl-n{font-size:2rem;font-weight:800;color:var(--gold)}.hl-vs{font-family:var(--f-label);font-weight:800;color:var(--muted)}
 .qotd{padding:14px;display:grid;gap:8px;margin:0 0 12px}.hist-t{margin:0;line-height:1.5;font-size:1.02rem}
 .clasico{display:grid;gap:4px;padding:16px;margin:10px 0;border:1px solid var(--gold);text-align:center}.clasico b{font-size:2rem;font-variant-numeric:tabular-nums;color:var(--gold);font-family:var(--f-label)}
-.pk-goal2{position:relative;height:150px;margin:12px 0;border:3px solid #fff;border-bottom:none;border-radius:10px 10px 0 0;background:repeating-linear-gradient(90deg,rgba(255,255,255,.06) 0 2px,transparent 2px 22px),repeating-linear-gradient(0deg,rgba(255,255,255,.06) 0 2px,transparent 2px 22px),#14803c;overflow:hidden}
-.pk-grid{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:1fr 1fr;height:100%}
-.pk-cell{border:0;background:transparent;cursor:pointer}
-.pk-cell:hover{background:rgba(237,187,0,.28)}
-.pk-cell:disabled,span.pk-cell{cursor:default}
-.pk-keeper{position:absolute;bottom:2px;transform:translateX(-50%);font-size:38px;transition:left .35s;pointer-events:none}
-.pk-ball{position:absolute;transform:translate(-50%,-50%);font-size:26px;pointer-events:none}
-.pk-ball.in{filter:drop-shadow(0 0 6px #edbb00)}
-.duel-score{display:flex;justify-content:space-between;align-items:center;font-weight:700}
 .fr-row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0}
 .fr-btns{display:flex;gap:6px;flex-wrap:wrap}
 .fc-sub{margin:14px 0 6px;font-size:1rem}
-.pk-vers{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}
 
-.pk-meter{position:absolute;right:10px;top:10px;bottom:10px;width:16px;background:rgba(0,0,0,.35);border-radius:8px;pointer-events:none}
-.pk-meter i{position:absolute;left:-6px;width:28px;height:6px;background:#edbb00;border-radius:3px;top:0;transform:translateY(-50%)}
-.pk-goal2{overflow:visible}.pk-goal2.aim{touch-action:none;cursor:pointer}
-.pk-hint{font-size:.85rem;opacity:.8;margin:6px 0 0}
-.pk-tgt{position:absolute;width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%;background:radial-gradient(circle,#e11d48 0 35%,#fff 36% 50%,#e11d48 51%);box-shadow:0 0 0 2px #000;pointer-events:none;z-index:2}
-.pk-arrow{position:absolute;left:50%;bottom:0;width:6px;height:0;margin-left:-3px;transform-origin:50% 100%;background:linear-gradient(#d9f99d,#84cc16);border-radius:3px;pointer-events:none;z-index:1}
-.pk-net{position:absolute;inset:0;background:repeating-linear-gradient(0deg,rgba(255,255,255,.22) 0 1px,transparent 1px 10px),repeating-linear-gradient(90deg,rgba(255,255,255,.22) 0 1px,transparent 1px 10px);pointer-events:none}
-.pk-arrowsvg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1}
-.pk-keeper{position:absolute;bottom:0;transform:translateX(-50%);transition:transform .3s ease-out;pointer-events:none;z-index:2;font-size:0}
-.pk-keeper.dive-l{transform:translateX(-50%) rotate(-40deg) translateY(10px)}.pk-keeper.dive-r{transform:translateX(-50%) rotate(40deg) translateY(10px)}
-.pk-tgt{z-index:2}.pk-ball{z-index:3;transform:translate(-50%,-50%)}
-.pk-flash{position:absolute;top:0;bottom:0;width:33%;margin-left:-16.5%;background:rgba(237,187,0,.45);animation:pkf .25s steps(2) 4;z-index:1;pointer-events:none}
-@keyframes pkf{50%{opacity:.2}}
-.pk-flashtxt{position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);font-size:1.1rem;color:#fff;text-shadow:0 2px 6px #000;z-index:3;white-space:nowrap}
-.pk-big{position:absolute;top:50%;width:84px;height:84px;margin:-42px 0 0 -42px;border-radius:50%;border:5px solid #edbb00;background:rgba(237,187,0,.25);z-index:2;pointer-events:none}
-.pk-goal2.keep{cursor:crosshair;touch-action:none}
-.pk-ball{z-index:3}
-.pk-ball.fly{animation:pkfly .6s cubic-bezier(.2,.7,.3,1) both}
-@keyframes pkfly{from{left:50%;top:100%;transform:translate(-50%,-50%) scale(.45)}to{left:var(--tx);top:var(--ty);transform:translate(-50%,-50%) scale(1)}}
-.pk-keeper.dive-l{animation:pkdl .35s ease-out both}.pk-keeper.dive-r{animation:pkdr .35s ease-out both}
-@keyframes pkdl{from{transform:translateX(-50%)}to{transform:translateX(-50%) rotate(-40deg) translateY(10px)}}
-@keyframes pkdr{from{transform:translateX(-50%)}to{transform:translateX(-50%) rotate(40deg) translateY(10px)}}
-.pk-keeper.keeper-move{bottom:auto;top:var(--ky);left:var(--kx);animation:pkmove .35s ease-out both}
-@keyframes pkmove{from{left:50%;top:85%;transform:translate(-50%,-50%)}to{left:var(--kx);top:var(--ky);transform:translate(-50%,-50%) rotate(var(--rot))}}
-.pk-res{position:absolute;left:50%;top:32%;transform:translate(-50%,-50%);font-size:1.7rem;font-weight:900;color:#fff;text-shadow:0 3px 0 #000;z-index:4;pointer-events:none;animation:pkres 1.6s ease-out both}
-@keyframes pkres{0%{opacity:0;transform:translate(-50%,-50%) scale(.6)}15%{opacity:1;transform:translate(-50%,-50%) scale(1.1)}25%{transform:translate(-50%,-50%) scale(1)}80%{opacity:1}100%{opacity:0}}
-.pk-goal2{background:linear-gradient(#9fd8ff 0 28%,#4a5d6b 28% 36%,#1f8a3b 36%)}
-.pk-keeper.keeper-move{animation:pkmove .6s cubic-bezier(.3,.6,.4,1) both}
-.pk-keeper.dive-l,.pk-keeper.dive-r{animation-duration:.45s}
-.pk-keeper{position:absolute;bottom:0;transform:translateX(-50%);z-index:2;pointer-events:none;font-size:0}
-.pk-keeper.keeper-move{bottom:auto;top:var(--ky);left:var(--kx);animation:pkmove .55s cubic-bezier(.3,.6,.4,1) both}
-@keyframes pkmove{from{left:50%;top:85%;transform:translate(-50%,-50%)}to{left:var(--kx);top:var(--ky);transform:translate(-50%,-50%) rotate(var(--rot))}}
 </style>
 <title>Culé Live</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -5635,7 +5591,7 @@ async function viewGames() {
   PXI.sel = null;
   const [gp, px, fh] = await Promise.all([guessHTML().catch(() => ''), pxiHTML().catch(() => ''), friendsHTML().catch(() => '')]);
   return `<div><h1 class="page-title">Games</h1><p class="page-sub">New games every day. Earn XP and level up.</p></div>
-    ${streakHTML()}${quizHTML()}${pkHTML()}${fh}${wordleHTML()}${hlHTML()}${gp}${px}${inviteHTML()}`;
+    ${streakHTML()}${quizHTML()}${fh}${wordleHTML()}${hlHTML()}${gp}${px}${inviteHTML()}`;
 }
 
 /* ===== Friends & 1v1 penalty duels (inside Games) ===== */
@@ -5667,70 +5623,17 @@ async function frAdd(name) {
 }
 async function frAccept(id) { try { await Acct.m.updateDoc(Acct.m.doc(Acct.db, 'friends', id), { status: 'ok' }); toast('You are now friends'); render(); } catch (e) { toast("Couldn't accept."); } }
 async function frRemove(id) { try { await Acct.m.deleteDoc(Acct.m.doc(Acct.db, 'friends', id)); render(); } catch (e) { toast("Couldn't remove."); } }
-async function duelNew(fid) {
-  const f = Fr.list.find(x => x.id === fid); if (!f) return;
-  try {
-    const ref = await Acct.m.addDoc(Acct.m.collection(Acct.db, 'duels'), { a: Acct.user.uid, b: frOther(f), an: Prof.me?.username || '', bn: f.a === Acct.user.uid ? f.bName : f.aName, round: 0, ph: 'dive', dive: '', shot: '', sa: 0, sb: 0, status: 'active', winner: '', lastGoal: false, lastZone: '', lastDive: '', at: Date.now(), updated: Date.now() });
-    duelOpen(ref.id); toast('Challenge sent! You shoot first.');
-  } catch (e) { toast("Couldn't start the duel."); }
-}
-const DZ = { L: 'left', M: 'middle', R: 'right' };
-function duelOpen(id) { Fr.open = id; duelWatch(); }
-function duelClose() { if (Fr.dUnsub) Fr.dUnsub(); Fr.dUnsub = null; Fr.open = null; Fr.dd = null; render(); }
-function duelWatch() {
-  if (Fr.dUnsub) Fr.dUnsub(); const id = Fr.open; if (!id) return;
-  Fr.dUnsub = Acct.m.onSnapshot(Acct.m.doc(Acct.db, 'duels', id), s => {
-    Fr.dd = s.exists() ? { id, ...s.data() } : null; const d = Fr.dd;
-    const el = $('#duel'); if (el) el.outerHTML = duelHTML();
-  }, () => toast("Lost connection to the duel."));
-}
-const isShooterOf = d => (d.round % 2 === 0 ? d.a : d.b) === Acct.user?.uid;
-function duelHTML() {
-  const d = Fr.dd; if (!d) return '<div id="duel"></div>';
-  const shooter = isShooterOf(d), nameA = '@' + (d.an || 'player1'), nameB = '@' + (d.bn || 'player2');
-  const lastShot = d.round > 0 && d.lastZone ? (([x, y]) => ({ x, y, goal: d.lastGoal, dive: d.lastDive }))(d.lastZone.split(',').map(Number)) : null;
-  const score = `<div class="duel-score"><b>${esc(nameA)}</b><span>${d.sa} – ${d.sb}</span><b>${esc(nameB)}</b></div>`;
-  let body, grid;
-  if (d.status === 'over') {
-    const txt = d.winner === 'draw' ? "It's a draw!" : d.winner === Acct.user?.uid ? '🏆 You won!' : 'You lost this one.';
-    grid = goalHTML(false, lastShot); body = `<b class="ap-q">${txt}</b><p class="help">Full time after 10 shots.</p>`;
-  } else if (d.ph === 'dive') {
-    grid = goalHTML(false, lastShot);
-    body = shooter ? '<p class="help">Your friend is choosing where to dive…</p>'
-      : '<p class="help">You are the keeper. Pick a side before they shoot.</p><div class="row"><button class="btn btn-ghost" data-act="duel-dive" data-z="L">⬅️ Left</button><button class="btn btn-ghost" data-act="duel-dive" data-z="M">⏺ Middle</button><button class="btn btn-ghost" data-act="duel-dive" data-z="R">➡️ Right</button></div>';
-  } else {
-    grid = goalHTML(shooter, lastShot); setTimeout(pkBind, 0);
-    body = shooter ? '<p class="help">Tap a spot in the goal. Your friend has picked their side.</p>' : '<p class="help">Shot taken. Waiting for the result…</p>';
-  }
-  const last = lastShot ? `<p class="help">Last shot: <b>${lastShot.goal ? '⚽ Goal' : '🧤 Saved'}</b> · keeper went ${DZ[d.lastDive] || '?'}</p>` : '';
-  return `<section class="card game" id="duel"><small class="nw-tag">PENALTY DUEL · SHOT ${Math.min(d.round + 1, 10)}/10</small>${score}${grid}${body}${last}
-    <button class="btn btn-ghost btn-sm" data-act="duel-close">Close duel</button></section>`;
-}
-async function duelDive(z) {
-  const d = Fr.dd; if (!d || d.ph !== 'dive' || isShooterOf(d)) return;
-  try { await Acct.m.updateDoc(Acct.m.doc(Acct.db, 'duels', d.id), { dive: z, ph: 'shoot', updated: Date.now() }); } catch (e) { toast("Couldn't dive. Try again."); }
-}
-async function duelShot(x, y) {
-  const d = Fr.dd; if (!d || d.ph !== 'shoot' || !isShooterOf(d)) return;
-  const onTarget = y > 0.12 && y < 0.92, goal = onTarget && pkCol(x) !== d.dive, shooterA = d.round % 2 === 0;
-  const sa = d.sa + (goal && shooterA ? 1 : 0), sb = d.sb + (goal && !shooterA ? 1 : 0), round = d.round + 1, over = round >= 10;
-  try { await Acct.m.updateDoc(Acct.m.doc(Acct.db, 'duels', d.id), { shot: '', lastZone: x.toFixed(3) + ',' + y.toFixed(3), lastDive: d.dive, lastGoal: goal, sa, sb, round, dive: '', ph: over ? 'over' : 'dive', status: over ? 'over' : 'active', winner: over ? (sa > sb ? d.a : sb > sa ? d.b : 'draw') : '', updated: Date.now() }); }
-  catch (e) { toast("Couldn't take the shot."); }
-}
 async function friendsHTML() {
   const u = Acct.user;
   if (!u || u.isAnonymous) return '<section class="form-card"><h2 class="fc-title">Friends & duels</h2><p class="help">Sign in to add friends and challenge them to penalty duels.</p></section>';
   await frLoad().catch(() => {});
   const inc = Fr.list.filter(f => f.status === 'pending' && f.from !== u.uid), out = Fr.list.filter(f => f.status === 'pending' && f.from === u.uid), fr = Fr.list.filter(f => f.status === 'ok');
   const row = (f, btns) => `<div class="fr-row"><span data-notr>${esc(frName(f))}</span><span class="fr-btns">${btns}</span></div>`;
-  setTimeout(() => { if (Fr.open) duelWatch(); }, 0);
-  return `<section class="form-card"><h2 class="fc-title">Friends & duels</h2><p class="help">1v1 penalty shootouts. No chat, no XP, play as many as you like.</p>
+  return `<section class="form-card"><h2 class="fc-title">Friends & duels</h2><p class="help">Your friends list.</p>
     <form id="fr-form" class="chat-form"><input id="fr-in" autocomplete="off" placeholder="Their @username"><button class="btn btn-primary" type="submit">Add friend</button></form>
     ${inc.length ? `<h3 class="fc-sub">Requests</h3>${inc.map(f => row(f, `<button class="btn btn-primary btn-sm" data-act="fr-accept" data-id="${esc(f.id)}">Accept</button><button class="btn btn-ghost btn-sm" data-act="fr-remove" data-id="${esc(f.id)}">Decline</button>`)).join('')}` : ''}
-    <h3 class="fc-sub">Friends</h3>${fr.length ? fr.map(f => row(f, `<button class="btn btn-primary btn-sm" data-act="fr-challenge" data-id="${esc(f.id)}">⚽ Challenge</button><button class="btn btn-ghost btn-sm" data-act="fr-remove" data-id="${esc(f.id)}">Remove</button>`)).join('') : '<p class="help">No friends yet. Add one above.</p>'}
-    ${out.length ? `<p class="help">Pending: ${out.map(frName).map(esc).join(', ')}</p>` : ''}
-    <h3 class="fc-sub">Duels</h3>${Fr.duels.length ? Fr.duels.map(d => `<div class="fr-row"><span>${d.status === 'over' ? (d.winner === u.uid ? '🏆 Won' : d.winner === 'draw' ? '🤝 Draw' : '❌ Lost') : (isShooterOf(d) ? '⚽ Your shot' : '🧤 Your dive')} · ${d.sa}–${d.sb}</span><button class="btn btn-ghost btn-sm" data-act="duel-open" data-id="${esc(d.id)}">Open</button></div>`).join('') : '<p class="help">No duels yet.</p>'}
-    <div id="duel-slot">${Fr.open ? '<div id="duel"></div>' : ''}</div></section>`;
+    <h3 class="fc-sub">Friends</h3>${fr.length ? fr.map(f => row(f, `<button class="btn btn-ghost btn-sm" data-act="fr-remove" data-id="${esc(f.id)}">Remove</button>`)).join('') : '<p class="help">No friends yet. Add one above.</p>'}
+    ${out.length ? `<p class="help">Pending: ${out.map(frName).map(esc).join(', ')}</p>` : ''}' : ''}</div></section>`;
 }
 
 /* ===== Invite rewards, achievements, mentions, fan of the week, search ===== */
@@ -5853,105 +5756,6 @@ async function searchRun(raw) {
 }
 
 /* ===== Penalty shootout, Higher/Lower, QOTD, history, Clásico countdown, MVP vote, Wrapped, streak freeze ===== */
-const PK = { busy: false, k: 0, rows: [], last: null, ai: null, hold: false, sweep: false, x: 0.5, y: 0.5, vx: 1, vy: 1, spd: 0.012, raf: 0 };
-const PKX = { L: 20, M: 50, R: 80 };
-const pkYours = () => PK.k % 2 === 0;
-const pkCol = x => (x < 1 / 3 ? 'L' : x < 2 / 3 ? 'M' : 'R');
-const PK_KEEPER = '<svg viewBox="0 0 40 60" width="36" height="54" aria-hidden="true"><circle cx="20" cy="9" r="6" fill="#c8793a"/><path d="M10 17h20l3 22H7z" fill="#f97316"/><rect x="9" y="38" width="22" height="9" fill="#111"/><rect x="11" y="46" width="7" height="13" fill="#c8793a"/><rect x="22" y="46" width="7" height="13" fill="#c8793a"/><circle cx="5" cy="24" r="4.5" fill="#fde047"/><circle cx="35" cy="24" r="4.5" fill="#fde047"/></svg>';
-function goalHTML(canAim, last, extra = '') {
-  const kx = last && last.kx != null ? last.kx : 0.5;
-  const rot = last && last.kx != null ? (last.kx - 0.5) * 160 : 0;
-  const ball = last ? `<span class="pk-ball fly ${last.goal ? 'in' : ''}" style="--tx:${last.x * 100}%;--ty:${last.y * 100}%">⚽</span>` : '';
-  const res = last ? `<b class="pk-res">${last.goal ? 'GOAL!' : (last.you && !last.inside ? 'MISS!' : 'SAVED!')}</b>` : '';
-  const aim = canAim ? '<svg class="pk-arrowsvg" id="pk-arr" viewBox="0 0 100 100" preserveAspectRatio="none"><line id="pk-line" x1="50" y1="96" x2="50" y2="96" stroke="#d9f99d" stroke-width="2.6" stroke-linecap="round"/></svg><span class="pk-tgt" id="pk-tgt"></span>' : '';
-  const hint = canAim ? '<p class="pk-hint" id="pk-hint">Press and hold to start. Let go to shoot.</p>' : '';
-  const kcls = last && last.kx != null ? 'keeper-move' : '';
-  return `<div class="pk-goal2 ${canAim ? 'aim' : ''} ${extra ? 'keep' : ''}" id="pk-goal"><div class="pk-net"></div>${aim}${extra}${ball}${res}<span class="pk-keeper ${kcls}" style="${last && last.kx != null ? `--kx:${kx * 100}%;--ky:${last.ky * 100}%;--rot:${rot}deg` : 'left:50%'}">${PK_KEEPER}</span></div>${hint}`;
-}
-function pkScore() { return { y: PK.rows.filter(x => x.you && x.goal).length, a: PK.rows.filter(x => !x.you && x.goal).length }; }
-function pkHTML() {
-  const done = PK.k >= 10, { y, a } = pkScore(), best = store.get('pk:best', 0), last = PK.last;
-  const head = `<small class="nw-tag">PENALTY SHOOTOUT</small><div class="pk-score"><b>You ${y}</b><span>${done ? 'Full time' : `Kick ${PK.k + 1} of 10`}</span><b>AI ${a}</b></div>`;
-  let prompt, grid, body = '';
-  if (done) {
-    const txt = y > a ? '🏆 You win!' : y < a ? 'AI wins this one.' : "It's a draw!";
-    prompt = `<b class="ap-q">${txt}</b>`; grid = goalHTML(false, last);
-    body = '<button class="btn btn-primary wide" data-act="pk-new">Play again</button>';
-  } else if (PK.hold) {
-    prompt = '<b class="ap-q">Next kick…</b>'; grid = goalHTML(false, last);
-  } else if (pkYours()) {
-    prompt = '<b class="ap-q">Your kick</b>'; grid = goalHTML(true, last);
-  } else {
-    if (!PK.ai) pkAiStart();
-    const col = pkCol(PK.ai.x), ex = PK.ai.phase === 'flash'
-      ? `<div class="pk-flash" style="left:${PKX[col]}%"></div><b class="pk-flashtxt">AI shoots ${DZ[col]}!</b>`
-      : `<div class="pk-big" style="left:${PKX[col]}%"></div>`;
-    prompt = PK.ai.phase === 'flash' ? '<b class="ap-q">Get ready…</b>' : '<b class="ap-q">Tap the exact spot to dive. Side and height both matter</b>';
-    grid = goalHTML(false, last, ex);
-  }
-  setTimeout(pkBind, 0);
-  return `<section class="card game" id="pk">${head}${prompt}${grid}${body}
-    <p class="help">${last ? (last.you ? (last.goal ? '⚽ Goal!' : '🧤 Missed or saved!') : (last.goal ? '😬 AI scores' : '🧤 You saved it!')) : 'You shoot first. Then you keep goal.'} · Best: ${best} goals</p></section>`;
-}
-function pkBind() {
-  const g = $('#pk-goal'); if (!g) return;
-  if (g.classList.contains('aim')) g.onpointerdown = e => { e.preventDefault(); pkDown(); };
-  else if (g.classList.contains('keep')) g.onpointerdown = e => { e.preventDefault(); const r = g.getBoundingClientRect(); pkSave((e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height); };
-}
-function pkRerender() { const el = $('#pk'); if (el) el.outerHTML = pkHTML(); }
-function pkNew() { PK.k = 0; PK.rows = []; PK.last = null; PK.spd = 0.012; PK.ai = null; PK.hold = false; PK.sweep = false; pkRerender(); }
-function pkFinish() { const { y } = pkScore(); if (y > store.get('pk:best', 0)) store.set('pk:best', y); }
-function pkWait() { PK.hold = true; pkRerender(); setTimeout(() => { PK.hold = false; pkRerender(); }, 1800); }
-function pkPaint() {
-  const ln = $('#pk-line'); if (!ln) return;
-  ln.setAttribute('x2', (PK.x * 100).toFixed(2)); ln.setAttribute('y2', (PK.y * 100).toFixed(2));
-  const tg = $('#pk-tgt'); if (tg) { tg.style.left = (PK.x * 100) + '%'; tg.style.top = (PK.y * 100) + '%'; }
-}
-function pkDown() {
-  if (PK.busy || PK.sweep || PK.k >= 10 || !pkYours()) return;
-  if (Fr.open && Fr.dd && Fr.dd.status === 'active' && !isShooterOf(Fr.dd)) return;
-  PK.sweep = true; PK.x = 0.5; PK.y = 0.5; PK.vx = Math.random() < .5 ? 1 : -1; PK.vy = 1;
-  const step = () => {
-    if (!PK.sweep) return;
-    PK.x += PK.vx * PK.spd * 1.4; PK.y -= PK.vy * PK.spd * 0.9;
-    if (PK.x >= 1.08) { PK.x = 1.08; PK.vx = -1; } if (PK.x <= -0.08) { PK.x = -0.08; PK.vx = 1; }
-    if (PK.y <= 0.02) { PK.y = 0.02; PK.vy = -1; } if (PK.y >= 0.98) { PK.y = 0.98; PK.vy = 1; }
-    pkPaint(); PK.raf = requestAnimationFrame(step);
-  };
-  step();
-}
-window.addEventListener('pointerup', () => { if (PK.sweep) pkRelease(); });
-function pkRelease() {
-  if (!PK.sweep) return;
-  PK.sweep = false; cancelAnimationFrame(PK.raf);
-  if (Fr.open && Fr.dd) duelShot(PK.x, PK.y); else pkShoot(PK.x, PK.y);
-}
-async function pkShoot(x, y) {
-  if (PK.busy || PK.k >= 10 || !pkYours()) return;
-  PK.busy = true;
-  const inside = x >= 0 && x <= 1 && y > 0.12 && y < 0.92, dive = pkCol(x), goal = false;
-  const kd = PKC[Math.floor(Math.random() * 3)], kcx = PKX[kd] / 100 + (Math.random() - .5) * 0.2;
-  const scored = inside && pkCol(x) !== kd;
-  PK.last = { x, y, goal: scored, you: true, inside, kx: kcx, ky: 0.7 }; PK.rows.push(PK.last); PK.k++;
-  PK.spd = Math.min(0.06, PK.spd * 1.12);
-  PK.busy = false; if (PK.k >= 10) pkFinish(); pkWait();
-  toast(scored ? '⚽ <b>GOAL!</b>' : (inside ? '🧤 <b>Saved by the keeper!</b>' : '😬 <b>Missed the goal!</b>'));
-}
-const PKC = ['L', 'M', 'R'];
-function pkAiStart() {
-  PK.ai = { x: 0.05 + Math.random() * 0.9, y: 0.2 + Math.random() * 0.6, phase: 'flash' };
-  setTimeout(() => { if (PK.ai) { PK.ai.phase = 'pick'; pkRerender(); } }, 1000);
-}
-function pkSave(tx, ty) {
-  if (!PK.ai || PK.ai.phase !== 'pick' || PK.busy) return;
-  const a = PK.ai, row = v => Math.min(2, Math.floor(v * 3)), saved = pkCol(tx) === pkCol(a.x) && row(ty) === row(a.y);
-  PK.ai = null;
-  PK.last = { x: a.x, y: a.y, goal: !saved, you: false, kx: Math.min(0.95, Math.max(0.05, tx)), ky: Math.min(0.95, Math.max(0.05, ty)) };
-  PK.rows.push(PK.last); PK.k++;
-  if (PK.k >= 10) pkFinish(); pkWait();
-  toast(saved ? '🧤 <b>You saved it!</b>' : '😬 <b>AI scores</b>');
-}
-
 /* Higher or lower: career goals for Barça (all competitions, roughly) */
 const HLP = [['Lionel Messi', 672], ['Luis Suárez', 198], ['César Rodríguez', 232], ['László Kubala', 194], ['Josep Samitier', 184], ["Samuel Eto'o", 130], ['Rivaldo', 136], ['Ronaldinho', 94], ['Neymar', 105], ['Thierry Henry', 49], ['Johan Cruyff', 60], ['Diego Maradona', 38], ['Romário', 39], ['Hristo Stoichkov', 117], ['Gary Lineker', 42], ['Ronald Koeman', 88], ['Pedro', 99], ['David Villa', 48], ['Zlatan Ibrahimović', 22], ['Antoine Griezmann', 35], ['Ousmane Dembélé', 40], ['Robert Lewandowski', 83], ['Rafael Márquez', 13], ['Carles Puyol', 18], ['Xavi', 85], ['Andrés Iniesta', 57], ['Sergio Busquets', 19], ['Gerard Piqué', 53], ['Luis Figo', 45], ['Patrick Kluivert', 122]];
 const HL = { a: null, b: null, n: 0, over: false };
@@ -6362,13 +6166,8 @@ document.addEventListener('click', e => {
     case 'quiz': quizAnswer(b.dataset.i); break;
     case 'gp': gpPick(b.dataset.id); break;
     case 'invite': inviteShare(); break;
-    case 'pk-new': pkNew(); break;
     case 'fr-accept': frAccept(b.dataset.id); break;
     case 'fr-remove': frRemove(b.dataset.id); break;
-    case 'fr-challenge': duelNew(b.dataset.id); break;
-    case 'duel-open': duelOpen(b.dataset.id); { const sl = $('#duel-slot'); if (sl) sl.innerHTML = '<div id="duel"></div>'; } break;
-    case 'duel-close': duelClose(); break;
-    case 'duel-dive': duelDive(b.dataset.z); break;
     case 'hl': hlGuess(b.dataset.g); break;
     case 'hl-again': hlStart(); { const el = $('#hl'); if (el) el.outerHTML = hlHTML(); } break;
     case 'qotd': qotdFill(); break;
