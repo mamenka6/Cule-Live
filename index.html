@@ -5593,7 +5593,7 @@ async function viewGames() {
   if (!state.squadList || !state.squadList.length) { try { state.squadList = await Data.squad(); } catch (e) { state.squadList = []; } }
   const [gp, px, fh] = await Promise.all([guessHTML().catch(() => ''), pxiHTML().catch(() => ''), friendsHTML().catch(() => '')]);
   return `<div><h1 class="page-title">Games</h1><p class="page-sub">New games every day. Earn XP and level up.</p></div>
-    ${streakHTML()}${quizHTML()}${trvHTML()}${fxiHTML()}${fh}${wordleHTML()}${hlHTML()}${gp}${px}${inviteHTML()}`;
+    ${streakHTML()}${quizHTML()}${trvHTML()}${fxiHTML()}${rpHTML()}${duelRunHTML()}${fh}${wordleHTML()}${hlHTML()}${gp}${px}${inviteHTML()}`;
 }
 
 /* ===== Trivia run (5 questions, timed) and weekly Fantasy XI draft ===== */
@@ -5662,6 +5662,85 @@ function fxiToggle(id) {
   store.set(fxiKey(), picks); render();
 }
 
+/* ===== Face a random player (local) and 5-question friend duels ===== */
+const RP = { a: null, b: null, res: null };
+function rpPick() {
+  const sq = (state.squadList || []).filter(p => p.name);
+  if (sq.length < 2) return;
+  const i = Math.floor(Math.random() * sq.length); let j = Math.floor(Math.random() * sq.length); if (j === i) j = (j + 1) % sq.length;
+  RP.a = sq[i]; RP.b = sq[j]; RP.res = null; render();
+}
+function rpHTML() {
+  if (!RP.a) return `<section class="card quiz" id="rp"><small class="nw-tag">FACE A RANDOM PLAYER</small><b class="ap-q">Two random Barça players. Who has more goals this season?</b><button class="btn btn-primary" data-act="rp-new" style="margin-top:.6rem">Pick two players</button></section>`;
+  const g = p => p.goals || 0;
+  return `<section class="card quiz" id="rp"><small class="nw-tag">FACE A RANDOM PLAYER</small><b class="ap-q">Who has more goals this season?</b><div class="ap-opts">${[RP.a, RP.b].map((p, i) => {
+    if (RP.res == null) return `<button class="btn btn-ghost ap-btn" data-act="rp-go" data-i="${i}">${esc(p.name)}</button>`;
+    const win = g(RP.a) === g(RP.b) ? null : (g(RP.a) > g(RP.b) ? 0 : 1);
+    return `<div class="ap-res ${win === i ? 'on' : ''}"><span>${esc(p.name)} · ${g(p)}G ${p.assists || 0}A</span><b>${win === i ? '✅' : ''}</b></div>`;
+  }).join('')}</div>${RP.res == null ? '<small class="help">+5 XP for a correct guess.</small>' : `<small class="help">${RP.res === 'tie' ? 'It\'s a tie!' : RP.res ? 'Correct! +5 XP' : 'Not this time.'}</small><button class="btn btn-ghost btn-sm" data-act="rp-new" style="margin-top:.5rem">Next pair</button>`}</section>`;
+}
+async function rpGo(i) {
+  if (RP.res != null) return;
+  const a = g => g(RP.a), gb = RP.b.goals || 0, ga = RP.a.goals || 0;
+  if (ga === gb) { RP.res = 'tie'; render(); return; }
+  const ok = (ga > gb ? 0 : 1) === +i; RP.res = ok;
+  render();
+  if (ok) { try { const me = await fanMe(); if (me) await fanSave({ xp: (me.xp || 0) + 5 }); toast('✅ Correct! +5 XP'); } catch (e) {} }
+}
+const DU = { id: null, i: 0, score: 0, qs: null };
+const duelQs = id => { const seed = [...id].reduce((a, c) => a + c.charCodeAt(0), 0); return [0, 1, 2, 3, 4].map(k => QUIZ[(seed + k * 7) % QUIZ.length]).map((q, k) => {
+  const rot = (seed + k) % 4, opts = [...q[1]]; const rotated = opts.map((_, j) => opts[(j + rot) % opts.length]);
+  return { q: q[0], opts: rotated, ans: rotated.indexOf(q[2]) }; }); };
+function duelsListHTML() {
+  const u = Acct.user; if (!u || !Fr.duels || !Fr.duels.length) return '';
+  return `<h3 class="fc-sub">Duels</h3>` + Fr.duels.slice(0, 8).map(d => {
+    const mine = d.a === u.uid, other = mine ? d.bn : d.an, myScore = mine ? d.sa : d.sb, theirScore = mine ? d.sb : d.sa, myDone = mine ? d.da : d.db, theirDone = mine ? d.db : d.da;
+    let act = '';
+    if (!myDone) act = `<button class="btn btn-primary btn-sm" data-act="duel-play" data-id="${esc(d.id)}">Play</button>`;
+    else if (!theirDone) act = `<small class="help">Waiting for ${esc(other || 'them')}…</small>`;
+    else act = `<small class="help"><b>${myScore}-${theirScore}</b> · ${myScore > theirScore ? 'You win! 🏆' : myScore < theirScore ? 'You lose' : 'Draw'}</small>`;
+    return `<div class="fr-row"><span data-notr>${mine ? 'vs ' : 'from '}${esc(other || 'friend')}</span><span class="fr-btns">${act}</span></div>`;
+  }).join('');
+}
+async function duelNew(friendId) {
+  const u = Acct.user; if (!u || u.isAnonymous) return;
+  const f = Fr.list.find(x => x.id === friendId); if (!f) return;
+  const other = f.a === u.uid ? f.b : f.a, otherName = f.a === u.uid ? f.bName : f.aName;
+  const id = Date.now().toString(36) + u.uid.slice(0, 6);
+  const me = Prof.me?.username ? '@' + Prof.me.username : 'Culer';
+  try {
+    await Acct.m.setDoc(Acct.m.doc(Acct.db, 'duels', id), { a: u.uid, b: other, an: me, bn: otherName || 'friend', sa: null, sb: null, da: false, db: false, status: 'open', at: Date.now(), updated: Date.now() });
+    toast('⚔️ Duel sent! Play your 5 questions.');
+    await duelPlay(id);
+  } catch (e) { toast('Could not start the duel. Try again.'); }
+}
+async function duelPlay(id) {
+  DU.id = id; DU.i = 0; DU.score = 0; DU.qs = duelQs(id); render();
+}
+function duelRunHTML() {
+  if (!DU.id || !DU.qs) return '';
+  if (DU.i >= DU.qs.length) return '';
+  const q = DU.qs[DU.i];
+  return `<section class="card quiz" id="duelrun"><small class="nw-tag">FRIEND DUEL · ${DU.i + 1}/5</small><b class="ap-q">${esc(q.q)}</b><div class="ap-opts">${q.opts.map((o, i) => `<button class="btn btn-ghost ap-btn" data-act="duel-go" data-i="${i}">${esc(o)}</button>`).join('')}</div><small class="help">Score: ${DU.score}/5 · Same questions as your friend</small></section>`;
+}
+async function duelGo(i) {
+  const q = DU.qs[DU.i]; if (+i === q.ans) DU.score++; DU.i++;
+  if (DU.i >= DU.qs.length) {
+    const u = Acct.user, d = Fr.duels.find(x => x.id === DU.id) || null, mine = d ? d.a === u.uid : true;
+    const fields = mine ? { sa: DU.score, da: true } : { sb: DU.score, db: true };
+    try {
+      const ref = Acct.m.doc(Acct.db, 'duels', DU.id);
+      const snap = await Acct.m.getDoc(ref); const cur = snap.data() || {};
+      const other = mine ? cur.db : cur.da;
+      await Acct.m.setDoc(ref, { ...fields, status: other ? 'done' : 'open', updated: Date.now() }, { merge: true });
+      toast(`🏁 Duel run done: ${DU.score}/5`);
+      const me = await fanMe(); if (me) await fanSave({ xp: (me.xp || 0) + DU.score * 5 });
+    } catch (e) { toast('Could not save your score. Check your connection.'); }
+    DU.id = null; DU.qs = null; await frLoad().catch(() => {});
+  }
+  render();
+}
+
 /* ===== Friends & 1v1 penalty duels (inside Games) ===== */
 const Fr = { list: [], duels: [], open: null, dUnsub: null, dd: null };
 const pairId = (a, b) => [a, b].sort().join('_');
@@ -5700,8 +5779,9 @@ async function friendsHTML() {
   return `<section class="form-card"><h2 class="fc-title">Friends & duels</h2><p class="help">Your friends list.</p>
     <form id="fr-form" class="chat-form"><input id="fr-in" autocomplete="off" placeholder="Their @username"><button class="btn btn-primary" type="submit">Add friend</button></form>
     ${inc.length ? `<h3 class="fc-sub">Requests</h3>${inc.map(f => row(f, `<button class="btn btn-primary btn-sm" data-act="fr-accept" data-id="${esc(f.id)}">Accept</button><button class="btn btn-ghost btn-sm" data-act="fr-remove" data-id="${esc(f.id)}">Decline</button>`)).join('')}` : ''}
-    <h3 class="fc-sub">Friends</h3>${fr.length ? fr.map(f => row(f, `<button class="btn btn-ghost btn-sm" data-act="fr-remove" data-id="${esc(f.id)}">Remove</button>`)).join('') : '<p class="help">No friends yet. Add one above.</p>'}
-    ${out.length ? `<p class="help">Pending: ${out.map(frName).map(esc).join(', ')}</p>` : ''}' : ''}</div></section>`;
+    <h3 class="fc-sub">Friends</h3>${fr.length ? fr.map(f => row(f, `<button class="btn btn-primary btn-sm" data-act="duel-new" data-id="${esc(f.id)}">⚔️ Duel</button><button class="btn btn-ghost btn-sm" data-act="fr-remove" data-id="${esc(f.id)}">Remove</button>`)).join('') : '<p class="help">No friends yet. Add one above.</p>'}
+    ${duelsListHTML()}
+    ${out.length ? `<p class="help">Pending: ${out.map(frName).map(esc).join(', ')}</p>` : ''}</div></section>`;
 }
 
 /* ===== Invite rewards, achievements, mentions, fan of the week, search ===== */
@@ -6246,6 +6326,11 @@ document.addEventListener('click', e => {
     case 'trv-start': trvStart(); break;
     case 'trv-go': trvGo(b.dataset.i); break;
     case 'fxi-tog': fxiToggle(b.dataset.id); break;
+    case 'rp-new': rpPick(); break;
+    case 'rp-go': rpGo(b.dataset.i); break;
+    case 'duel-new': duelNew(b.dataset.id); break;
+    case 'duel-play': duelPlay(b.dataset.id); break;
+    case 'duel-go': duelGo(b.dataset.i); break;
     case 'gp': gpPick(b.dataset.id); break;
     case 'invite': inviteShare(); break;
     case 'fr-accept': frAccept(b.dataset.id); break;
