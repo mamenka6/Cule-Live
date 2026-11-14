@@ -5590,9 +5590,76 @@ async function pxiSave() {
 
 async function viewGames() {
   PXI.sel = null;
+  if (!state.squadList || !state.squadList.length) { try { state.squadList = await Data.squad(); } catch (e) { state.squadList = []; } }
   const [gp, px, fh] = await Promise.all([guessHTML().catch(() => ''), pxiHTML().catch(() => ''), friendsHTML().catch(() => '')]);
   return `<div><h1 class="page-title">Games</h1><p class="page-sub">New games every day. Earn XP and level up.</p></div>
-    ${streakHTML()}${quizHTML()}${fh}${wordleHTML()}${hlHTML()}${gp}${px}${inviteHTML()}`;
+    ${streakHTML()}${quizHTML()}${trvHTML()}${fxiHTML()}${fh}${wordleHTML()}${hlHTML()}${gp}${px}${inviteHTML()}`;
+}
+
+/* ===== Trivia run (5 questions, timed) and weekly Fantasy XI draft ===== */
+const TRV = { i: 0, score: 0, t0: 0, qs: null };
+function trvQs() {
+  const d = dayKey(), n = Math.floor(Date.now() / 864e5), seed = [...String(d)].reduce((a, c) => a + c.charCodeAt(0), 0);
+  return [0, 1, 2, 3, 4].map(k => QUIZ[(n * 5 + k + seed) % QUIZ.length]).map(q => {
+    const order = q[1].map((_, i) => i).sort((a, b) => ((a * 7 + seed) % 5) - ((b * 7 + seed) % 5));
+    return { q: q[0], opts: order.map(i => q[1][i]), ans: order.indexOf(q[1].indexOf(q[2])) };
+  });
+}
+function trvHTML() {
+  const d = dayKey(), best = store.get('trvbest:' + d, null);
+  if (TRV.qs && TRV.i < TRV.qs.length) {
+    const q = TRV.qs[TRV.i];
+    return `<section class="card quiz" id="trv"><small class="nw-tag">TRIVIA RUN · ${TRV.i + 1}/5</small><b class="ap-q">${esc(q.q)}</b><div class="ap-opts">${q.opts.map((o, i) => `<button class="btn btn-ghost ap-btn" data-act="trv-go" data-i="${i}">${esc(o)}</button>`).join('')}</div><small class="help">Score: ${TRV.score}/5 · Try to beat your best time too.</small></section>`;
+  }
+  return `<section class="card quiz" id="trv"><small class="nw-tag">TRIVIA RUN</small><b class="ap-q">5 questions. How many can you get?</b>${best ? `<small class="help">Your best: ${best.score}/5 in ${(best.ms / 1000).toFixed(1)}s today</small>` : ''}<button class="btn btn-primary" data-act="trv-start" style="margin-top:.6rem">Start run</button><small class="help">Each correct answer = +5 XP. Once per day.</small></section>`;
+}
+function trvStart() {
+  const d = dayKey(); if (store.get('trvdone:' + d, null)) { toast('You already played today. Come back tomorrow!'); return; }
+  TRV.qs = trvQs(); TRV.i = 0; TRV.score = 0; TRV.t0 = Date.now(); render();
+}
+async function trvGo(i) {
+  const q = TRV.qs[TRV.i]; if (+i === q.ans) TRV.score++;
+  TRV.i++;
+  if (TRV.i >= TRV.qs.length) {
+    const ms = Date.now() - TRV.t0, d = dayKey(), xp = TRV.score * 5;
+    store.set('trvdone:' + d, TRV.score);
+    const b = store.get('trvbest:' + d, null); if (!b || TRV.score > b.score || (TRV.score === b.score && ms < b.ms)) store.set('trvbest:' + d, { score: TRV.score, ms });
+    TRV.qs = null;
+    try { const me = await fanMe(); if (me) await fanSave({ xp: (me.xp || 0) + xp }); } catch (e) {}
+    toast(`🏁 Run done: ${TRV.score}/5 · +${xp} XP`);
+  }
+  render();
+}
+const FXI_LIMITS = { G: 1, D: 4, M: 3, F: 3 };
+const fxiKey = () => 'fxi:' + wkKey(Date.now());
+function fxiPicks() { return store.get(fxiKey(), []) || []; }
+function fxiHTML() {
+  const sq = (state.squadList || []).filter(p => p.name && p.pos);
+  const picks = fxiPicks(), pickedSet = new Set(picks.map(String));
+  const count = pos => picks.filter(id => { const p = sq.find(x => String(x.id) === String(id)); return p && p.pos === pos; }).length;
+  const pts = picks.reduce((a, id) => { const p = sq.find(x => String(x.id) === String(id)); return a + (p ? (p.goals || 0) * 4 + (p.assists || 0) * 3 : 0); }, 0);
+  if (!sq.length) return `<section class="card" id="fxi"><small class="nw-tag">FANTASY XI · THIS WEEK</small><p class="help">Loading the squad…</p></section>`;
+  const rows = ['G', 'D', 'M', 'F'].map(pos => {
+    const list = sq.filter(p => p.pos === pos).sort((a, b) => (b.goals || 0) - (a.goals || 0));
+    return `<div class="fxi-pos"><b>${{ G: 'Goalkeeper', D: 'Defender', M: 'Midfielder', F: 'Forward' }[pos]} ${count(pos)}/${FXI_LIMITS[pos]}</b>${list.map(p => {
+      const on = pickedSet.has(String(p.id));
+      return `<button class="btn ${on ? 'btn-primary' : 'btn-ghost'} btn-sm" data-act="fxi-tog" data-id="${esc(String(p.id))}">${esc(p.name)} · ${p.goals || 0}G ${p.assists || 0}A</button>`;
+    }).join(' ')}</div>`;
+  }).join('');
+  const full = picks.length === 11;
+  return `<section class="card" id="fxi"><small class="nw-tag">FANTASY XI · THIS WEEK</small><p class="help">Pick 11: 1 GK, 4 DEF, 3 MID, 3 FWD. Points = goals×4 + assists×3, from season stats so far.</p>${rows}<p class="help"><b>${picks.length}/11 picked · ${pts} pts so far</b>${full ? ' · Locked in ✅' : ''}</p></section>`;
+}
+function fxiToggle(id) {
+  const sq = (state.squadList || []), p = sq.find(x => String(x.id) === String(id)); if (!p) return;
+  let picks = fxiPicks(); const has = picks.some(x => String(x) === String(id));
+  if (has) picks = picks.filter(x => String(x) !== String(id));
+  else {
+    const cnt = picks.filter(x => { const q = sq.find(y => String(y.id) === String(x)); return q && q.pos === p.pos; }).length;
+    if (picks.length >= 11) { toast('Your XI is full. Remove a player first.'); return; }
+    if (cnt >= FXI_LIMITS[p.pos]) { toast(`Too many ${p.pos === 'G' ? 'goalkeepers' : p.pos === 'D' ? 'defenders' : p.pos === 'M' ? 'midfielders' : 'forwards'} this week.`); return; }
+    picks = [...picks, p.id];
+  }
+  store.set(fxiKey(), picks); render();
 }
 
 /* ===== Friends & 1v1 penalty duels (inside Games) ===== */
@@ -6176,6 +6243,9 @@ document.addEventListener('click', e => {
     case 'rx': rxToggle(b.dataset.id, b.dataset.e); break;
     case 'rx-pick': Rx.open = Rx.open === b.dataset.id ? null : b.dataset.id; chatPaint(); break;
     case 'quiz': quizAnswer(b.dataset.i); break;
+    case 'trv-start': trvStart(); break;
+    case 'trv-go': trvGo(b.dataset.i); break;
+    case 'fxi-tog': fxiToggle(b.dataset.id); break;
     case 'gp': gpPick(b.dataset.id); break;
     case 'invite': inviteShare(); break;
     case 'fr-accept': frAccept(b.dataset.id); break;
