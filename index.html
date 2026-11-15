@@ -5779,7 +5779,8 @@ async function frAdd(name) {
   if (other === u.uid) { toast("That's you!"); return; }
   try {
     const { doc, getDoc, setDoc } = Acct.m, id = pairId(u.uid, other);
-    if ((await getDoc(doc(Acct.db, 'friends', id))).exists()) { toast('Already friends, or a request is pending'); return; }
+    let exists = false; try { exists = (await getDoc(doc(Acct.db, 'friends', id))).exists(); } catch (e) { exists = false; } // rules block reads of a missing doc, so a failed read just means no friendship yet
+    if (exists) { toast('Already friends, or a request is pending'); return; }
     await setDoc(doc(Acct.db, 'friends', id), { a: u.uid, b: other, aName: Prof.me?.username || '', bName: nm, from: u.uid, status: 'pending', at: Date.now() });
     toast(`Friend request sent to @${nm}`); render();
   } catch (e) { toast("Couldn't send the request."); }
