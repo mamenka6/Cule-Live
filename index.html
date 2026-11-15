@@ -5699,7 +5699,7 @@ async function rmPoll() {
   const { collection, doc, setDoc, getDocs, query, where, limit } = Acct.m;
   const now = Date.now(), name = Prof.me?.username ? '@' + Prof.me.username : 'Culer';
   try { await frLoad(); } catch (e) {}
-  const hit = (Fr.duels || []).find(d => d.rnd && d.status === 'open' && ((d.a === u.uid && !d.da) || (d.b === u.uid && !d.db)));
+  const hit = (Fr.duels || []).find(d => d.rnd && d.status === 'open' && (d.at || 0) >= RMT.t0 - 2000 && ((d.a === u.uid && !d.da) || (d.b === u.uid && !d.db)));
   if (hit) { rmMatched(hit.id, hit.a === u.uid ? hit.bn : hit.an); return; }
   if (now - RMT.t0 > 600000) { rmStop(); RM.page = null; RM.msg = 'No one found in 10 minutes. Tap to try again.'; render(); return; }
   try {
