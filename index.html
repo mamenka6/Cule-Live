@@ -5590,6 +5590,8 @@ async function pxiSave() {
 
 async function viewGames() {
   PXI.sel = null;
+  const rmp = RM.page ? rmPageHTML() : '';
+  if (rmp) return rmp;
   if (!state.squadList || !state.squadList.length) { try { state.squadList = await Data.squad(); } catch (e) { state.squadList = []; } }
   const [gp, px, fh] = await Promise.all([guessHTML().catch(() => ''), pxiHTML().catch(() => ''), friendsHTML().catch(() => '')]);
   return `<div><h1 class="page-title">Games</h1><p class="page-sub">New games every day. Earn XP and level up.</p></div>
@@ -5670,23 +5672,36 @@ function rpPick() {
   const i = Math.floor(Math.random() * sq.length); let j = Math.floor(Math.random() * sq.length); if (j === i) j = (j + 1) % sq.length;
   RP.a = sq[i]; RP.b = sq[j]; RP.res = null; render();
 }
-let RM = { busy: false, msg: '' };
+let RM = { busy: false, msg: '', page: null, opp: null, score: 0 };
 function rpHTML() {
   const u = Acct.user;
   const note = RM.msg ? `<small class="help">${esc(RM.msg)}</small>` : '';
   if (!u || u.isAnonymous) return `<section class="card quiz" id="rp"><small class="nw-tag">FIND A PLAYER ONLINE</small><b class="ap-q">Sign in to find a player online and play a 5-question football quiz.</b></section>`;
   return `<section class="card quiz" id="rp"><small class="nw-tag">FIND A PLAYER ONLINE</small><b class="ap-q">Get matched with a Culer online for a 5-question football quiz.</b>${note}<button class="btn btn-primary" data-act="rm-find" ${RM.busy ? 'disabled' : ''} style="margin-top:.6rem">${RM.busy ? 'Looking…' : 'Find a player'}</button><small class="help">Once matched, press Play in Friends & duels.</small></section>`;
 }
-const RMT = { timer: null, t0: 0 };
-function rmStop() { clearInterval(RMT.timer); RMT.timer = null; RM.busy = false; }
+const RMT = { timer: null, tick: null, t0: 0 };
+function rmStop() { clearInterval(RMT.timer); clearInterval(RMT.tick); RMT.timer = null; RMT.tick = null; RM.busy = false; }
+function rmClock() { const s = Math.max(0, Math.floor((Date.now() - RMT.t0) / 1000)); return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); }
+function rmPageHTML() {
+  if (RM.page === 'search') return `<div><h1 class="page-title">Find a player</h1><p class="page-sub">Searching for a Culer online…</p></div>
+    <section class="card quiz" id="rm-search"><small class="nw-tag">SEARCHING</small><b class="ap-q" id="rm-clock" style="font-size:2.4rem;font-variant-numeric:tabular-nums">${rmClock()}</b><small class="help">Seconds searching. Keep this page open. When someone joins, the quiz starts here.</small><div style="margin-top:.6rem"><button class="btn btn-ghost" data-act="rm-cancel">Cancel</button></div></section>`;
+  if (RM.page === 'quiz' && DU.qs && DU.i < DU.qs.length) { const q = DU.qs[DU.i]; return `<div><h1 class="page-title">Online match</h1><p class="page-sub">vs ${esc(RM.opp || 'Culer')} · Question ${DU.i + 1} of 5 · Score ${DU.score}</p></div><section class="card quiz" id="duelrun"><small class="nw-tag">ONLINE MATCH · ${DU.i + 1}/5</small><b class="ap-q">${esc(q.q)}</b><div class="ap-opts">${q.opts.map((o, i) => `<button class="btn btn-ghost ap-btn" data-act="duel-go" data-i="${i}">${esc(o)}</button>`).join('')}</div></section>`; }
+  if (RM.page === 'done') return `<div><h1 class="page-title">Match over</h1><p class="page-sub">You scored ${RM.score}/5 against ${esc(RM.opp || 'your opponent')}.</p></div><section class="card quiz"><b class="ap-q">Final score: ${RM.score}/5</b><small class="help">Your opponent's result shows under Friends & duels when they finish.</small><div style="margin-top:.6rem"><button class="btn btn-primary" data-act="rm-back">Back to Games</button></div></section>`;
+  return '';
+}
+function rmMatched(id, opp) { rmStop(); RM.opp = opp; RM.page = 'quiz'; RM.msg = ''; toast('⚔️ Matched! Starting your quiz.'); duelPlay(id); }
+async function rmCancel() {
+  const u = Acct.user; rmStop(); RM.page = null; RM.msg = 'Search cancelled.'; render();
+  if (u && !u.isAnonymous) { try { await Acct.m.setDoc(Acct.m.doc(Acct.db, 'queue', u.uid), { uid: u.uid, name: '', at: 0 }); } catch (e) {} }
+}
 async function rmPoll() {
   const u = Acct.user; if (!u || u.isAnonymous) { rmStop(); return; }
   const { collection, doc, setDoc, getDocs, query, where, limit } = Acct.m;
   const now = Date.now(), name = Prof.me?.username ? '@' + Prof.me.username : 'Culer';
   try { await frLoad(); } catch (e) {}
   const hit = (Fr.duels || []).find(d => d.rnd && d.status === 'open' && ((d.a === u.uid && !d.da) || (d.b === u.uid && !d.db)));
-  if (hit) { rmStop(); RM.msg = `Matched with ${hit.a === u.uid ? hit.bn : hit.an}! Press Play in Friends & duels.`; toast('⚔️ You got matched!'); render(); return; }
-  if (now - RMT.t0 > 600000) { rmStop(); RM.msg = 'No one found in 10 minutes. Tap to try again.'; render(); return; }
+  if (hit) { rmMatched(hit.id, hit.a === u.uid ? hit.bn : hit.an); return; }
+  if (now - RMT.t0 > 600000) { rmStop(); RM.page = null; RM.msg = 'No one found in 10 minutes. Tap to try again.'; render(); return; }
   try {
     const sn = await getDocs(query(collection(Acct.db, 'queue'), where('at', '>', now - 600000), limit(20)));
     const other = sn.docs.map(d => ({ id: d.id, ...d.data() })).find(x => x.uid !== u.uid);
@@ -5694,15 +5709,15 @@ async function rmPoll() {
     const id = Date.now().toString(36) + u.uid.slice(0, 6);
     await setDoc(doc(Acct.db, 'duels', id), { a: u.uid, b: other.uid, an: name, bn: other.name || 'Culer', sa: null, sb: null, da: false, db: false, status: 'open', rnd: true, at: now, updated: now });
     await setDoc(doc(Acct.db, 'queue', u.uid), { uid: u.uid, name, at: 0 });
-    rmStop(); RM.msg = `Matched with ${other.name || 'a Culer'}!`; toast('⚔️ Matched! Starting your quiz.');
-    await duelPlay(id);
+    rmMatched(id, other.name || 'a Culer');
   } catch (e) { /* try again on the next tick */ }
 }
 async function rmFind() {
   const u = Acct.user; if (!u || u.isAnonymous) { toast('Sign in to find a player'); return; }
   const { doc, setDoc } = Acct.m, name = Prof.me?.username ? '@' + Prof.me.username : 'Culer';
   try { await setDoc(doc(Acct.db, 'queue', u.uid), { uid: u.uid, name, at: Date.now() }); } catch (e) { RM.msg = 'Could not join the queue. Try again.'; render(); return; }
-  rmStop(); RMT.t0 = Date.now(); RM.busy = true; RM.msg = 'Looking for a player… keep this page open.'; render();
+  rmStop(); RMT.t0 = Date.now(); RM.busy = true; RM.page = 'search'; RM.msg = ''; render();
+  RMT.tick = setInterval(() => { const el = document.getElementById('rm-clock'); if (el) el.textContent = rmClock(); }, 1000);
   RMT.timer = setInterval(() => { if (!RM.busy) return; rmPoll(); }, 8000);
   rmPoll();
 }
@@ -5755,6 +5770,7 @@ async function duelGo(i) {
       toast(`🏁 Duel run done: ${DU.score}/5`);
       const me = await fanMe(); if (me) await fanSave({ xp: (me.xp || 0) + DU.score * 5 });
     } catch (e) { toast('Could not save your score. Check your connection.'); }
+    if (RM.page === 'quiz') { RM.score = DU.score; RM.page = 'done'; }
     DU.id = null; DU.qs = null; await frLoad().catch(() => {});
   }
   render();
@@ -6347,6 +6363,8 @@ document.addEventListener('click', e => {
     case 'trv-go': trvGo(b.dataset.i); break;
     case 'fxi-tog': fxiToggle(b.dataset.id); break;
     case 'rm-find': rmFind(); break;
+    case 'rm-cancel': rmCancel(); break;
+    case 'rm-back': RM.page = null; RM.opp = null; render(); break;
     case 'duel-new': duelNew(b.dataset.id); break;
     case 'duel-play': duelPlay(b.dataset.id); break;
     case 'duel-go': duelGo(b.dataset.i); break;
