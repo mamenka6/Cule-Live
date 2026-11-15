@@ -5677,31 +5677,34 @@ function rpHTML() {
   if (!u || u.isAnonymous) return `<section class="card quiz" id="rp"><small class="nw-tag">FIND A PLAYER ONLINE</small><b class="ap-q">Sign in to find a player online and play a 5-question football quiz.</b></section>`;
   return `<section class="card quiz" id="rp"><small class="nw-tag">FIND A PLAYER ONLINE</small><b class="ap-q">Get matched with a Culer online for a 5-question football quiz.</b>${note}<button class="btn btn-primary" data-act="rm-find" ${RM.busy ? 'disabled' : ''} style="margin-top:.6rem">${RM.busy ? 'Looking…' : 'Find a player'}</button><small class="help">Once matched, press Play in Friends & duels.</small></section>`;
 }
-async function rmFind() {
-  const u = Acct.user; if (!u || u.isAnonymous) { toast('Sign in to find a player'); return; }
+const RMT = { timer: null, t0: 0 };
+function rmStop() { clearInterval(RMT.timer); RMT.timer = null; RM.busy = false; }
+async function rmPoll() {
+  const u = Acct.user; if (!u || u.isAnonymous) { rmStop(); return; }
   const { collection, doc, setDoc, getDocs, query, where, limit } = Acct.m;
   const now = Date.now(), name = Prof.me?.username ? '@' + Prof.me.username : 'Culer';
-  RM.busy = true; RM.msg = ''; render();
+  try { await frLoad(); } catch (e) {}
+  const hit = (Fr.duels || []).find(d => d.rnd && d.status === 'open' && ((d.a === u.uid && !d.da) || (d.b === u.uid && !d.db)));
+  if (hit) { rmStop(); RM.msg = `Matched with ${hit.a === u.uid ? hit.bn : hit.an}! Press Play in Friends & duels.`; toast('⚔️ You got matched!'); render(); return; }
+  if (now - RMT.t0 > 600000) { rmStop(); RM.msg = 'No one found in 10 minutes. Tap to try again.'; render(); return; }
   try {
-    await setDoc(doc(Acct.db, 'queue', u.uid), { uid: u.uid, name, at: now });
-    const sn = await getDocs(query(collection(Acct.db, 'queue'), where('at', '>', now - 120000), limit(20)));
+    const sn = await getDocs(query(collection(Acct.db, 'queue'), where('at', '>', now - 600000), limit(20)));
     const other = sn.docs.map(d => ({ id: d.id, ...d.data() })).find(x => x.uid !== u.uid);
-    if (!other) { RM.busy = false; RM.msg = 'No one online right now. Tap again in a moment.'; render(); return; }
+    if (!other) return;
     const id = Date.now().toString(36) + u.uid.slice(0, 6);
     await setDoc(doc(Acct.db, 'duels', id), { a: u.uid, b: other.uid, an: name, bn: other.name || 'Culer', sa: null, sb: null, da: false, db: false, status: 'open', rnd: true, at: now, updated: now });
     await setDoc(doc(Acct.db, 'queue', u.uid), { uid: u.uid, name, at: 0 });
-    RM.busy = false; RM.msg = `Matched with ${other.name || 'a Culer'}!`;
-    toast('⚔️ Matched! Starting your quiz.');
+    rmStop(); RM.msg = `Matched with ${other.name || 'a Culer'}!`; toast('⚔️ Matched! Starting your quiz.');
     await duelPlay(id);
-  } catch (e) { RM.busy = false; RM.msg = 'Could not find a player. Try again.'; render(); }
+  } catch (e) { /* try again on the next tick */ }
 }
-async function rpGo(i) {
-  if (RP.res != null) return;
-  const a = g => g(RP.a), gb = RP.b.goals || 0, ga = RP.a.goals || 0;
-  if (ga === gb) { RP.res = 'tie'; render(); return; }
-  const ok = (ga > gb ? 0 : 1) === +i; RP.res = ok;
-  render();
-  if (ok) { try { const me = await fanMe(); if (me) await fanSave({ xp: (me.xp || 0) + 5 }); toast('✅ Correct! +5 XP'); } catch (e) {} }
+async function rmFind() {
+  const u = Acct.user; if (!u || u.isAnonymous) { toast('Sign in to find a player'); return; }
+  const { doc, setDoc } = Acct.m, name = Prof.me?.username ? '@' + Prof.me.username : 'Culer';
+  try { await setDoc(doc(Acct.db, 'queue', u.uid), { uid: u.uid, name, at: Date.now() }); } catch (e) { RM.msg = 'Could not join the queue. Try again.'; render(); return; }
+  rmStop(); RMT.t0 = Date.now(); RM.busy = true; RM.msg = 'Looking for a player… keep this page open.'; render();
+  RMT.timer = setInterval(() => { if (!RM.busy) return; rmPoll(); }, 8000);
+  rmPoll();
 }
 const DU = { id: null, i: 0, score: 0, qs: null };
 const duelQs = id => { const seed = [...id].reduce((a, c) => a + c.charCodeAt(0), 0); return [0, 1, 2, 3, 4].map(k => QUIZ[(seed + k * 7) % QUIZ.length]).map((q, k) => {
