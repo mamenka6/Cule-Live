@@ -5670,14 +5670,30 @@ function rpPick() {
   const i = Math.floor(Math.random() * sq.length); let j = Math.floor(Math.random() * sq.length); if (j === i) j = (j + 1) % sq.length;
   RP.a = sq[i]; RP.b = sq[j]; RP.res = null; render();
 }
+let RM = { busy: false, msg: '' };
 function rpHTML() {
-  if (!RP.a) return `<section class="card quiz" id="rp"><small class="nw-tag">FACE A RANDOM PLAYER</small><b class="ap-q">Two random Barça players. Who has more goals this season?</b><button class="btn btn-primary" data-act="rp-new" style="margin-top:.6rem">Pick two players</button></section>`;
-  const g = p => p.goals || 0;
-  return `<section class="card quiz" id="rp"><small class="nw-tag">FACE A RANDOM PLAYER</small><b class="ap-q">Who has more goals this season?</b><div class="ap-opts">${[RP.a, RP.b].map((p, i) => {
-    if (RP.res == null) return `<button class="btn btn-ghost ap-btn" data-act="rp-go" data-i="${i}">${esc(p.name)}</button>`;
-    const win = g(RP.a) === g(RP.b) ? null : (g(RP.a) > g(RP.b) ? 0 : 1);
-    return `<div class="ap-res ${win === i ? 'on' : ''}"><span>${esc(p.name)} · ${g(p)}G ${p.assists || 0}A</span><b>${win === i ? '✅' : ''}</b></div>`;
-  }).join('')}</div>${RP.res == null ? '<small class="help">+5 XP for a correct guess.</small>' : `<small class="help">${RP.res === 'tie' ? 'It\'s a tie!' : RP.res ? 'Correct! +5 XP' : 'Not this time.'}</small><button class="btn btn-ghost btn-sm" data-act="rp-new" style="margin-top:.5rem">Next pair</button>`}</section>`;
+  const u = Acct.user;
+  const note = RM.msg ? `<small class="help">${esc(RM.msg)}</small>` : '';
+  if (!u || u.isAnonymous) return `<section class="card quiz" id="rp"><small class="nw-tag">FIND A PLAYER ONLINE</small><b class="ap-q">Sign in to find a player online and play a 5-question football quiz.</b></section>`;
+  return `<section class="card quiz" id="rp"><small class="nw-tag">FIND A PLAYER ONLINE</small><b class="ap-q">Get matched with a Culer online for a 5-question football quiz.</b>${note}<button class="btn btn-primary" data-act="rm-find" ${RM.busy ? 'disabled' : ''} style="margin-top:.6rem">${RM.busy ? 'Looking…' : 'Find a player'}</button><small class="help">Once matched, press Play in Friends & duels.</small></section>`;
+}
+async function rmFind() {
+  const u = Acct.user; if (!u || u.isAnonymous) { toast('Sign in to find a player'); return; }
+  const { collection, doc, setDoc, getDocs, query, where, limit } = Acct.m;
+  const now = Date.now(), name = Prof.me?.username ? '@' + Prof.me.username : 'Culer';
+  RM.busy = true; RM.msg = ''; render();
+  try {
+    await setDoc(doc(Acct.db, 'queue', u.uid), { uid: u.uid, name, at: now });
+    const sn = await getDocs(query(collection(Acct.db, 'queue'), where('at', '>', now - 120000), limit(20)));
+    const other = sn.docs.map(d => ({ id: d.id, ...d.data() })).find(x => x.uid !== u.uid);
+    if (!other) { RM.busy = false; RM.msg = 'No one online right now. Tap again in a moment.'; render(); return; }
+    const id = Date.now().toString(36) + u.uid.slice(0, 6);
+    await setDoc(doc(Acct.db, 'duels', id), { a: u.uid, b: other.uid, an: name, bn: other.name || 'Culer', sa: null, sb: null, da: false, db: false, status: 'open', rnd: true, at: now, updated: now });
+    await setDoc(doc(Acct.db, 'queue', u.uid), { uid: u.uid, name, at: 0 });
+    RM.busy = false; RM.msg = `Matched with ${other.name || 'a Culer'}!`;
+    toast('⚔️ Matched! Starting your quiz.');
+    await duelPlay(id);
+  } catch (e) { RM.busy = false; RM.msg = 'Could not find a player. Try again.'; render(); }
 }
 async function rpGo(i) {
   if (RP.res != null) return;
@@ -6326,8 +6342,7 @@ document.addEventListener('click', e => {
     case 'trv-start': trvStart(); break;
     case 'trv-go': trvGo(b.dataset.i); break;
     case 'fxi-tog': fxiToggle(b.dataset.id); break;
-    case 'rp-new': rpPick(); break;
-    case 'rp-go': rpGo(b.dataset.i); break;
+    case 'rm-find': rmFind(); break;
     case 'duel-new': duelNew(b.dataset.id); break;
     case 'duel-play': duelPlay(b.dataset.id); break;
     case 'duel-go': duelGo(b.dataset.i); break;
