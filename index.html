@@ -5593,9 +5593,9 @@ async function viewGames() {
   const rmp = RM.page ? rmPageHTML() : '';
   if (rmp) return rmp;
   if (!state.squadList || !state.squadList.length) { try { state.squadList = await Data.squad(); } catch (e) { state.squadList = []; } }
-  const [gp, px, fh] = await Promise.all([guessHTML().catch(() => ''), pxiHTML().catch(() => ''), friendsHTML().catch(() => '')]);
+  const [gp, px, fh, lb] = await Promise.all([guessHTML().catch(() => ''), pxiHTML().catch(() => ''), friendsHTML().catch(() => ''), lbHTML().catch(() => '')]);
   return `<div><h1 class="page-title">Games</h1><p class="page-sub">New games every day. Earn XP and level up.</p></div>
-    ${streakHTML()}${quizHTML()}${trvHTML()}${fxiHTML()}${rpHTML()}${duelRunHTML()}${fh}${wordleHTML()}${hlHTML()}${gp}${px}${inviteHTML()}`;
+    ${streakHTML()}${quizHTML()}${trvHTML()}${fxiHTML()}${rpHTML()}${duelRunHTML()}${lb}${fh}${wordleHTML()}${hlHTML()}${gp}${px}${inviteHTML()}`;
 }
 
 /* ===== Trivia run (5 questions, timed) and weekly Fantasy XI draft ===== */
@@ -5774,6 +5774,27 @@ async function duelGo(i) {
     DU.id = null; DU.qs = null; await frLoad().catch(() => {});
   }
   render();
+}
+
+/* ===== Leaderboard: top Culés by XP ===== */
+async function lbHTML() {
+  if (!Acct.db || !Acct.m) return '';
+  const { collection, query, orderBy, limit, getDocs, doc, getDoc } = Acct.m;
+  let rows = [];
+  try {
+    const snap = await getDocs(query(collection(Acct.db, 'fan'), orderBy('xp', 'desc'), limit(10)));
+    rows = snap.docs.map(d => ({ uid: d.id, xp: d.data().xp || 0 })).filter(r => r.xp > 0);
+  } catch (e) { return `<section class="card" id="lb"><small class="nw-tag">LEADERBOARD</small><small class="help">Couldn't load the leaderboard. Pull to refresh.</small></section>`; }
+  const names = await Promise.all(rows.map(async r => {
+    try { const d = await getDoc(doc(Acct.db, 'profiles', r.uid)); const p = d.exists() ? d.data() : null; return p && !p.guest ? (p.displayName || '@' + p.username) : 'Culé'; } catch (e) { return 'Culé'; }
+  }));
+  const me = Acct.user && !Acct.user.isAnonymous ? Acct.user.uid : null;
+  const list = rows.length ? rows.map((r, i) => {
+    const medal = ['🥇', '🥈', '🥉'][i] || `${i + 1}.`;
+    const lv = levelOf(r.xp);
+    return `<div class="fr-row" style="${r.uid === me ? 'font-weight:700;' : ''}"><span data-notr>${medal} ${esc(names[i])}${r.uid === me ? ' (you)' : ''}</span><span class="fr-btns"><small class="help">Lv ${lv.n} · ${r.xp} XP</small></span></div>`;
+  }).join('') : '<small class="help">No one has earned XP yet. Play a quiz to get on the board!</small>';
+  return `<section class="card" id="lb"><small class="nw-tag">LEADERBOARD</small><b class="ap-q">Top Culés by XP</b>${list}</section>`;
 }
 
 /* ===== Friends & 1v1 penalty duels (inside Games) ===== */
