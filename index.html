@@ -3291,7 +3291,9 @@ async function viewHome() {
   if (next) { html = matchdayHTML(next) + html; html += nextCardHTML(next); html += pollHTML(next); setTimeout(() => pollLoad(next), 0); }
   else if (!isDemo) html += empty(`No upcoming matches in the ${seasonLabel(settings.season)} data. Open any result and press <b>Replay</b> to watch it back minute by minute.`);
   if (results.length) html += formHTML(results);
-  if (next && matchdayHTML(next) && MD_FACTS[next.comp?.id]) html = `<div class="md-${next.comp.id === 2 ? 'cl' : 'pd'}">${mdFactHTML(next.comp.id)}${html}</div>`;
+  const mdPreview = new URLSearchParams(location.search).get('matchday'); // ?matchday=cl or ?matchday=pd previews the theme any day
+  const mdTheme = mdPreview ? (mdPreview === 'pd' ? 'pd' : 'cl') : (next && matchdayHTML(next) && MD_FACTS[next.comp?.id] ? (next.comp.id === 2 ? 'cl' : 'pd') : null);
+  if (mdTheme) html = `<div class="md-${mdTheme}">${mdFactHTML(mdTheme === 'cl' ? 2 : 140)}${html}</div>`;
   html += apSlot('home');
   html += clasicoHTML(list);
   html += histHTML();
