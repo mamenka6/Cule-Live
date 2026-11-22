@@ -31,6 +31,15 @@ nav a,nav button,.btn,.chip{-webkit-user-select:none;user-select:none}
 .md-fact{margin:0 0 14px;padding:14px 16px;border-radius:14px;background:var(--surface);border-left:6px solid var(--blau)}
 .md-fact small{font-family:var(--f-label);letter-spacing:.08em;color:var(--muted)}
 .md-fact p{margin:6px 0 0}
+.md-cl .md-fact,.md-pd .md-fact{position:relative;overflow:hidden;margin:0 0 16px;padding:20px 18px;border:0;border-radius:20px;background:linear-gradient(135deg,var(--grana),var(--blau));color:#fff;box-shadow:0 14px 36px var(--tint-blau),inset 0 0 0 1px rgba(255,255,255,.12)}
+.md-cl .md-fact p,.md-pd .md-fact p{font-size:1.12rem;font-weight:700;line-height:1.35;color:#fff}
+.md-cl .md-fact small,.md-pd .md-fact small{display:inline-block;padding:4px 10px;border-radius:999px;background:rgba(0,0,0,.28);color:var(--gold);font-weight:700;animation:mdPulse 1.8s ease-in-out infinite}
+.md-cl .md-fact::after,.md-pd .md-fact::after{content:"";position:absolute;top:-30%;left:-60%;width:40%;height:160%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.32),transparent);transform:rotate(20deg);animation:mdSweep 3.6s ease-in-out infinite;pointer-events:none}
+.md-cl .mday,.md-pd .mday{box-shadow:0 0 0 0 var(--blau);animation:mdGlow 2.4s ease-in-out infinite}
+@keyframes mdSweep{0%{left:-60%}60%,100%{left:140%}}
+@keyframes mdPulse{50%{transform:scale(1.06);box-shadow:0 0 0 6px rgba(255,255,255,.12)}}
+@keyframes mdGlow{50%{box-shadow:0 0 22px 2px var(--tint-blau)}}
+@media (prefers-reduced-motion:reduce){.md-cl *,.md-pd *{animation:none!important}}
 .mday{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0 0 14px;padding:12px 16px;border-radius:14px;background:linear-gradient(90deg,var(--stripe-a),var(--stripe-b));color:#fff}.mday b{font-family:var(--f-label);letter-spacing:.08em;color:#FFC933}
 .badges{display:flex;flex-wrap:wrap;gap:8px}.bdg{padding:6px 12px;border-radius:999px;background:var(--surface-2);border:1px solid var(--line);font-weight:600;font-size:.9rem}
 .lgc{max-height:260px;overflow:auto;padding:6px 2px;margin-bottom:8px}
@@ -4980,7 +4989,7 @@ const MD_FACTS = {
 function mdFactHTML(compId) {
   const facts = MD_FACTS[compId]; if (!facts) return '';
   const f = facts[Math.floor(Date.now() / 86400000) % facts.length];
-  return `<div class="md-fact"><small>MATCH DAY FACT</small><p>${esc(f)}</p></div>`;
+  return `<div class="md-fact"><small>⚽ MATCH DAY FACT</small><p>${esc(f)}</p></div>`;
 }
 function matchdayHTML(f) {
   if (!f || f.tbc) return '';
