@@ -26,6 +26,11 @@ nav a,nav button,.btn,.chip{-webkit-user-select:none;user-select:none}
 .wel-or{display:flex;align-items:center;gap:10px;color:var(--muted,#9aa4bd);font-size:.85rem}.wel-or:before,.wel-or:after{content:"";flex:1;height:1px;background:rgba(255,255,255,.15)}
 .wel-note{color:var(--muted,#9aa4bd);font-size:.82rem;margin:4px 0 0}
 .guest-cta{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-top:10px;padding:12px 14px;border-radius:14px;background:rgba(90,140,255,.1);border:1px solid rgba(90,140,255,.3)}.guest-cta .help{margin:0;flex:1;min-width:180px}
+.md-cl{--blau:#1F4FA3;--grana:#0A1F4D;--gold:#F2C833;--stripe-a:#0A1F4D;--stripe-b:#1F4FA3;--tint-blau:rgba(31,79,163,.2);--tint-grana:rgba(10,31,77,.25)}
+.md-pd{--blau:#C8102E;--grana:#8A0A1E;--gold:#FFFFFF;--stripe-a:#8A0A1E;--stripe-b:#C8102E;--tint-blau:rgba(200,16,46,.18);--tint-grana:rgba(138,10,30,.22)}
+.md-fact{margin:0 0 14px;padding:14px 16px;border-radius:14px;background:var(--surface);border-left:6px solid var(--blau)}
+.md-fact small{font-family:var(--f-label);letter-spacing:.08em;color:var(--muted)}
+.md-fact p{margin:6px 0 0}
 .mday{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0 0 14px;padding:12px 16px;border-radius:14px;background:linear-gradient(90deg,var(--stripe-a),var(--stripe-b));color:#fff}.mday b{font-family:var(--f-label);letter-spacing:.08em;color:#FFC933}
 .badges{display:flex;flex-wrap:wrap;gap:8px}.bdg{padding:6px 12px;border-radius:999px;background:var(--surface-2);border:1px solid var(--line);font-weight:600;font-size:.9rem}
 .lgc{max-height:260px;overflow:auto;padding:6px 2px;margin-bottom:8px}
@@ -3286,6 +3291,7 @@ async function viewHome() {
   if (next) { html = matchdayHTML(next) + html; html += nextCardHTML(next); html += pollHTML(next); setTimeout(() => pollLoad(next), 0); }
   else if (!isDemo) html += empty(`No upcoming matches in the ${seasonLabel(settings.season)} data. Open any result and press <b>Replay</b> to watch it back minute by minute.`);
   if (results.length) html += formHTML(results);
+  if (next && matchdayHTML(next) && MD_FACTS[next.comp?.id]) html = `<div class="md-${next.comp.id === 2 ? 'cl' : 'pd'}">${mdFactHTML(next.comp.id)}${html}</div>`;
   html += apSlot('home');
   html += clasicoHTML(list);
   html += histHTML();
@@ -4195,12 +4201,16 @@ function profOpen(from) {
       <p class="help">2 to 30 characters. This is the name people see in the chat.</p>
       <label for="prof-user">Username</label><div class="prof-at"><span>@</span><input id="prof-user" maxlength="20" autocomplete="username" autocapitalize="none" spellcheck="false" value="${esc(p.username || '')}"></div>
       <p class="help" id="prof-user-msg">3 to 20 characters: letters, numbers, dots and underscores. No one else can have the same one.</p>
+      <label for="prof-dob">Date of birth</label><input id="prof-dob" type="date" max="${new Date().toISOString().slice(0, 10)}" value="">
+      <p class="help">Required. Used only to check your age. We don't store your birth date. Under 13s can't use the chat, friends, duels or Find a player.</p>
       <p class="acct-err" id="prof-err"></p>
       <button class="btn btn-primary wide" type="submit">Save</button>
     </form></div>`;
   root.hidden = false; document.body.style.overflow = 'hidden';
   setTimeout(() => $('#prof-name')?.focus(), 50);
 }
+const socialBlocked = () => { const p = Prof.me; return !p || p.guest || typeof p.under13 !== 'boolean' ? 'needdob' : (p.under13 ? 'under13' : ''); };
+const SOCIAL_MSG = { needdob: 'Add your date of birth in your profile to use this.', under13: 'This feature is for fans aged 13 and older.' };
 let unameTimer = 0;
 function unameCheck(input) {
   const v = input.value = input.value.toLowerCase().replace(/\s+/g, '');
@@ -4223,6 +4233,11 @@ async function profSave(form) {
   if (!UNAME_RX.test(un)) { err.textContent = 'Use 3 to 20 letters, numbers, dots or underscores for your username.'; return; }
   if (hasSwear(dn) || hasSwear(un.replace(/[._]/g, ' ')) || hasSwear(un)) { err.textContent = 'Please choose a name without swear words.'; return; }
   if (GUEST_RX.test(un)) { err.textContent = 'Names like guest123 are for guests. Choose your own.'; return; }
+  const dobStr = $('#prof-dob')?.value || '', dob = new Date(dobStr);
+  if (!dobStr || isNaN(dob) || dob > new Date()) { err.textContent = 'Enter your real date of birth.'; return; }
+  const today = new Date(), age = today.getFullYear() - dob.getFullYear() - ((today.getMonth() < dob.getMonth() || (today.getMonth() === dob.getMonth() && today.getDate() < dob.getDate())) ? 1 : 0);
+  if (age > 120) { err.textContent = 'Enter your real date of birth.'; return; }
+  const under13 = age < 13;
   const btn = form.querySelector('button[type="submit"]'); btn.disabled = true; err.textContent = '';
   try {
     const { runTransaction, doc } = Acct.m, uid = Acct.user.uid, old = Prof.me?.username;
@@ -4231,9 +4246,9 @@ async function profSave(form) {
       if (snap.exists() && snap.data().uid !== uid) throw Object.assign(new Error('taken'), { code: 'taken' });
       if (!snap.exists()) tx.set(ref, { uid });
       if (old && old !== un) tx.delete(doc(Acct.db, 'usernames', old));
-      tx.set(doc(Acct.db, 'profiles', uid), { displayName: dn, username: un, guest: false, createdAt: Prof.me?.createdAt || Date.now(), lastSeen: Date.now(), at: Date.now() });
+      tx.set(doc(Acct.db, 'profiles', uid), { displayName: dn, username: un, guest: false, under13, createdAt: Prof.me?.createdAt || Date.now(), lastSeen: Date.now(), at: Date.now() });
     });
-    Prof.me = { ...(Prof.me || {}), displayName: dn, username: un, guest: false }; Prof.loaded = true;
+    Prof.me = { ...(Prof.me || {}), displayName: dn, username: un, guest: false, under13 }; Prof.loaded = true;
     closeSheet(false); toast('Profile saved');
     if (['options', 'chat'].includes(route().name)) { $('#view').dataset.route = ''; render(); }
   } catch (e) {
@@ -4319,6 +4334,7 @@ function chatPaint() {
 }
 function chatComposerPaint() { const c = $('#chat-compose'); if (c && !c.querySelector('#chat-input')) c.innerHTML = chatComposerHTML(); else if (c && (Chat.bans[Acct.user?.uid] || mutedUntil(Acct.user?.uid))) c.innerHTML = chatComposerHTML(); }
 function chatComposerHTML() {
+  if (Acct.user && Prof.loaded && Prof.me && !Prof.me.guest && socialBlocked()) return `<div class="chat-cta"><p class="help">${SOCIAL_MSG[socialBlocked()]}</p>${socialBlocked() === 'needdob' ? '<button class="btn btn-primary btn-sm" data-act="prof-edit">Add date of birth</button>' : ''}</div>`;
   if (!Acct.user) return `<div class="chat-cta guest-cta"><p class="help"><b>Want to join the chat?</b> Sign in to chat, vote and join leagues. Your name is set up for you.</p><button class="btn btn-primary btn-sm" data-act="signin-nudge">Sign in</button></div>`;
   if (!Prof.loaded) return '<div class="chat-cta"><p class="help">Loading your profile…</p></div>';
   if (!Prof.me || Prof.me.guest) return `<div class="chat-cta"><p class="help">Choose a display name and username to start chatting.</p><button class="btn btn-primary btn-sm" data-act="prof-edit">Set up profile</button></div>`;
@@ -4955,6 +4971,15 @@ async function reportMsg(id, reason) {
 }
 
 /* ===== Match-day banner + share prediction ===== */
+const MD_FACTS = {
+  2: ['Barça have won the Champions League 5 times: 1992, 2006, 2009, 2011 and 2015.', 'The 2011 final was played at Wembley, where Barça beat Manchester United 3-1.', 'Barça won the 2006 final 2-1 against Arsenal in Paris.', 'Barça won the 2015 final 3-1 against Juventus in Berlin.'],
+  140: ['La Liga was first played in 1929.', 'Real Madrid is the only club with more La Liga titles than Barça.', 'La Liga has 20 clubs and each plays every other club twice a season.']
+};
+function mdFactHTML(compId) {
+  const facts = MD_FACTS[compId]; if (!facts) return '';
+  const f = facts[Math.floor(Date.now() / 86400000) % facts.length];
+  return `<div class="md-fact"><small>MATCH DAY FACT</small><p>${esc(f)}</p></div>`;
+}
 function matchdayHTML(f) {
   if (!f || f.tbc) return '';
   const d = new Date(f.ts), now = new Date(); if (d.toDateString() !== now.toDateString() || f.ts < Date.now()) return '';
@@ -5675,6 +5700,7 @@ function rpPick() {
 let RM = { busy: false, msg: '', page: null, opp: null, score: 0 };
 function rpHTML() {
   const u = Acct.user;
+  if (u && !u.isAnonymous && Prof.loaded && socialBlocked()) return `<section class="card quiz" id="rp"><small class="nw-tag">FIND A PLAYER ONLINE</small><b class="ap-q">${SOCIAL_MSG[socialBlocked()]}</b></section>`;
   const note = RM.msg ? `<small class="help">${esc(RM.msg)}</small>` : '';
   if (!u || u.isAnonymous) return `<section class="card quiz" id="rp"><small class="nw-tag">FIND A PLAYER ONLINE</small><b class="ap-q">Sign in to find a player online and play a 5-question football quiz.</b></section>`;
   return `<section class="card quiz" id="rp"><small class="nw-tag">FIND A PLAYER ONLINE</small><b class="ap-q">Get matched with a Culer online for a 5-question football quiz.</b>${note}<button class="btn btn-primary" data-act="rm-find" ${RM.busy ? 'disabled' : ''} style="margin-top:.6rem">${RM.busy ? 'Looking…' : 'Find a player'}</button><small class="help">Once matched, press Play in Friends & duels.</small></section>`;
@@ -5714,6 +5740,7 @@ async function rmPoll() {
 }
 async function rmFind() {
   const u = Acct.user; if (!u || u.isAnonymous) { toast('Sign in to find a player'); return; }
+  if (socialBlocked()) { toast(SOCIAL_MSG[socialBlocked()]); return; }
   const { doc, setDoc } = Acct.m, name = Prof.me?.username ? '@' + Prof.me.username : 'Culer';
   try { await setDoc(doc(Acct.db, 'queue', u.uid), { uid: u.uid, name, at: Date.now() }); } catch (e) { RM.msg = 'Could not join the queue. Try again.'; render(); return; }
   rmStop(); RMT.t0 = Date.now(); RM.busy = true; RM.page = 'search'; RM.msg = ''; render();
@@ -5830,6 +5857,7 @@ async function frRemove(id) { try { await Acct.m.deleteDoc(Acct.m.doc(Acct.db, '
 async function friendsHTML() {
   const u = Acct.user;
   if (!u || u.isAnonymous) return '<section class="form-card"><h2 class="fc-title">Friends & duels</h2><p class="help">Sign in to add friends and challenge them to penalty duels.</p></section>';
+  if (Prof.loaded && socialBlocked()) return `<section class="form-card"><h2 class="fc-title">Friends & duels</h2><p class="help">${SOCIAL_MSG[socialBlocked()]}</p>${socialBlocked() === 'needdob' ? '<button class="btn btn-primary btn-sm" data-act="prof-edit">Add date of birth</button>' : ''}</section>`;
   await frLoad().catch(() => {});
   const inc = Fr.list.filter(f => f.status === 'pending' && f.from !== u.uid), out = Fr.list.filter(f => f.status === 'pending' && f.from === u.uid), fr = Fr.list.filter(f => f.status === 'ok');
   const row = (f, btns) => `<div class="fr-row"><span data-notr>${esc(frName(f))}</span><span class="fr-btns">${btns}</span></div>`;
